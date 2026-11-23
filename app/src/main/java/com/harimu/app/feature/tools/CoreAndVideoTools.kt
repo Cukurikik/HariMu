@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.harimu.app.core.engines.AudioEngine
 import com.harimu.app.core.engines.VideoEngine
+import com.harimu.app.core.media.MediaJob
+import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
@@ -137,6 +139,8 @@ fun videoTools(): List<Tool> = listOf(
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
             emit(ToolProgress.Running(30, "Memotong track video & audio..."))
             val startMs = (input.getFloat("startSec", 0f) * 1000f).toLong()
             val endVal = input.getFloat("endSec", 10f)
@@ -159,6 +163,10 @@ fun videoTools(): List<Tool> = listOf(
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             require(input.uris.size >= 2) { "Pilih minimal 2 video" }
+            input.uris.forEach { u ->
+                val p = MediaProbe.probe(ctx.appContext, u)
+                require(p.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            }
             emit(ToolProgress.Running(40, "Menggabungkan ${input.uris.size} klip..."))
             val dest = ctx.storage.createOutputFile("VID_MERGE", "mp4")
             VideoEngine.mergeVideos(ctx.appContext, input.uris, dest)
@@ -166,22 +174,369 @@ fun videoTools(): List<Tool> = listOf(
         }.flowOn(Dispatchers.IO)
     },
     object : Tool {
-        override val id = "VID-08"
+        override val id = "VID-03"
         override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.MusicNote
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Crop
         override val inputSpec = InputSpec.SingleVideo
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Video to Audio (M4A)" else "Video ke Audio (M4A)"
+        override val params = listOf(
+            ToolParam.DropdownParam("ratio", "Rasio", "Aspect Ratio", listOf("1:1", "16:9", "9:16"), "1:1")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Crop Video" else "Potong Bingkai Video"
         override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Extract audio track from a video into M4A." else "Ekstrak track audio asli dari video ke file .m4a."
+            if (isEnglish) "Center-crop video frame to 1:1, 16:9, or 9:16." else "Potong bingkai video ke rasio 1:1, 16:9, atau 9:16."
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-            emit(ToolProgress.Running(35, "Mengekstrak track audio..."))
-            val dest = ctx.storage.createOutputFile("VID_AUDIO", "m4a")
-            VideoEngine.trimOrCopyTracks(ctx.appContext, uri, dest, includeVideo = false, includeAudio = true)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/mp4", dest.name)), summary = "Audio diekstrak: ${ctx.storage.formatBytes(dest.length())}")))
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val ratio = input.getString("ratio", "1:1")
+            val job = MediaJob()
+            val dest = ctx.storage.createOutputFile("VID_CROP", "mp4")
+            val (cw, ch) = VideoEngine.cropDimensions(probe.width, probe.height, ratio)
+            val x = ((probe.width - cw) / 2).coerceAtLeast(0)
+            val y = ((probe.height - ch) / 2).coerceAtLeast(0)
+            emit(ToolProgress.Running(10, "Memotong bingkai..."))
+            // Use a custom runner through MediaJob by invoking runCommand with builder:
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_CROP",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-vf", "crop=${cw}:${ch}:${x}:${y}",
+                    "-c:a", "copy", "-movflags", "+faststart",
+                    output.absolutePath
+                )
+            }
+            // Collect nested flow and re-emit
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-04"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Videocam
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.DropdownParam("res", "Resolusi", "Resolution", listOf("1080p", "720p", "480p", "360p"), "720p")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Resize Video" else "Ubah Ukuran Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Resize video resolution to 1080p/720p/480p/360p." else "Ubah resolusi video ke 1080p/720p/480p/360p."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val height = when (input.getString("res", "720p")) {
+                "1080p" -> 1080; "720p" -> 720; "480p" -> 480; "360p" -> 360; else -> 720
+            }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_RESIZE",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-vf", "scale=-2:${height}",
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                    "-c:a", "copy", "-movflags", "+faststart",
+                    output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-05"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Speed
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.SliderParam("speed", "Kecepatan", "Speed", 0.25f, 4.0f, 1.5f, 0.25f, "x")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Change Video Speed" else "Ubah Kecepatan Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Speed up or slow down video and audio." else "Percepat atau perlambat video dan audio."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            require(probe.hasAudio) { if (ctx.isEnglish) "Video has no audio track" else "Video tidak memiliki trek audio" }
+            val speed = input.getFloat("speed", 1.5f).coerceIn(0.25f, 4f)
+            val setpts = VideoEngine.setptsFilter(speed)
+            val atempo = VideoEngine.atempoFilter(speed)
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_SPEED",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-filter_complex", "[0:v]${setpts}[v];[0:a]${atempo}[a]",
+                    "-map", "[v]", "-map", "[a]",
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-movflags", "+faststart", output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-06"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.BurstMode
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = emptyList<ToolParam>()
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Video to GIF" else "Video ke GIF"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Convert a video clip into an animated GIF." else "Konversi klip video menjadi GIF animasi."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_GIF",
+                outputExt = "gif",
+                outputMime = "image/gif",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer",
+                    "-loop", "0", output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-08"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.MusicNote
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = emptyList<ToolParam>()
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Video to Audio (MP3)" else "Video ke Audio (MP3)"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Extract audio track from a video into MP3." else "Ekstrak track audio dari video ke file MP3."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            require(probe.hasAudio) { if (ctx.isEnglish) "Video has no audio track" else "Video tidak memiliki trek audio" }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_AUDIO",
+                outputExt = "mp3",
+                outputMime = "audio/mpeg",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-vn", "-c:a", "libmp3lame", "-q:a", "2",
+                    output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-09"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Videocam
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.DropdownParam("deg", "Sudut", "Angle", listOf("90", "180", "270"), "90")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Rotate Video" else "Putar Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Rotate video orientation 90, 180, or 270 degrees." else "Putar orientasi video 90, 180, atau 270 derajat."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val deg = input.getString("deg", "90")
+            val transpose = when (deg) {
+                "90" -> "transpose=1"
+                "180" -> "transpose=1,transpose=1"
+                "270" -> "transpose=2"
+                else -> "transpose=1"
+            }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_ROTATE",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-vf", transpose,
+                    "-c:a", "copy", "-movflags", "+faststart",
+                    output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-10"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Flip
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.DropdownParam("mode", "Arah", "Direction", listOf("Horizontal", "Vertical", "Both"), "Horizontal")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Flip Video" else "Balik Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Mirror video horizontally or vertically." else "Cerminkan video horizontal, vertikal, atau keduanya."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val vf = when (input.getString("mode", "Horizontal")) {
+                "Vertical" -> "vflip"
+                "Both" -> "hflip,vflip"
+                else -> "hflip"
+            }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_FLIP",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-vf", vf,
+                    "-c:a", "copy", "-movflags", "+faststart",
+                    output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-12"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Loop
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.SliderParam("loops", "Jumlah Loop", "Loops", 2f, 10f, 3f, 1f, "x")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Loop Video" else "Loop Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Repeat a video clip N times." else "Ulangi klip video beberapa kali."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val loops = input.getFloat("loops", 3f).toInt().coerceIn(2, 10)
+            val totalMs = probe.durationMs * loops
+            require(totalMs <= 300_000L) {
+                if (ctx.isEnglish) "Video too long to loop safely (max 5 min output)" else "Video terlalu panjang untuk loop aman (maks 5 menit output)"
+            }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_LOOP",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-stream_loop", (loops - 1).toString(),
+                    "-i", inputs.first().absolutePath,
+                    "-c", "copy", "-movflags", "+faststart",
+                    output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-13"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.VolumeUp
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.SliderParam("vol", "Volume", "Volume", 0f, 200f, 120f, 10f, "%")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Change Video Volume" else "Ubah Volume Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Adjust audio track volume in video." else "Atur tingkat volume track audio pada video."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            require(probe.hasAudio) { if (ctx.isEnglish) "Video has no audio track" else "Video tidak memiliki trek audio" }
+            val volPercent = input.getFloat("vol", 120f).coerceIn(0f, 200f)
+            val factor = volPercent / 100f
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_VOL",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-af", "volume=${factor}",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
+                    "-movflags", "+faststart", output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
         }.flowOn(Dispatchers.IO)
     },
     object : Tool {
@@ -205,6 +560,141 @@ fun videoTools(): List<Tool> = listOf(
         }.flowOn(Dispatchers.IO)
     },
     object : Tool {
+        override val id = "VID-18"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Videocam
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.DropdownParam("fmt", "Format", "Format", listOf("MP4", "WebM", "AVI", "MKV"), "MP4")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Video Converter" else "Konverter Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Convert between MP4, WebM, AVI, and MKV." else "Konversi format MP4, WebM, AVI, dan MKV."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val fmt = input.getString("fmt", "MP4").uppercase()
+            val (ext, vcodec, acodec, mime) = when (fmt) {
+                "WEBM" -> listOf("webm", "libvpx-vp9", "libopus", "video/webm")
+                "AVI" -> listOf("avi", "mpeg4", "libmp3lame", "video/x-msvideo")
+                "MKV" -> listOf("mkv", "libx264", "aac", "video/x-matroska")
+                else -> listOf("mp4", "libx264", "aac", "video/mp4")
+            }
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_CONVERT",
+                outputExt = ext,
+                outputMime = mime,
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                mutableListOf<String>().apply {
+                    addAll(listOf("-y", "-i", inputs.first().absolutePath))
+                    addAll(listOf("-c:v", vcodec))
+                    if (vcodec == "libx264") addAll(listOf("-preset", "medium", "-crf", "23"))
+                    addAll(listOf("-c:a", acodec))
+                    if (ext == "mp4" || ext == "mkv") addAll(listOf("-movflags", "+faststart"))
+                    add(output.absolutePath)
+                }
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-19"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Videocam
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = emptyList<ToolParam>()
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Reverse Video" else "Putar Balik Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Play video and audio backwards." else "Balik arah pemutaran video dan audio."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            if (probe.durationMs > 0L) {
+                require(probe.durationMs <= 90_000L) {
+                    if (ctx.isEnglish) "Video too long to reverse safely (max 90s)" else "Video terlalu panjang untuk dibalik aman (maks 90 detik)"
+                }
+            }
+            val hasAudio = probe.hasAudio
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_REVERSE",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                if (hasAudio) {
+                    listOf(
+                        "-y", "-i", inputs.first().absolutePath,
+                        "-vf", "reverse", "-af", "areverse",
+                        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                        "-c:a", "aac", "-b:a", "128k",
+                        "-movflags", "+faststart", output.absolutePath
+                    )
+                } else {
+                    listOf(
+                        "-y", "-i", inputs.first().absolutePath,
+                        "-vf", "reverse",
+                        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+                        "-an", "-movflags", "+faststart", output.absolutePath
+                    )
+                }
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "VID-20"
+        override val group = ToolGroup.VIDEO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Videocam
+        override val inputSpec = InputSpec.SingleVideo
+        override val params = listOf(
+            ToolParam.SliderParam("crf", "Kompresi", "Compression", 18f, 35f, 24f, 1f, "")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Video Compressor" else "Kompresor Video"
+        override fun description(isEnglish: Boolean) =
+            if (isEnglish) "Reduce video size with CRF control." else "Perkecil ukuran file video dengan kontrol CRF."
+
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            val crf = input.getFloat("crf", 24f).toInt().coerceIn(18, 35)
+            val job = MediaJob()
+            val flow = job.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_COMPRESS",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y", "-i", inputs.first().absolutePath,
+                    "-c:v", "libx264", "-preset", "medium", "-crf", crf.toString(),
+                    "-c:a", "aac", "-b:a", "96k",
+                    "-movflags", "+faststart", output.absolutePath
+                )
+            }
+            flow.collect { p -> emit(p) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
         override val id = "VID-21"
         override val group = ToolGroup.VIDEO
         override val engineLabel = "NAT"
@@ -219,6 +709,8 @@ fun videoTools(): List<Tool> = listOf(
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
             emit(ToolProgress.Running(30, "Memecah segmen video..."))
             val dest = ctx.storage.createOutputFile("VID_SPLIT", "zip")
             val (_, parts) = VideoEngine.splitVideoToZip(ctx.appContext, ctx.storage, uri, dest, input.getFloat("segSec", 10f).toInt())
@@ -241,6 +733,8 @@ fun videoTools(): List<Tool> = listOf(
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
             emit(ToolProgress.Running(35, "Mengambil frame video..."))
             val dest = ctx.storage.createOutputFile("VID_FRAMES", "zip")
             val (_, count) = VideoEngine.extractFramesZip(
@@ -266,6 +760,9 @@ fun videoTools(): List<Tool> = listOf(
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasVideo) { if (ctx.isEnglish) "Unsupported or empty video file" else "File video tidak didukung atau kosong" }
+            require(probe.hasAudio) { if (ctx.isEnglish) "Video has no audio track" else "Video tidak memiliki trek audio" }
             emit(ToolProgress.Running(40, "Menghapus track audio..."))
             val dest = ctx.storage.createOutputFile("VID_MUTE", "mp4")
             VideoEngine.trimOrCopyTracks(ctx.appContext, uri, dest, includeVideo = true, includeAudio = false)

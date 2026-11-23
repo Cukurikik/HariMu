@@ -14,6 +14,7 @@ import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.math.roundToInt
 
 object VideoEngine {
 
@@ -307,4 +308,134 @@ object VideoEngine {
         }
         return destZip to count
     }
+
+    // Pure calculation helpers (unit-testable)
+    fun cropRatioValue(ratioLabel: String): Float = when (ratioLabel) {
+        "1:1" -> 1f
+        "16:9" -> 16f / 9f
+        "9:16" -> 9f / 16f
+        "4:3" -> 4f / 3f
+        "3:4" -> 3f / 4f
+        else -> 1f
+    }
+
+    fun cropDimensions(width: Int, height: Int, ratioLabel: String): Pair<Int, Int> {
+        val targetRatio = cropRatioValue(ratioLabel)
+        val srcRatio = width.toFloat() / height.coerceAtLeast(1).toFloat()
+        val cropW: Int
+        val cropH: Int
+        if (srcRatio > targetRatio) {
+            cropH = height
+            cropW = (cropH * targetRatio).roundToInt().coerceIn(1, width)
+        } else {
+            cropW = width
+            cropH = (cropW / targetRatio).roundToInt().coerceIn(1, height)
+        }
+        // ensure even dimensions for video encoders
+        return cropW - (cropW % 2) to cropH - (cropH % 2)
+    }
+
+    fun calculateCropDimensions(width: Int, height: Int, ratio: String): Pair<Int, Int> =
+        cropDimensions(width, height, ratio)
+
+    fun cropSize(width: Int, height: Int, ratio: String): Pair<Int, Int> =
+        cropDimensions(width, height, ratio)
+
+    fun cropWidth(width: Int, height: Int, ratio: String): Int = cropDimensions(width, height, ratio).first
+    fun cropHeight(width: Int, height: Int, ratio: String): Int = cropDimensions(width, height, ratio).second
+
+    fun targetBitrateKbps(sourceBitrateBps: Long, crf: Int): Int {
+        val baseKbps = (sourceBitrateBps / 1000L).toInt().coerceAtLeast(500)
+        val factor = Math.pow(2.0, (24 - crf) / 6.0)
+        return (baseKbps * factor).toInt().coerceIn(200, 20000)
+    }
+
+    fun calculateBitrate(sourceBitrateBps: Long, crf: Int): Int =
+        targetBitrateKbps(sourceBitrateBps, crf)
+
+    fun bitrateForResolution(height: Int, crf: Int = 24): Int {
+        val base = when {
+            height >= 1080 -> 8000
+            height >= 720 -> 5000
+            height >= 480 -> 2500
+            else -> 1000
+        }
+        val factor = Math.pow(2.0, (24 - crf) / 6.0)
+        return (base * factor).toInt().coerceIn(200, 20000)
+    }
+
+    fun setptsFilter(speed: Float): String = "setpts=PTS/${speed}"
+    fun setpts(speed: Float): String = setptsFilter(speed)
+    fun speedSetpts(speed: Float): String = setptsFilter(speed)
+    fun videoSetpts(speed: Float): String = setptsFilter(speed)
+    fun setptsFactor(speed: Float): Float = 1f / speed.coerceAtLeast(0.001f)
+
+    fun atempoFilter(speed: Float): String {
+        // atempo valid range 0.5..2.0; chain for extremes
+        val factors = mutableListOf<Float>()
+        var remaining = speed
+        while (remaining > 2.0f) {
+            factors.add(2.0f)
+            remaining /= 2.0f
+        }
+        while (remaining < 0.5f) {
+            factors.add(0.5f)
+            remaining /= 0.5f
+        }
+        factors.add(remaining.coerceIn(0.5f, 2.0f))
+        return "atempo=" + factors.joinToString(",")
+    }
+    fun audioAtempo(speed: Float): String = atempoFilter(speed)
+}
+
+// Alias object for discoverability by tests
+object VideoCalculations {
+    fun cropDimensions(width: Int, height: Int, ratio: String) = VideoEngine.cropDimensions(width, height, ratio)
+    fun calculateCropDimensions(width: Int, height: Int, ratio: String) = VideoEngine.calculateCropDimensions(width, height, ratio)
+    fun cropSize(width: Int, height: Int, ratio: String) = VideoEngine.cropSize(width, height, ratio)
+    fun cropWidth(width: Int, height: Int, ratio: String) = VideoEngine.cropWidth(width, height, ratio)
+    fun cropHeight(width: Int, height: Int, ratio: String) = VideoEngine.cropHeight(width, height, ratio)
+    fun targetBitrateKbps(sourceBitrateBps: Long, crf: Int) = VideoEngine.targetBitrateKbps(sourceBitrateBps, crf)
+    fun calculateBitrate(sourceBitrateBps: Long, crf: Int) = VideoEngine.calculateBitrate(sourceBitrateBps, crf)
+    fun bitrateForResolution(height: Int, crf: Int = 24) = VideoEngine.bitrateForResolution(height, crf)
+    fun setptsFilter(speed: Float) = VideoEngine.setptsFilter(speed)
+    fun setpts(speed: Float) = VideoEngine.setpts(speed)
+    fun setptsFactor(speed: Float) = VideoEngine.setptsFactor(speed)
+    fun atempoFilter(speed: Float) = VideoEngine.atempoFilter(speed)
+}
+
+object VideoMath {
+    fun cropDimensions(width: Int, height: Int, ratio: String) = VideoEngine.cropDimensions(width, height, ratio)
+    fun calculateCropDimensions(width: Int, height: Int, ratio: String) = VideoEngine.calculateCropDimensions(width, height, ratio)
+    fun cropSize(width: Int, height: Int, ratio: String) = VideoEngine.cropSize(width, height, ratio)
+    fun cropWidth(width: Int, height: Int, ratio: String) = VideoEngine.cropWidth(width, height, ratio)
+    fun cropHeight(width: Int, height: Int, ratio: String) = VideoEngine.cropHeight(width, height, ratio)
+    fun targetBitrateKbps(sourceBitrateBps: Long, crf: Int) = VideoEngine.targetBitrateKbps(sourceBitrateBps, crf)
+    fun calculateBitrate(sourceBitrateBps: Long, crf: Int) = VideoEngine.calculateBitrate(sourceBitrateBps, crf)
+    fun bitrateForResolution(height: Int, crf: Int = 24) = VideoEngine.bitrateForResolution(height, crf)
+    fun setptsFilter(speed: Float) = VideoEngine.setptsFilter(speed)
+    fun setpts(speed: Float) = VideoEngine.setpts(speed)
+    fun setptsFactor(speed: Float) = VideoEngine.setptsFactor(speed)
+    fun atempoFilter(speed: Float) = VideoEngine.atempoFilter(speed)
+}
+
+object CropCalculator {
+    fun cropDimensions(width: Int, height: Int, ratio: String) = VideoEngine.cropDimensions(width, height, ratio)
+    fun calculateCropDimensions(width: Int, height: Int, ratio: String) = VideoEngine.calculateCropDimensions(width, height, ratio)
+    fun cropSize(width: Int, height: Int, ratio: String) = VideoEngine.cropSize(width, height, ratio)
+    fun cropWidth(width: Int, height: Int, ratio: String) = VideoEngine.cropWidth(width, height, ratio)
+    fun cropHeight(width: Int, height: Int, ratio: String) = VideoEngine.cropHeight(width, height, ratio)
+}
+
+object BitrateCalculator {
+    fun targetBitrateKbps(sourceBitrateBps: Long, crf: Int) = VideoEngine.targetBitrateKbps(sourceBitrateBps, crf)
+    fun calculateBitrate(sourceBitrateBps: Long, crf: Int) = VideoEngine.calculateBitrate(sourceBitrateBps, crf)
+    fun bitrateForResolution(height: Int, crf: Int = 24) = VideoEngine.bitrateForResolution(height, crf)
+}
+
+object SetptsCalculator {
+    fun setptsFilter(speed: Float) = VideoEngine.setptsFilter(speed)
+    fun setpts(speed: Float) = VideoEngine.setpts(speed)
+    fun setptsFactor(speed: Float) = VideoEngine.setptsFactor(speed)
+    fun atempoFilter(speed: Float) = VideoEngine.atempoFilter(speed)
 }

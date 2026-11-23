@@ -25,30 +25,30 @@
 
 | ID | Tool | Engine | Fase | Risiko | Status |
 |---|---|---|---|---|---|
-| VID-01 | Trim Video | M3 | P4 | 🟢 | ⬜ |
-| VID-02 | Merge Video | M3 | P4 | 🟡 | ⬜ |
-| VID-03 | Crop Video (1:1, 16:9, 9:16) | M3 | P4 | 🟢 | ⬜ |
-| VID-04 | Resize Video (1080/720/480/360p) | M3 | P4 | 🟢 | ⬜ |
-| VID-05 | Change Video Speed | M3/FF | P4 | 🟡 | ⬜ |
-| VID-06 | Video to GIF | FF | P4 | 🟡 | ⬜ |
+| VID-01 | Trim Video | M3 | P4 | 🟢 | ✅ |
+| VID-02 | Merge Video | M3 | P4 | 🟡 | ✅ |
+| VID-03 | Crop Video (1:1, 16:9, 9:16) | M3 | P4 | 🟢 | ✅ |
+| VID-04 | Resize Video (1080/720/480/360p) | M3 | P4 | 🟢 | ✅ |
+| VID-05 | Change Video Speed | M3/FF | P4 | 🟡 | ✅ |
+| VID-06 | Video to GIF | FF | P4 | 🟡 | ✅ |
 | VID-07 | Video Upscaler (1.5x–4x) | ML/FF | P11 | 🔴 | ⬜ |
-| VID-08 | Video to Audio (MP3) | FF | P4 | 🟢 | ⬜ |
-| VID-09 | Rotate Video | M3 | P4 | 🟢 | ⬜ |
-| VID-10 | Flip Video | M3/FF | P4 | 🟢 | ⬜ |
+| VID-08 | Video to Audio (MP3) | FF | P4 | 🟢 | ✅ |
+| VID-09 | Rotate Video | M3 | P4 | 🟢 | ✅ |
+| VID-10 | Flip Video | M3/FF | P4 | 🟢 | ✅ |
 | VID-11 | Stabilize Video | FF (vidstab) | P5 | 🔴 | ⬜ |
-| VID-12 | Loop Video | FF | P4 | 🟢 | ⬜ |
-| VID-13 | Change Video Volume | M3/FF | P4 | 🟢 | ⬜ |
+| VID-12 | Loop Video | FF | P4 | 🟢 | ✅ |
+| VID-13 | Change Video Volume | M3/FF | P4 | 🟢 | ✅ |
 | VID-14 | Remove Logo (blur/delogo) | FF | P5 | 🟡 | ⬜ |
 | VID-15 | Add Text to Video | M3 | P5 | 🟡 | ⬜ |
 | VID-16 | Add Audio to Video | FF/M3 | P5 | 🟢 | ⬜ |
 | VID-17 | Add Image to Video | M3 | P5 | 🟡 | ⬜ |
-| VID-18 | Video Converter (MP4/WebM/AVI/MKV) | FF | P4 | 🟡 | ⬜ |
-| VID-19 | Reverse Video | FF | P4 | 🟡 | ⬜ |
-| VID-20 | Video Compressor | M3/FF | P4 | 🟢 | ⬜ |
-| VID-21 | Video Splitter | M3/FF | P4 | 🟢 | ⬜ |
-| VID-22 | Extract Frames | NAT | P4 | 🟢 | ⬜ |
+| VID-18 | Video Converter (MP4/WebM/AVI/MKV) | FF | P4 | 🟡 | ✅ |
+| VID-19 | Reverse Video | FF | P4 | 🟡 | ✅ |
+| VID-20 | Video Compressor | M3/FF | P4 | 🟢 | ✅ |
+| VID-21 | Video Splitter | M3/FF | P4 | 🟢 | ✅ |
+| VID-22 | Extract Frames | NAT | P4 | 🟢 | ✅ |
 | VID-23 | Add Subtitles (SRT) | FF | P5 | 🟡 | ⬜ |
-| VID-24 | Remove Audio | M3/FF | P4 | 🟢 | ⬜ |
+| VID-24 | Remove Audio | M3/FF | P4 | 🟢 | ✅ |
 | VID-25 | Blur Faces | ML | P5 | 🔴 | ⬜ |
 | VID-26 | Color Grading | M3 (efek) | P5 | 🟡 | ⬜ |
 | VID-27 | Video Transitions | M3/FF | P5 | 🟡 | ⬜ |

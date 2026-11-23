@@ -22,33 +22,6 @@ import com.harimu.app.core.toolapi.ToolParam
 
 fun stubVideoTools(): List<Tool> = listOf(
     StubTool(
-        id = "VID-03", group = ToolGroup.VIDEO, engineLabel = "M3", plannedPhase = "P4",
-        icon = Icons.Filled.Crop, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.DropdownParam("ratio", "Rasio", "Aspect Ratio", listOf("1:1", "16:9", "9:16"), "1:1")),
-        titleId = "Crop Video", titleEn = "Crop Video",
-        descId = "Potong bingkai video ke rasio 1:1, 16:9, atau 9:16.", descEn = "Crop video frame to 1:1, 16:9, or 9:16."
-    ),
-    StubTool(
-        id = "VID-04", group = ToolGroup.VIDEO, engineLabel = "M3", plannedPhase = "P4",
-        icon = Icons.Filled.Videocam, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.DropdownParam("res", "Resolusi", "Resolution", listOf("1080p", "720p", "480p", "360p"), "720p")),
-        titleId = "Ubah Ukuran Video", titleEn = "Resize Video",
-        descId = "Ubah resolusi video ke 1080p/720p/480p/360p.", descEn = "Resize video resolution to 1080p/720p/480p/360p."
-    ),
-    StubTool(
-        id = "VID-05", group = ToolGroup.VIDEO, engineLabel = "M3/FF", plannedPhase = "P4",
-        icon = Icons.Filled.Speed, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.SliderParam("speed", "Kecepatan", "Speed", 0.25f, 4.0f, 1.5f, 0.25f, "x")),
-        titleId = "Ubah Kecepatan Video", titleEn = "Change Video Speed",
-        descId = "Percepat atau perlambat pemutaran video.", descEn = "Speed up or slow down video playback."
-    ),
-    StubTool(
-        id = "VID-06", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P4",
-        icon = Icons.Filled.BurstMode, inputSpec = InputSpec.SingleVideo,
-        titleId = "Video ke GIF", titleEn = "Video to GIF",
-        descId = "Konversi klip video menjadi GIF animasi dengan palet optimal.", descEn = "Convert video clips into palette-optimized animated GIF."
-    ),
-    StubTool(
         id = "VID-07", group = ToolGroup.VIDEO, engineLabel = "ML/FF", plannedPhase = "P11",
         icon = Icons.Filled.AutoFixHigh, inputSpec = InputSpec.SingleVideo,
         requiresModel = ModelRegistry.realEsrganLite,
@@ -56,37 +29,10 @@ fun stubVideoTools(): List<Tool> = listOf(
         descId = "Tingkatkan ketajaman resolusi video dengan model AI ringan.", descEn = "Upscale video resolution with lightweight AI model."
     ),
     StubTool(
-        id = "VID-09", group = ToolGroup.VIDEO, engineLabel = "M3", plannedPhase = "P4",
-        icon = Icons.Filled.Videocam, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.DropdownParam("deg", "Sudut", "Angle", listOf("90", "180", "270"), "90")),
-        titleId = "Putar Video", titleEn = "Rotate Video",
-        descId = "Putar orientasi video 90°, 180°, atau 270°.", descEn = "Rotate video orientation 90, 180, or 270 degrees."
-    ),
-    StubTool(
-        id = "VID-10", group = ToolGroup.VIDEO, engineLabel = "M3/FF", plannedPhase = "P4",
-        icon = Icons.Filled.Flip, inputSpec = InputSpec.SingleVideo,
-        titleId = "Balik Video (Flip)", titleEn = "Flip Video",
-        descId = "Cerminkan video secara horizontal atau vertikal.", descEn = "Mirror video horizontally or vertically."
-    ),
-    StubTool(
         id = "VID-11", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P5",
         icon = Icons.Filled.Videocam, inputSpec = InputSpec.SingleVideo,
         titleId = "Stabilisasi Video", titleEn = "Stabilize Video",
         descId = "Kurangi guncangan kamera pada rekaman video.", descEn = "Reduce camera shake in recorded footage."
-    ),
-    StubTool(
-        id = "VID-12", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P4",
-        icon = Icons.Filled.Loop, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.SliderParam("loops", "Jumlah Loop", "Loops", 2f, 10f, 3f, 1f, "x")),
-        titleId = "Loop Video", titleEn = "Loop Video",
-        descId = "Ulangi klip video beberapa kali secara mulus.", descEn = "Repeat a video clip seamlessly N times."
-    ),
-    StubTool(
-        id = "VID-13", group = ToolGroup.VIDEO, engineLabel = "M3/FF", plannedPhase = "P4",
-        icon = Icons.Filled.VolumeUp, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.SliderParam("vol", "Volume", "Volume", 0f, 200f, 120f, 10f, "%")),
-        titleId = "Ubah Volume Video", titleEn = "Change Video Volume",
-        descId = "Atur tingkat volume track audio pada video.", descEn = "Adjust audio track volume in video."
     ),
     StubTool(
         id = "VID-14", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P5",
@@ -106,26 +52,6 @@ fun stubVideoTools(): List<Tool> = listOf(
         icon = Icons.Filled.Image, inputSpec = InputSpec.SingleVideo,
         titleId = "Tambah Gambar ke Video", titleEn = "Add Image to Video",
         descId = "Tempel logo atau stiker gambar pada video.", descEn = "Overlay a logo or image sticker on video."
-    ),
-    StubTool(
-        id = "VID-18", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P4",
-        icon = Icons.Filled.Videocam, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.DropdownParam("fmt", "Format", "Format", listOf("MP4", "WebM", "AVI", "MKV"), "MP4")),
-        titleId = "Konverter Video", titleEn = "Video Converter",
-        descId = "Konversi format MP4, WebM, AVI, dan MKV.", descEn = "Convert between MP4, WebM, AVI, and MKV."
-    ),
-    StubTool(
-        id = "VID-19", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P4",
-        icon = Icons.Filled.Videocam, inputSpec = InputSpec.SingleVideo,
-        titleId = "Putar Balik Video", titleEn = "Reverse Video",
-        descId = "Balik arah pemutaran video dan audio dari akhir ke awal.", descEn = "Play video and audio backwards."
-    ),
-    StubTool(
-        id = "VID-20", group = ToolGroup.VIDEO, engineLabel = "M3/FF", plannedPhase = "P4",
-        icon = Icons.Filled.Videocam, inputSpec = InputSpec.SingleVideo,
-        params = listOf(ToolParam.SliderParam("crf", "Kompresi", "Compression", 18f, 35f, 24f, 1f, "")),
-        titleId = "Kompresor Video", titleEn = "Video Compressor",
-        descId = "Perkecil ukuran file video dengan kontrol bitrate/CRF.", descEn = "Reduce video size with bitrate/CRF control."
     ),
     StubTool(
         id = "VID-23", group = ToolGroup.VIDEO, engineLabel = "FF", plannedPhase = "P5",

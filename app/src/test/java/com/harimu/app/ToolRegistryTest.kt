@@ -52,7 +52,7 @@ class ToolRegistryTest {
         assertTrue(core02.first().isStub)
 
         val speedStub = ToolRegistry.search("Change Video Speed", isEnglish = true, groupFilter = ToolGroup.VIDEO)
-        assertTrue(speedStub.any { it.id == "VID-05" && it.isStub })
+        assertTrue(speedStub.any { it.id == "VID-05" && !it.isStub })
 
         val extractAudio = ToolRegistry.search("Video to Audio", isEnglish = true, groupFilter = ToolGroup.VIDEO)
         assertTrue(extractAudio.any { it.id == "VID-08" && !it.isStub })
