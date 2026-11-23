@@ -67,6 +67,7 @@ import com.harimu.app.feature.studios.BackupScreen
 import com.harimu.app.feature.studios.EqualizerScreen
 import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
+import com.harimu.app.feature.studios.ProVideoEditorScreen
 import com.harimu.app.feature.studios.VoiceRecorderScreen
 import com.harimu.app.feature.toolscreen.ToolScreen
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +86,7 @@ import java.util.Locale
 @Serializable data object EqualizerRoute
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
+@Serializable data object ProVideoEditorRoute
 
 private data class TopLevelNav(
     val route: Any,
@@ -169,6 +171,7 @@ private fun HariMuRoot(
             DedicatedScreenRoute.EQUALIZER -> navController.navigate(EqualizerRoute)
             DedicatedScreenRoute.KEY_VAULT -> navController.navigate(KeyVaultRoute)
             DedicatedScreenRoute.WORKSPACE_BACKUP -> navController.navigate(BackupRoute)
+            DedicatedScreenRoute.PRO_VIDEO_EDITOR -> navController.navigate(ProVideoEditorRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
         }
     }
@@ -333,6 +336,9 @@ private fun HariMuRoot(
                     }
                     composable<BackupRoute> {
                         BackupScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<ProVideoEditorRoute> {
+                        ProVideoEditorScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                 }
             }

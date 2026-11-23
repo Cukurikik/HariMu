@@ -182,7 +182,8 @@ enum class DedicatedScreenRoute {
     EQUALIZER,
     KEY_VAULT,
     WORKSPACE_BACKUP,
-    SETTINGS
+    SETTINGS,
+    PRO_VIDEO_EDITOR
 }
 
 interface Tool {
