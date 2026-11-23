@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HariMu</string>
+
+    <!-- Navigasi Utama -->
+    <string name="nav_home">Beranda</string>
+    <string name="nav_history">Riwayat</string>
+    <string name="nav_favorites">Favorit</string>
+    <string name="nav_settings">Pengaturan</string>
+    <string name="nav_catalog">Katalog</string>
+    <string name="cd_back">Kembali</string>
+    <string name="cd_clear">Bersihkan</string>
+    <string name="cd_toggle_favorite">Tandai favorit</string>
+
+    <!-- Beranda -->
+    <string name="search_hint">Cari tool (video, audio, gambar, PDF, konverter)…</string>
+    <string name="search_results_count">Hasil Pencarian (%1$d)</string>
+    <string name="hero_badge">PISAU LIPAT DIGITAL • ON-DEVICE</string>
+    <string name="hero_title">Studio Utilitas Harian Anda</string>
+    <string name="hero_subtitle">Proses video, audio, gambar, PDF, arsip, &amp; kunci kriptografi langsung di perangkat Anda.</string>
+    <string name="recently_used_title">Terakhir dipakai</string>
+    <string name="recently_used_empty">Belum ada tool yang dijalankan. Pilih grup di bawah untuk mulai.</string>
+    <string name="favorites_title">Tool Favorit</string>
+    <string name="groups_title">Grup Tool</string>
+    <string name="tool_count_label">%1$d tool</string>
+
+    <!-- Grup -->
+    <string name="group_core_title">Core</string>
+    <string name="group_core_subtitle">Perekam, TTS, Key Vault &amp; Backup</string>
+    <string name="group_video_title">Video Forge</string>
+    <string name="group_video_subtitle">Potong, gabung, ekstrak audio &amp; frame</string>
+    <string name="group_audio_title">Audio Forge</string>
+    <string name="group_audio_subtitle">DSP WAV, EQ 5-band, gema &amp; visualizer</string>
+    <string name="group_image_title">Image Forge</string>
+    <string name="group_image_subtitle">Crop, filter, EXIF, palet &amp; ikon</string>
+    <string name="group_pdf_title">PDF Vault</string>
+    <string name="group_pdf_subtitle">Gabung, pisah, putar, watermark &amp; banding</string>
+    <string name="group_converter_title">Universal Converter</string>
+    <string name="group_converter_subtitle">Arsip ZIP/AES, JSON/XML, 3D &amp; kode</string>
+
+    <!-- Komponen Bersama & Aksi -->
+    <string name="catalog_all_count">Semua (%1$d)</string>
+    <string name="catalog_empty_title">Tool tidak ditemukan</string>
+    <string name="catalog_empty_desc">Coba kata kunci lain atau pilih filter grup Semua.</string>
+    <string name="favorites_empty_title">Belum Ada Favorit</string>
+    <string name="favorites_empty_desc">Ketuk ikon bintang pada tool mana saja untuk menyimpannya di sini.</string>
+    <string name="history_count_title">%1$d Riwayat Pemrosesan</string>
+    <string name="history_empty_title">Belum Ada Riwayat</string>
+    <string name="history_empty_desc">Hasil ekspor dari tool video, audio, gambar, PDF, atau konverter akan muncul di sini.</string>
+
+    <string name="label_input_files">File Masukan</string>
+    <string name="label_parameters">Parameter</string>
+    <string name="label_output">Hasil</string>
+    <string name="fallback_file_name">berkas_%1$d</string>
+    <string name="fallback_audio_name">audio</string>
+    <string name="action_pick_file">Pilih File</string>
+    <string name="action_pick_files">Pilih Beberapa File</string>
+    <string name="action_pick_audio_bg">Pilih Audio Latar</string>
+    <string name="action_run_tool">Jalankan Tool</string>
+    <string name="action_processing">Memproses…</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_open">Buka</string>
+    <string name="action_share">Bagikan</string>
+    <string name="action_save">Simpan</string>
+    <string name="action_copy">Salin</string>
+    <string name="action_retry">Coba Lagi</string>
+    <string name="action_clear">Bersihkan</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_download">Unduh</string>
+    <string name="action_later">Nanti</string>
+    <string name="action_play_audio">Putar Audio</string>
+    <string name="action_stop_audio">Hentikan Audio</string>
+    <string name="toast_copied">Disalin ke papan klip</string>
+    <string name="toast_saved">Tersimpan ke perangkat</string>
+    <string name="toast_save_failed">Gagal menyimpan file</string>
+
+    <string name="progress_queued">Dalam antrean…</string>
+    <string name="progress_running_title">Sedang Memproses</string>
+    <string name="error_title">Pemrosesan Gagal</string>
+    <string name="model_download_title">Unduh Model AI Lokal</string>
+    <string name="model_download_body">Tool ini memerlukan model %1$s (%2$s). Model hanya diunduh sekali dan disimpan lokal di perangkat.</string>
+
+    <!-- Tema & Pengaturan -->
+    <string name="settings_appearance">Tampilan &amp; Bahasa</string>
+    <string name="theme_system">Ikuti Sistem</string>
+    <string name="theme_light">Terang</string>
+    <string name="theme_dark">Gelap</string>
+    <string name="theme_amoled">AMOLED</string>
+    <string name="dynamic_color_label">Warna Dinamis (Material You)</string>
+    <string name="dynamic_color_desc">Gunakan palet warna wallpaper pada Android 12+</string>
+    <string name="language_english_label">Bahasa Inggris (English UI)</string>
+    <string name="settings_engine_storage">Engine &amp; Penyimpanan</string>
+    <string name="settings_export_quality">Kualitas Ekspor Default</string>
+    <string name="settings_output_folder_title">Folder Output Default</string>
+    <string name="settings_output_folder_default">Default (Penyimpanan Aplikasi / MediaStore)</string>
+    <string name="settings_output_folder_pick">Pilih Folder</string>
+    <string name="settings_output_folder_reset">Reset</string>
+    <string name="settings_free_space">Ruang disk tersedia: %1$s</string>
+    <string name="settings_auto_clean">Bersihkan temp otomatis saat mulai</string>
+    <string name="settings_clear_temp">Hapus Cache Temp (%1$s)</string>
+    <string name="toast_temp_cleared">Cache dibersihkan: %1$s</string>
+    <string name="settings_models_title">Kelola Model ML Lokal</string>
+    <string name="settings_models_empty">Belum ada model ML yang diunduh (%1$s terpakai).</string>
+    <string name="model_status_missing">Belum diunduh</string>
+    <string name="model_status_ready">Tersimpan (%1$s)</string>
+    <string name="settings_security_workspace">Keamanan &amp; Workspace</string>
+    <string name="settings_key_vault_btn">Key Vault</string>
+    <string name="settings_backup_btn">Backup .omni</string>
+    <string name="settings_cloud_title">Koneksi Cloud</string>
+    <string name="settings_cloud_empty_title">Belum ada akun cloud terhubung</string>
+    <string name="settings_cloud_empty_desc">Integrasi S3/R2, Google Drive, Dropbox, dan REST kustom disiapkan pada Fase 14.</string>
+    <string name="cloud_provider_r2">Cloudflare R2 / S3</string>
+    <string name="cloud_provider_drive">Google Drive</string>
+    <string name="cloud_provider_dropbox">Dropbox</string>
+    <string name="cloud_provider_rest">REST Kustom</string>
+    <string name="cloud_status_phase14">Fase 14</string>
+
+    <!-- Stub & JobManager -->
+    <string name="badge_coming_soon">Segera hadir</string>
+    <string name="stub_notice_title">Segera hadir (%1$s)</string>
+    <string name="stub_notice_body">Tool ini sudah terdaftar di katalog dan memakai layar parameter generik. Logika engine asli dijadwalkan pada %1$s; Anda dapat menguji alur antrean WorkManager lewat tombol di bawah.</string>
+    <string name="action_run_dummy_job">Uji Job Dummy (WorkManager)</string>
+    <string name="job_channel_name">Antrean Pemrosesan HariMu</string>
+    <string name="job_channel_desc">Menampilkan progres dan tombol batal untuk pemrosesan file</string>
+    <string name="job_notif_title">Memproses %1$s</string>
+    <string name="job_queued_message">Menunggu slot antrean (maks 2 job paralel)…</string>
+    <string name="job_dummy_step">Simulasi job dummy %1$d%%…</string>
+    <string name="job_dummy_done">Job dummy selesai: %1$s</string>
+    <string name="job_error_low_disk">Ruang disk tidak cukup untuk memproses file.</string>
+
+    <!-- Izin -->
+    <string name="permission_audio_rationale">Izin mikrofon diperlukan untuk merekam audio PCM langsung ke file WAV.</string>
+</resources>

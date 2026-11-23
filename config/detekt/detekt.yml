@@ -1,0 +1,29 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 120
+  LongParameterList:
+    active: true
+    functionThreshold: 10
+    constructorThreshold: 10
+  TooManyFunctions:
+    active: false
+
+style:
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+  MagicNumber:
+    active: false
+  UnusedPrivateMember:
+    active: true
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    active: false

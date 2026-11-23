@@ -1,0 +1,6 @@
+{
+  "name": "HariMu",
+  "description": "Aplikasi utilitas serbaguna Android untuk video, audio, gambar, PDF, konverter format, perekam suara, dan brankas kunci kriptografi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
