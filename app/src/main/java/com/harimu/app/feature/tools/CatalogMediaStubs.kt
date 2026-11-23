@@ -47,54 +47,6 @@ fun stubVideoTools(): List<Tool> = listOf(
         descId = "Buat efek suara memutar spasial 360 derajat.", descEn = "Create 360-degree rotating spatial audio effect."
     ),
     StubTool(
-        id = "AUD-06", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.Tune, inputSpec = InputSpec.SingleAudio,
-        params = listOf(ToolParam.SliderParam("semitones", "Nada (Semitone)", "Pitch (Semitones)", -12f, 12f, 2f, 1f, "st")),
-        titleId = "Ubah Pitch Audio", titleEn = "Change Audio Pitch",
-        descId = "Naikkan atau turunkan nada tanpa mengubah tempo.", descEn = "Shift pitch up or down without changing tempo."
-    ),
-    StubTool(
-        id = "AUD-07", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.Speed, inputSpec = InputSpec.SingleAudio,
-        params = listOf(ToolParam.SliderParam("speed", "Kecepatan", "Speed", 0.5f, 2.0f, 1.25f, 0.05f, "x")),
-        titleId = "Ubah Kecepatan Audio", titleEn = "Change Audio Speed",
-        descId = "Atur tempo audio tanpa merusak kualitas suara.", descEn = "Adjust audio tempo cleanly."
-    ),
-    StubTool(
-        id = "AUD-11", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        params = listOf(ToolParam.DropdownParam("bitrate", "Bitrate", "Bitrate", listOf("64k", "128k", "192k", "320k"), "128k")),
-        titleId = "Kompresor Audio", titleEn = "Audio Compressor (32k–320k)",
-        descId = "Kecilkan ukuran file audio dengan pemilihan bitrate.", descEn = "Shrink audio files with selectable bitrate."
-    ),
-    StubTool(
-        id = "AUD-12", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.VolumeUp, inputSpec = InputSpec.SingleAudio,
-        titleId = "Normalisasi Loudness (-16 LUFS)", titleEn = "Loudness Normalizer (-16 LUFS)",
-        descId = "Standarkan kenyaringan podcast/musik ke -16 LUFS.", descEn = "Normalize loudness to broadcast -16 LUFS standard."
-    ),
-    StubTool(
-        id = "AUD-13", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        params = listOf(ToolParam.DropdownParam("format", "Format", "Format", listOf("MP3", "WAV", "OGG", "FLAC"), "MP3")),
-        titleId = "Konverter Audio", titleEn = "Audio Converter",
-        descId = "Konversi audio antar MP3, WAV, OGG, dan FLAC.", descEn = "Convert audio between MP3, WAV, OGG, and FLAC."
-    ),
-    StubTool(
-        id = "AUD-14", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        params = listOf(ToolParam.DropdownParam("rate", "Sample Rate", "Sample Rate", listOf("16000", "44100", "48000", "96000"), "48000")),
-        titleId = "Resampler Audio (8–96 kHz)", titleEn = "Audio Resampler (8–96 kHz)",
-        descId = "Ubah sample rate audio dari 8 kHz hingga 96 kHz.", descEn = "Resample audio between 8 kHz and 96 kHz."
-    ),
-    StubTool(
-        id = "AUD-18", group = ToolGroup.AUDIO, engineLabel = "LIB", plannedPhase = "P6",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        params = listOf(ToolParam.TextParam("artist", "Artis", "Artist", "")),
-        titleId = "Editor Metadata Audio (ID3)", titleEn = "Audio Metadata Editor (ID3)",
-        descId = "Sunting tag judul, artis, album, dan sampul lagu.", descEn = "Edit title, artist, album, and cover tags."
-    ),
-    StubTool(
         id = "AUD-19", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P7",
         icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
         titleId = "Watermark Audio", titleEn = "Audio Watermark",
@@ -118,12 +70,6 @@ fun stubVideoTools(): List<Tool> = listOf(
         icon = Icons.Filled.AutoFixHigh, inputSpec = InputSpec.SingleAudio,
         titleId = "Audio Enhancer", titleEn = "Audio Enhancer",
         descId = "Tingkatkan kejernihan vokal dan keseimbangan spektrum.", descEn = "Enhance vocal clarity and spectral balance."
-    ),
-    StubTool(
-        id = "AUD-23", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P6",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        titleId = "Pemecah Audio", titleEn = "Audio Splitter",
-        descId = "Pecah file audio panjang menjadi beberapa segmen.", descEn = "Split long audio into equal parts."
     ),
     StubTool(
         id = "AUD-25", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P7",

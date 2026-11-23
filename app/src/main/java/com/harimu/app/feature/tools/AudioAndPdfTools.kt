@@ -1,6 +1,15 @@
 package com.harimu.app.feature.tools
 
 import androidx.compose.material.icons.Icons
+
+private fun buildAtempoChain(speed: Float): String {
+    val factors = mutableListOf<Float>()
+    var remaining = speed
+    while (remaining > 2.0f) { factors.add(2.0f); remaining /= 2.0f }
+    while (remaining < 0.5f) { factors.add(0.5f); remaining /= 0.5f }
+    factors.add(remaining.coerceIn(0.5f, 2.0f))
+    return "atempo=" + factors.joinToString(",")
+}
 import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Equalizer
@@ -18,6 +27,14 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.WaterDrop
 import com.harimu.app.core.engines.AudioEngine
 import com.harimu.app.core.engines.PdfEngine
+import com.harimu.app.core.media.MediaJob
+import com.harimu.app.core.media.MediaProbe
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.ReturnCode
+import kotlinx.coroutines.runBlocking
+import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
@@ -234,6 +251,215 @@ fun audioTools(): List<Tool> = listOf(
             val dest = ctx.storage.createOutputFile("AUD_WAVE", "png")
             AudioEngine.renderWaveformPoster(pcm, dest, input.getString("title", "HariMu Soundwave"))
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Poster gelombang PNG dibuat")))
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-06"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Tune
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("semitones", "Nada (Semitone)", "Pitch (Semitones)", -12f, 12f, 0f, 1f, "st"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Change Audio Pitch" else "Ubah Pitch Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Shift pitch without changing tempo (rubberband)." else "Naikkan/turunkan nada tanpa mengubah tempo."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val semi = input.getFloat("semitones", 0f)
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_PITCH", "mp3", "audio/mpeg", isEnglish = ctx.isEnglish) { inputs, output ->
+                listOf("-y", "-i", inputs.first().absolutePath,
+                    "-af", "rubberband=pitch=${semi}",
+                    "-c:a", "libmp3lame", "-b:a", "192k", output.absolutePath)
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-07"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Speed
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("speed", "Kecepatan", "Speed", 0.5f, 2.0f, 1.25f, 0.05f, "x"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Change Audio Speed" else "Ubah Kecepatan Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Adjust tempo without changing pitch." else "Atur tempo tanpa mengubah nada."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val speed = input.getFloat("speed", 1.25f)
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_SPEED", "mp3", "audio/mpeg", isEnglish = ctx.isEnglish) { inputs, output ->
+                val atempo = buildAtempoChain(speed)
+                listOf("-y", "-i", inputs.first().absolutePath, "-af", atempo, "-c:a", "libmp3lame", "-b:a", "192k", output.absolutePath)
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-11"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.AudioFile
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.DropdownParam("bitrate", "Bitrate", "Bitrate", listOf("32k", "64k", "96k", "128k", "192k", "256k", "320k"), "128k"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Compressor" else "Kompresor Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Reduce audio file size with target bitrate." else "Kecilkan ukuran file audio dengan bitrate target."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val kbps = input.getString("bitrate", "128k").removeSuffix("k").toInt()
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_COMPRESS", "mp3", "audio/mpeg", isEnglish = ctx.isEnglish) { inputs, output ->
+                listOf("-y", "-i", inputs.first().absolutePath, "-c:a", "libmp3lame", "-b:a", "${kbps}k", output.absolutePath)
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-12"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.VolumeUp
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("lufs", "Target LUFS", "Target LUFS", -24f, -10f, -16f, 1f, " LUFS"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Loudness Normalizer" else "Normalisasi Loudness"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Normalize loudness to broadcast standard (-16 LUFS) using loudnorm 2-pass." else "Standarkan kenyaringan ke -16 LUFS dengan loudnorm 2-pass."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val target = input.getFloat("lufs", -16f)
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_LOUDNESS", "mp3", "audio/mpeg", isEnglish = ctx.isEnglish) { inputs, output ->
+                val pass1 = listOf("-y", "-i", inputs.first().absolutePath, "-af", "loudnorm=I=${target}:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-")
+                val res = com.arthenica.ffmpegkit.FFmpegKit.executeWithArguments(*pass1.toTypedArray())
+                val logs = res.allLogsAsString ?: ""
+                val extract = { k: String -> com.harimu.app.core.engines.AudioEngine.extractJsonValue(logs, k) ?: "" }
+                val mi = extract("input_i"); val mt = extract("input_tp"); val ml = extract("input_lra"); val mth = extract("input_thresh"); val off = extract("target_offset")
+                listOf("-y", "-i", inputs.first().absolutePath,
+                    "-af", "loudnorm=I=${target}:TP=-1.5:LRA=11:measured_I=$mi:measured_TP=$mt:measured_LRA=$ml:measured_thresh=$mth:offset=$off:linear=true:print_format=summary",
+                    "-c:a", "libmp3lame", "-b:a", "192k", output.absolutePath)
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-13"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.AudioFile
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.DropdownParam("format", "Format", "Format", listOf("MP3", "WAV", "OGG", "FLAC", "M4A"), "MP3"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Converter" else "Konverter Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Convert between MP3, WAV, OGG, FLAC, M4A." else "Konversi antar MP3, WAV, OGG, FLAC, M4A."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val fmt = input.getString("format", "MP3").lowercase()
+            val ext = when (fmt) { "m4a" -> "m4a"; else -> fmt }
+            val mime = when (fmt) {
+                "mp3" -> "audio/mpeg"; "wav" -> "audio/wav"; "ogg" -> "audio/ogg";
+                "flac" -> "audio/flac"; "m4a" -> "audio/mp4"; else -> "audio/mpeg"
+            }
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_CONV", ext, mime, isEnglish = ctx.isEnglish) { inputs, output ->
+                val codec = when (fmt) {
+                    "mp3" -> "libmp3lame"; "ogg" -> "libvorbis"; "flac" -> "flac";
+                    "wav" -> "pcm_s16le"; "m4a" -> "aac"; else -> "libmp3lame"
+                }
+                val bitrate = when (fmt) { "flac" -> "0"; "wav" -> "1411k"; else -> "192k" }
+                listOf("-y", "-i", inputs.first().absolutePath, "-c:a", codec, "-b:a", bitrate, output.absolutePath)
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-14"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.AudioFile
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.DropdownParam("rate", "Sample Rate", "Sample Rate", listOf("8000", "16000", "22050", "32000", "44100", "48000", "96000"), "48000"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Resampler" else "Resampler Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Resample audio to 8–96 kHz." else "Ubah sample rate audio 8–96 kHz."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val rate = input.getString("rate", "48000").toInt()
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_RESAMPLE", "mp3", "audio/mpeg", isEnglish = ctx.isEnglish) { inputs, output ->
+                listOf("-y", "-i", inputs.first().absolutePath, "-ar", rate.toString(), "-c:a", "libmp3lame", "-b:a", "192k", output.absolutePath)
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-18"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "LIB"
+        override val icon = Icons.Filled.Tune
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(
+            ToolParam.TextParam("title", "Judul", "Title", ""),
+            ToolParam.TextParam("artist", "Artis", "Artist", ""),
+            ToolParam.TextParam("album", "Album", "Album", ""),
+            ToolParam.TextParam("year", "Tahun", "Year", ""),
+            ToolParam.TextParam("genre", "Genre", "Genre", "")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Metadata Editor" else "Editor Metadata Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Edit ID3 tags: title, artist, album, year, genre." else "Sunting tag ID3: judul, artis, album, tahun, genre."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val tags = mapOf(
+                "title" to input.getString("title", ""),
+                "artist" to input.getString("artist", ""),
+                "album" to input.getString("album", ""),
+                "date" to input.getString("year", ""),
+                "genre" to input.getString("genre", "")
+            ).filterValues { it.isNotBlank() }
+            val job = MediaJob()
+            job.runCommand(ctx.appContext, ctx.storage, listOf(uri), "AUD_META", "mp3", "audio/mpeg", isEnglish = ctx.isEnglish) { inputs, output ->
+                val args = mutableListOf("-y", "-i", inputs.first().absolutePath)
+                tags.forEach { (k, v) -> args.addAll(listOf("-metadata", "$k=$v")) }
+                args.addAll(listOf("-c:a", "copy", output.absolutePath))
+                args
+            }.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-23"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.Splitscreen
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("segSec", "Durasi per Bagian (detik)", "Segment Duration (sec)", 5f, 600f, 30f, 5f, "s"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Splitter" else "Pemecah Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Split audio into equal-duration parts inside a ZIP." else "Pecah audio menjadi bagian berdurasi sama dalam ZIP."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val seg = input.getFloat("segSec", 30f).toInt()
+            val job = MediaJob()
+            val dest = ctx.storage.createOutputFile("AUD_SPLIT", "zip")
+            val tempDir = ctx.storage.createJobTempDir("audsplit_${UUID.randomUUID().toString().take(8)}")
+            val pattern = "${tempDir.absolutePath}/part_%03d.mp3"
+            runBlocking {
+                com.arthenica.ffmpegkit.FFmpegKit.executeWithArguments("-y", "-i",
+                    com.arthenica.ffmpegkit.FFmpegKitConfig.getSafParameterForRead(ctx.appContext, uri) ?: "",
+                    "-f", "segment", "-segment_time", seg.toString(),
+                    "-c:a", "libmp3lame", "-b:a", "192k", "-reset_timestamps", "1", pattern)
+            }
+            val zos = java.util.zip.ZipOutputStream(java.io.FileOutputStream(dest))
+            tempDir.listFiles()?.sortedBy { it.name }?.forEach { part ->
+                zos.putNextEntry(java.util.zip.ZipEntry(part.name))
+                part.inputStream().use { it.copyTo(zos, 16 * 1024) }
+                zos.closeEntry()
+            }
+            zos.close()
+            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/zip", dest.name)), summary = "Audio dipecah ke ZIP (${ctx.storage.formatBytes(dest.length())})")))
         }.flowOn(Dispatchers.IO)
     }
 )

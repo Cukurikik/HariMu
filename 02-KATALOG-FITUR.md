@@ -65,27 +65,27 @@
 | AUD-03 | AI Noise Reduction | FF/ML | P7 | 🟡 | ⬜ |
 | AUD-04 | Vocal Remover | FF / ML | P7 | 🟡 | ⬜ |
 | AUD-05 | 8D Audio Engine | FF | P7 | 🟡 | ⬜ |
-| AUD-06 | Change Audio Pitch | FF | P6 | 🟡 | ⬜ |
-| AUD-07 | Change Audio Speed | FF | P6 | 🟢 | ⬜ |
-| AUD-08 | Change Audio Volume | FF | P6 | 🟢 | ⬜ |
-| AUD-09 | Trim Audio | FF/M3 | P6 | 🟢 | ⬜ |
-| AUD-10 | Merge Audio (urut / mix) | FF | P6 | 🟢 | ⬜ |
-| AUD-11 | Audio Compressor (32k–320k) | FF | P6 | 🟢 | ⬜ |
-| AUD-12 | Loudness Normalizer (-16 LUFS) | FF (loudnorm 2-pass) | P6 | 🟢 | ⬜ |
-| AUD-13 | Audio Converter (MP3/WAV/OGG/FLAC) | FF | P6 | 🟢 | ⬜ |
-| AUD-14 | Audio Resampler (8–96 kHz) | FF | P6 | 🟢 | ⬜ |
-| AUD-15 | Audio Channel Manipulator | FF | P6 | 🟢 | ⬜ |
-| AUD-16 | Audio Silence Remover | FF | P6 | 🟢 | ⬜ |
-| AUD-17 | Reverse Audio | FF | P6 | 🟢 | ⬜ |
-| AUD-18 | Audio Metadata Editor (ID3) | LIB | P6 | 🟡 | ⬜ |
+| AUD-06 | Change Audio Pitch | FF | P6 | 🟡 | ✅ |
+| AUD-07 | Change Audio Speed | FF | P6 | 🟢 | ✅ |
+| AUD-08 | Change Audio Volume | FF | P6 | 🟢 | ✅ |
+| AUD-09 | Trim Audio | FF/M3 | P6 | 🟢 | ✅ |
+| AUD-10 | Merge Audio (urut / mix) | FF | P6 | 🟢 | ✅ |
+| AUD-11 | Audio Compressor (32k–320k) | FF | P6 | 🟢 | ✅ |
+| AUD-12 | Loudness Normalizer (-16 LUFS) | FF (loudnorm 2-pass) | P6 | 🟢 | ✅ |
+| AUD-13 | Audio Converter (MP3/WAV/OGG/FLAC) | FF | P6 | 🟢 | ✅ |
+| AUD-14 | Audio Resampler (8–96 kHz) | FF | P6 | 🟢 | ✅ |
+| AUD-15 | Audio Channel Manipulator | FF | P6 | 🟢 | ✅ |
+| AUD-16 | Audio Silence Remover | FF | P6 | 🟢 | ✅ |
+| AUD-17 | Reverse Audio | FF | P6 | 🟢 | ✅ |
+| AUD-18 | Audio Metadata Editor (ID3) | LIB | P6 | 🟡 | ✅ |
 | AUD-19 | Audio Watermark | FF | P7 | 🟢 | ⬜ |
 | AUD-20 | AI Stem Splitter (4 track) | ML/CL | P7 | 🔴 | ⬜ |
 | AUD-21 | Audio Studio Pro (DAW multitrack) | NAT+FF | P8 | 🔴 | ⬜ |
 | AUD-22 | Audio Enhancer | FF/ML | P7 | 🟡 | ⬜ |
-| AUD-23 | Audio Splitter | FF | P6 | 🟢 | ⬜ |
+| AUD-23 | Audio Splitter | FF | P6 | 🟢 | ✅ |
 | AUD-24 | Add Echo | FF | P7 | 🟢 | ⬜ |
 | AUD-25 | Add Reverb | FF | P7 | 🟡 | ⬜ |
-| AUD-26 | Audio Fade | FF | P6 | 🟢 | ⬜ |
+| AUD-26 | Audio Fade | FF | P6 | 🟢 | ✅ |
 | AUD-27 | Speech to Text | ML/CL | P11 | 🟡 | ⬜ |
 | AUD-28 | Audio Visualizer (video gelombang) | FF/Canvas | P7 | 🟡 | ⬜ |
 
