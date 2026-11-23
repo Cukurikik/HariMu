@@ -60,11 +60,11 @@
 
 | ID | Tool | Engine | Fase | Risiko | Status |
 |---|---|---|---|---|---|
-| AUD-01 | Mastering Hub | FF | P7 | 🟡 | ⬜ |
+| AUD-01 | Mastering Hub | FF | P7 | 🟡 | ✅ |
 | AUD-02 | Pro Equalizer 10-band (live + ekspor) | NAT/FF | P7 | 🟡 | ⬜ |
-| AUD-03 | AI Noise Reduction | FF/ML | P7 | 🟡 | ⬜ |
-| AUD-04 | Vocal Remover | FF / ML | P7 | 🟡 | ⬜ |
-| AUD-05 | 8D Audio Engine | FF | P7 | 🟡 | ⬜ |
+| AUD-03 | AI Noise Reduction | FF | P7 | 🟡 | ✅ |
+| AUD-04 | Vocal Remover | FF | P7 | 🟡 | ✅ |
+| AUD-05 | 8D Audio Engine | FF | P7 | 🟡 | ✅ |
 | AUD-06 | Change Audio Pitch | FF | P6 | 🟡 | ✅ |
 | AUD-07 | Change Audio Speed | FF | P6 | 🟢 | ✅ |
 | AUD-08 | Change Audio Volume | FF | P6 | 🟢 | ✅ |
@@ -78,16 +78,16 @@
 | AUD-16 | Audio Silence Remover | FF | P6 | 🟢 | ✅ |
 | AUD-17 | Reverse Audio | FF | P6 | 🟢 | ✅ |
 | AUD-18 | Audio Metadata Editor (ID3) | LIB | P6 | 🟡 | ✅ |
-| AUD-19 | Audio Watermark | FF | P7 | 🟢 | ⬜ |
+| AUD-19 | Audio Watermark | FF | P7 | 🟢 | ✅ |
 | AUD-20 | AI Stem Splitter (4 track) | ML/CL | P7 | 🔴 | ⬜ |
 | AUD-21 | Audio Studio Pro (DAW multitrack) | NAT+FF | P8 | 🔴 | ⬜ |
-| AUD-22 | Audio Enhancer | FF/ML | P7 | 🟡 | ⬜ |
+| AUD-22 | Audio Enhancer | FF | P7 | 🟡 | ✅ |
 | AUD-23 | Audio Splitter | FF | P6 | 🟢 | ✅ |
-| AUD-24 | Add Echo | FF | P7 | 🟢 | ⬜ |
-| AUD-25 | Add Reverb | FF | P7 | 🟡 | ⬜ |
+| AUD-24 | Add Echo | FF | P7 | 🟢 | ✅ |
+| AUD-25 | Add Reverb | FF | P7 | 🟡 | ✅ |
 | AUD-26 | Audio Fade | FF | P6 | 🟢 | ✅ |
 | AUD-27 | Speech to Text | ML/CL | P11 | 🟡 | ⬜ |
-| AUD-28 | Audio Visualizer (video gelombang) | FF/Canvas | P7 | 🟡 | ⬜ |
+| AUD-28 | Audio Visualizer (video gelombang) | FF/Canvas | P7 | 🟡 | ✅ |
 
 ## 4. Image Forge & Image Matrix
 

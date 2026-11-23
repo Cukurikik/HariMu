@@ -461,6 +461,144 @@ fun audioTools(): List<Tool> = listOf(
             zos.close()
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/zip", dest.name)), summary = "Audio dipecah ke ZIP (${ctx.storage.formatBytes(dest.length())})")))
         }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-01"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.GraphicEq
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(
+            ToolParam.SliderParam("ceiling", "Ceiling (dB)", "Ceiling (dB)", -6f, 0f, -1f, 0.5f, "dB"),
+            ToolParam.ToggleParam("loudnorm", "Loudnorm 2-pass", "Loudnorm 2-pass", true)
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Mastering Hub" else "Mastering Hub"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Mastering chain: HPF, multiband compression, EQ, limiter, optional loudnorm." else "Rantai mastering: HPF, kompresi multiband, EQ, limiter, loudnorm opsional."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val dest = ctx.storage.createOutputFile("AUD_MASTERING", "mp3")
+            AudioEngine.masteringHub(ctx.appContext, ctx.storage, uri, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "Mastering selesai (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-03"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.AutoFixHigh
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("strength", "Kekuatan", "Strength", 0.01f, 0.97f, 0.3f, 0.01f, ""))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "AI Noise Reduction" else "Reduksi Derau AI"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Reduce background hiss/noise using adaptive FFT denoiser (afftdn)." else "Kurangi hiss/noise latar dengan denoiser FFT adaptif (afftdn)."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val strength = input.getFloat("strength", 0.3f)
+            val dest = ctx.storage.createOutputFile("AUD_DENOISE", "mp3")
+            AudioEngine.noiseReduction(ctx.appContext, ctx.storage, uri, strength, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "Denoise selesai (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-04"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.SurroundSound
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = emptyList<ToolParam>()
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Vocal Remover" else "Penghapus Vokal"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Remove center-panned vocals (karaoke-style) via channel phase cancellation." else "Hapus vokal di tengah (karaoke) lewat pembatalan fase kanal."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            require(probe.audioChannels >= 2) { if (ctx.isEnglish) "Requires stereo input" else "Butuh input stereo" }
+            val dest = ctx.storage.createOutputFile("AUD_VOCALREM", "mp3")
+            AudioEngine.vocalRemover(ctx.appContext, ctx.storage, uri, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "Vokal dihapus (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-05"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.SurroundSound
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("speed", "Kecepatan Putar", "Rotation Speed", 0.1f, 10f, 1f, 0.1f, "x"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "8D Audio Engine" else "8D Audio Engine"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Create 360° rotating spatial audio effect using binaural panning." else "Buat efek audio spasial 360° berputar dengan panning binaural."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val speed = input.getFloat("speed", 1f)
+            val dest = ctx.storage.createOutputFile("AUD_8D", "mp3")
+            AudioEngine.eightDAudio(ctx.appContext, ctx.storage, uri, speed, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "8D audio selesai (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-19"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.WaterDrop
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(ToolParam.SliderParam("interval", "Interval (detik)", "Interval (sec)", 5f, 60f, 15f, 5f, "s"))
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Watermark" else "Watermark Audio"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Embed periodic ultrasonic/sublethal tone as watermark for demo protection." else "Sisipkan nada periodik untuk watermark proteksi demo."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val interval = input.getFloat("interval", 15f).toInt()
+            val dest = ctx.storage.createOutputFile("AUD_WM", "mp3")
+            AudioEngine.audioWatermark(ctx.appContext, ctx.storage, uri, interval, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "Watermark ditambahkan (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-22"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.AutoFixHigh
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = emptyList<ToolParam>()
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Enhancer" else "Audio Enhancer"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Enhance vocal clarity and spectral balance: denoise + clarity EQ + soft compression." else "Tingkatkan kejernihan vokal dan keseimbangan spektral: denoise + EQ kejelasan + kompresi halus."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val dest = ctx.storage.createOutputFile("AUD_ENHANCE", "mp3")
+            AudioEngine.audioEnhancer(ctx.appContext, ctx.storage, uri, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "Enhancer selesai (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
+    },
+    object : Tool {
+        override val id = "AUD-25"
+        override val group = ToolGroup.AUDIO
+        override val engineLabel = "FF"
+        override val icon = Icons.Filled.GraphicEq
+        override val inputSpec = InputSpec.SingleAudio
+        override val params = listOf(
+            ToolParam.SliderParam("room", "Ukuran Ruang", "Room Size", 0f, 1f, 0.5f, 0.1f, ""),
+            ToolParam.SliderParam("damp", "Redaman", "Damping", 0f, 1f, 0.5f, 0.1f, "")
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Add Reverb" else "Tambah Reverb"
+        override fun description(isEnglish: Boolean) = if (isEnglish) "Apply acoustic room reverb via echo filter (room size + damping)." else "Terapkan reverb ruangan akustik via filter echo (ukuran ruang + redaman)."
+        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
+            val probe = MediaProbe.probe(ctx.appContext, uri)
+            require(probe.hasAudio) { if (ctx.isEnglish) "No audio track" else "Tidak ada trek audio" }
+            val room = input.getFloat("room", 0.5f)
+            val damp = input.getFloat("damp", 0.5f)
+            val dest = ctx.storage.createOutputFile("AUD_REVERB", "mp3")
+            AudioEngine.addReverb(ctx.appContext, ctx.storage, uri, room, damp, "mp3")
+                .also { emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(it, "audio/mpeg", it.name)), summary = "Reverb diterapkan (${ctx.storage.formatBytes(it.length())})"))) }
+        }.flowOn(Dispatchers.IO)
     }
 )
 

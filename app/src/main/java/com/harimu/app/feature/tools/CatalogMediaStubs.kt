@@ -29,30 +29,6 @@ fun stubVideoTools(): List<Tool> = listOf(
         descId = "Tingkatkan ketajaman resolusi video dengan model AI ringan.", descEn = "Upscale video resolution with lightweight AI model."
     ),
     StubTool(
-        id = "AUD-03", group = ToolGroup.AUDIO, engineLabel = "FF/ML", plannedPhase = "P7",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        titleId = "Reduksi Derau AI", titleEn = "AI Noise Reduction",
-        descId = "Kurangi hiss dan noise latar pada rekaman suara.", descEn = "Reduce background hiss and noise in voice recordings."
-    ),
-    StubTool(
-        id = "AUD-04", group = ToolGroup.AUDIO, engineLabel = "FF/ML", plannedPhase = "P7",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        titleId = "Penghapus Vokal", titleEn = "Vocal Remover",
-        descId = "Pisahkan vokal dan instrumen menggunakan filter kanal/AI.", descEn = "Separate vocals and instrumental track."
-    ),
-    StubTool(
-        id = "AUD-05", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P7",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        titleId = "8D Audio Engine", titleEn = "8D Audio Engine",
-        descId = "Buat efek suara memutar spasial 360 derajat.", descEn = "Create 360-degree rotating spatial audio effect."
-    ),
-    StubTool(
-        id = "AUD-19", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P7",
-        icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
-        titleId = "Watermark Audio", titleEn = "Audio Watermark",
-        descId = "Sisipkan tanda audio berkala untuk proteksi demo.", descEn = "Mix periodic audio watermark for demo protection."
-    ),
-    StubTool(
         id = "AUD-20", group = ToolGroup.AUDIO, engineLabel = "ML/CL", plannedPhase = "P7",
         icon = Icons.Filled.GraphicEq, inputSpec = InputSpec.SingleAudio,
         requiresModel = ModelRegistry.demucsLite,
@@ -64,18 +40,6 @@ fun stubVideoTools(): List<Tool> = listOf(
         icon = Icons.Filled.GraphicEq, inputSpec = InputSpec.MultipleAudios,
         titleId = "Audio Studio Pro (DAW)", titleEn = "Audio Studio Pro (Multitrack DAW)",
         descId = "Mixer multitrack dengan kontrol gain, pan, dan trim.", descEn = "Multitrack mixer with per-track gain, pan, and trim."
-    ),
-    StubTool(
-        id = "AUD-22", group = ToolGroup.AUDIO, engineLabel = "FF/ML", plannedPhase = "P7",
-        icon = Icons.Filled.AutoFixHigh, inputSpec = InputSpec.SingleAudio,
-        titleId = "Audio Enhancer", titleEn = "Audio Enhancer",
-        descId = "Tingkatkan kejernihan vokal dan keseimbangan spektrum.", descEn = "Enhance vocal clarity and spectral balance."
-    ),
-    StubTool(
-        id = "AUD-25", group = ToolGroup.AUDIO, engineLabel = "FF", plannedPhase = "P7",
-        icon = Icons.Filled.GraphicEq, inputSpec = InputSpec.SingleAudio,
-        titleId = "Tambah Efek Reverb", titleEn = "Add Reverb",
-        descId = "Tambahkan gaung ruangan akustik ke rekaman.", descEn = "Apply room acoustic reverb to audio."
     ),
     StubTool(
         id = "AUD-27", group = ToolGroup.AUDIO, engineLabel = "ML/CL", plannedPhase = "P11",

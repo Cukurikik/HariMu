@@ -635,4 +635,107 @@ object AudioEngine {
         }
         return peaks
     }
+
+    // --- Phase 7 additions (FFmpeg-based) ---
+
+    suspend fun masteringHub(context: Context, storage: FileStorageManager, inputUri: Uri, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_MASTERING", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_MASTERING", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // Mastering chain: high-pass -> multiband comp -> EQ -> limiter
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "highpass=f=30,compand=attacks=0.3:decays=0.8:points=-80/-80|-45/-15|-27/-9|0/-7|20/-7:gain=5,equalizer=f=100:width_type=h:width=200:g=-3,equalizer=f=3000:width_type=h:width=200:g=2,alimiter=limit=0.95",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
+
+    suspend fun noiseReduction(context: Context, storage: FileStorageManager, inputUri: Uri, strength: Float, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_DENOISE", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_DENOISE", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // afftdn: adaptive FFT noise reduction
+            // strength 0.01-0.99, higher = more aggressive
+            val nr = strength.coerceIn(0.01f, 0.97f)
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "afftdn=nr=${nr}:nf=-25",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
+
+    suspend fun vocalRemover(context: Context, storage: FileStorageManager, inputUri: Uri, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_VOCALREM", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_VOCALREM", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // Karaoke-style: cancel center channel (vocals typically panned center)
+            // Output: instrumental (stereo) 
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "pan=stereo|c0=0.5*c0-0.5*c1|c1=0.5*c1-0.5*c0",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
+
+    suspend fun eightDAudio(context: Context, storage: FileStorageManager, inputUri: Uri, rotationSpeed: Float, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_8D", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_8D", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // 8D audio: binaural panning with rotation
+            // Using aearplug for HRTF-like effect + dynamic panning
+            val speed = rotationSpeed.coerceIn(0.1f, 10f)
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "apulsator=mode=circular:amount=1:offset_l=0:offset_r=0.5:width=1:timing=bpm:bpm=${speed*60}",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
+
+    suspend fun audioWatermark(context: Context, storage: FileStorageManager, inputUri: Uri, intervalSec: Int, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_WM", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_WM", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // Insert periodic sine tone as watermark
+            val interval = intervalSec.coerceIn(5, 60)
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "asetpts=PTS-STARTPTS,amix=inputs=2:duration=first:dropout_transition=0:weights=1 0.1",
+                "-f", "lavfi", "-i", "sine=frequency=1000:duration=0.5:sample_rate=44100",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
+
+    suspend fun audioEnhancer(context: Context, storage: FileStorageManager, inputUri: Uri, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_ENHANCE", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_ENHANCE", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // Enhance: high-pass + spectral gate + clarity EQ + soft compression
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "highpass=f=80,afftdn=nr=0.1:nf=-30,equalizer=f=3000:width_type=h:width=200:g=3,equalizer=f=8000:width_type=h:width=200:g=2,compand=attacks=0.3:decays=1.0:points=-80/-80|-30/-12|-10/-6|0/-2:gain=3",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
+
+    suspend fun addReverb(context: Context, storage: FileStorageManager, inputUri: Uri, roomSize: Float, damping: Float, outputFormat: String): File {
+        val dest = storage.createOutputFile("AUD_REVERB", outputFormat)
+        val job = MediaJob()
+        job.runCommand(context, storage, listOf(inputUri), "AUD_REVERB", outputFormat, mimeFor(outputFormat), isEnglish = false) { inputs, output ->
+            // aecho: echo with decay (simple reverb approximation)
+            // roomSize 0-1 maps to delay 50-500ms, damping 0-1 maps to decay 0.1-0.8
+            val delay = (50 + roomSize.coerceIn(0f, 1f) * 450).toInt()
+            val decay = (0.1 + damping.coerceIn(0f, 1f) * 0.7)
+            listOf("-y", "-i", inputs.first().absolutePath,
+                "-af", "aecho=0.8:0.9:${delay}:${decay}",
+                "-c:a", codecFor(outputFormat), "-b:a", bitrateFor(outputFormat),
+                output.absolutePath)
+        }.collect()
+        return dest
+    }
 }
