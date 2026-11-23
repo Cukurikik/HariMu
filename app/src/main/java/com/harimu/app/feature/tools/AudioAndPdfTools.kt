@@ -36,6 +36,7 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
+import com.harimu.app.feature.studios.AudioStudioProScreen
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolContext
@@ -61,6 +62,17 @@ fun audioTools(): List<Tool> = listOf(
         titleEn = "Live 5-Band Equalizer",
         descId = "Putar audio dengan kontrol Equalizer 5-band Android real-time & preset.",
         descEn = "Play audio with real-time Android 5-band Equalizer & presets."
+    ),
+    DedicatedTool(
+        id = "AUD-21",
+        group = ToolGroup.AUDIO,
+        engineLabel = "NAT+FF",
+        icon = Icons.Filled.GraphicEq,
+        dedicatedRoute = DedicatedScreenRoute.AUDIO_STUDIO_PRO,
+        titleId = "Audio Studio Pro (DAW)",
+        titleEn = "Audio Studio Pro (Multitrack DAW)",
+        descId = "Mixer multitrack dengan kontrol gain, pan, trim, dan ekspor WAV.",
+        descEn = "Multitrack mixer with per-track gain, pan, trim, and WAV export."
     ),
     object : Tool {
         override val id = "AUD-08"

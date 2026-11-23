@@ -80,7 +80,7 @@
 | AUD-18 | Audio Metadata Editor (ID3) | LIB | P6 | 🟡 | ✅ |
 | AUD-19 | Audio Watermark | FF | P7 | 🟢 | ✅ |
 | AUD-20 | AI Stem Splitter (4 track) | ML/CL | P7 | 🔴 | ⬜ |
-| AUD-21 | Audio Studio Pro (DAW multitrack) | NAT+FF | P8 | 🔴 | ⬜ |
+| AUD-21 | Audio Studio Pro (DAW multitrack) | NAT+FF | P8 | 🔴 | ✅ |
 | AUD-22 | Audio Enhancer | FF | P7 | 🟡 | ✅ |
 | AUD-23 | Audio Splitter | FF | P6 | 🟢 | ✅ |
 | AUD-24 | Add Echo | FF | P7 | 🟢 | ✅ |

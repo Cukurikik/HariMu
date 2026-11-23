@@ -67,6 +67,7 @@ import com.harimu.app.feature.studios.BackupScreen
 import com.harimu.app.feature.studios.EqualizerScreen
 import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
+import com.harimu.app.feature.studios.AudioStudioProScreen
 import com.harimu.app.feature.studios.ProVideoEditorScreen
 import com.harimu.app.feature.studios.VoiceRecorderScreen
 import com.harimu.app.feature.toolscreen.ToolScreen
@@ -87,6 +88,7 @@ import java.util.Locale
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
 @Serializable data object ProVideoEditorRoute
+@Serializable data object AudioStudioProRoute
 
 private data class TopLevelNav(
     val route: Any,
@@ -172,6 +174,7 @@ private fun HariMuRoot(
             DedicatedScreenRoute.KEY_VAULT -> navController.navigate(KeyVaultRoute)
             DedicatedScreenRoute.WORKSPACE_BACKUP -> navController.navigate(BackupRoute)
             DedicatedScreenRoute.PRO_VIDEO_EDITOR -> navController.navigate(ProVideoEditorRoute)
+            DedicatedScreenRoute.AUDIO_STUDIO_PRO -> navController.navigate(AudioStudioProRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
         }
     }
@@ -339,6 +342,9 @@ private fun HariMuRoot(
                     }
                     composable<ProVideoEditorRoute> {
                         ProVideoEditorScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<AudioStudioProRoute> {
+                        AudioStudioProScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                 }
             }

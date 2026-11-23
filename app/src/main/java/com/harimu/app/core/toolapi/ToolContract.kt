@@ -183,7 +183,8 @@ enum class DedicatedScreenRoute {
     KEY_VAULT,
     WORKSPACE_BACKUP,
     SETTINGS,
-    PRO_VIDEO_EDITOR
+    PRO_VIDEO_EDITOR,
+    AUDIO_STUDIO_PRO
 }
 
 interface Tool {

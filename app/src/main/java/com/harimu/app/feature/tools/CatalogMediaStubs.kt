@@ -36,12 +36,6 @@ fun stubVideoTools(): List<Tool> = listOf(
         descId = "Pisahkan vokal, drum, bass, dan instrumen lain.", descEn = "Split audio into vocals, drums, bass, and other."
     ),
     StubTool(
-        id = "AUD-21", group = ToolGroup.AUDIO, engineLabel = "NAT+FF", plannedPhase = "P8",
-        icon = Icons.Filled.GraphicEq, inputSpec = InputSpec.MultipleAudios,
-        titleId = "Audio Studio Pro (DAW)", titleEn = "Audio Studio Pro (Multitrack DAW)",
-        descId = "Mixer multitrack dengan kontrol gain, pan, dan trim.", descEn = "Multitrack mixer with per-track gain, pan, and trim."
-    ),
-    StubTool(
         id = "AUD-27", group = ToolGroup.AUDIO, engineLabel = "ML/CL", plannedPhase = "P11",
         icon = Icons.Filled.AudioFile, inputSpec = InputSpec.SingleAudio,
         requiresModel = ModelRegistry.whisperTiny,
