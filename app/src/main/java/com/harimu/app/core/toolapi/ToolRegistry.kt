@@ -1,5 +1,6 @@
 package com.harimu.app.core.toolapi
 
+import com.harimu.app.feature.tools.InternalMediaTestTool
 import com.harimu.app.feature.tools.audioTools
 import com.harimu.app.feature.tools.converterTools
 import com.harimu.app.feature.tools.coreTools
@@ -32,7 +33,8 @@ object ToolRegistry {
         )
     }
 
-    fun findById(id: String): Tool? = allTools.firstOrNull { it.id == id }
+    fun findById(id: String): Tool? =
+        allTools.firstOrNull { it.id == id } ?: InternalMediaTestTool.takeIf { it.id == id }
 
     fun byGroup(group: ToolGroup): List<Tool> = allTools.filter { it.group == group }
 

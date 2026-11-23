@@ -130,4 +130,5 @@
 
     <!-- Permissions -->
     <string name="permission_audio_rationale">Microphone permission is required to record live PCM audio directly to a WAV file.</string>
+    <string name="settings_test_media_engine">Test Media Engine (Remux MP4)</string>
 </resources>

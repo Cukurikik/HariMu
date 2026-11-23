@@ -86,7 +86,9 @@ fun HomeScreen(
         if (searchQuery.isBlank()) emptyList() else ToolRegistry.search(searchQuery, isEnglish)
     }
     val recentTools = remember(recentToolIds) {
-        recentToolIds.distinct().mapNotNull { ToolRegistry.findById(it) }.take(8)
+        recentToolIds.distinct()
+            .mapNotNull { id -> ToolRegistry.findById(id)?.takeUnless { it.id.startsWith("DEV-") } }
+            .take(8)
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {

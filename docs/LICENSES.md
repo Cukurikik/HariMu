@@ -11,7 +11,11 @@ Semua library dan aset di proyek ini diverifikasi memakai lisensi permisif (tanp
 | JUnit 4 (`junit:junit:4.13.2`) | EPL-1.0 | Pengujian unit JVM (`testImplementation` saja, tidak masuk APK) |
 | Font `Plus Jakarta Sans` & `JetBrains Mono` (`app/src/main/res/font/`) | SIL OFL 1.1 | Bundel lokal dari Google Fonts |
 | Android Platform APIs (`MediaExtractor`, `MediaMuxer`, `MediaCodec`, `PdfRenderer`, `PdfDocument`, `AudioRecord`, `TextToSpeech`, `AndroidKeyStore`) | Android SDK / Apache-2.0 | Engine pemrosesan lokal bawaan sistem |
+| Jetpack Media3 (`media3-transformer`, `media3-effect`, `media3-common` `1.11.1`) | Apache-2.0 | Transcoding, remux, & efek media akselerasi perangkat keras |
+| `dev.ffmpegkit-maintained:ffmpeg-kit-full:8.1.9` (`+ smart-exception-java:0.2.1`) | LGPL-3.0 | Wrapper FFmpeg/FFprobe terpelihara (non-GPL, dukungan 16 KB page size; AAR 30 MB, split ABI via AAB) |
+| Robolectric (`4.16.1`), AndroidX Test (`1.7.0` / `1.3.0`), `work-testing` (`2.10.1`) | MIT / Apache-2.0 | Pengujian JVM lokal (`testImplementation`, tidak masuk APK) |
 
 ## Catatan Kebijakan Lisensi (`01-ARSITEKTUR.md` & `SKILL.md`)
-- Tidak ada library **GPL** (seperti build FFmpeg GPL/x264/x265) atau **AGPL** (seperti iText AGPL) yang dibundel di dalam proyek.
+- Tidak ada library **GPL** (seperti build FFmpeg `-gpl` dengan `x264`/`x265`) atau **AGPL** (seperti iText AGPL) yang dibundel di dalam proyek.
+- Varian FFmpeg yang dipakai adalah **`ffmpeg-kit-full` (LGPL v3.0)** dengan penautan dinamis pustaka native (`.so`) dalam App Bundle split ABI.
 - Setiap penambahan library pihak ketiga baru di fase berikutnya wajib dicatat di berkas ini sebelum digabungkan ke cabang utama.

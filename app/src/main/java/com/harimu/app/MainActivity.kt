@@ -286,7 +286,8 @@ private fun HariMuRoot(
                         SettingsScreen(
                             container = container,
                             settings = settings,
-                            onOpenStudio = ::navigateToStudio
+                            onOpenStudio = ::navigateToStudio,
+                            onOpenInternalTool = { id -> navController.navigate(ToolRoute(id)) }
                         )
                     }
                     composable<CatalogRoute> { entry ->

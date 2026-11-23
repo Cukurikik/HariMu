@@ -52,6 +52,30 @@ android {
         buildConfig = true
     }
 
+    bundle {
+        abi { enableSplit = true }
+        density { enableSplit = true }
+        language { enableSplit = false }
+    }
+
+    val taskNames = gradle.startParameter.taskNames
+    val isBundleTask = taskNames.any { it.contains("bundle", ignoreCase = true) }
+    val isReleaseApkTask = taskNames.any { it.contains("assembleRelease", ignoreCase = true) }
+    splits {
+        abi {
+            isEnable = !isBundleTask && (isReleaseApkTask || project.hasProperty("abiSplits"))
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
+    sourceSets {
+        getByName("test") {
+            assets.directories.add("src/androidTest/assets")
+        }
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
@@ -89,6 +113,10 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.effect)
+    implementation(libs.androidx.media3.common)
+    implementation(libs.ffmpeg.kit.full)
     implementation(libs.androidx.exifinterface)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)

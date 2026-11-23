@@ -130,4 +130,5 @@
 
     <!-- Izin -->
     <string name="permission_audio_rationale">Izin mikrofon diperlukan untuk merekam audio PCM langsung ke file WAV.</string>
+    <string name="settings_test_media_engine">Uji Engine Media (Remux MP4)</string>
 </resources>

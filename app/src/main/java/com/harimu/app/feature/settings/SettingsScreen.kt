@@ -73,7 +73,8 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     container: AppContainer,
     settings: AppSettings,
-    onOpenStudio: (DedicatedScreenRoute) -> Unit
+    onOpenStudio: (DedicatedScreenRoute) -> Unit,
+    onOpenInternalTool: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -228,6 +229,15 @@ fun SettingsScreen(
                             Icon(Icons.Filled.CleaningServices, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.settings_clear_temp, container.storage.formatBytes(tempBytes)))
+                        }
+
+                        OutlinedButton(
+                            onClick = { onOpenInternalTool(com.harimu.app.feature.tools.InternalMediaTestTool.ID) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("test_media_engine_button")
+                        ) {
+                            Text(stringResource(R.string.settings_test_media_engine))
                         }
                     }
                 }
