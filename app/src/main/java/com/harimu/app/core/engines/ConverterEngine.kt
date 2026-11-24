@@ -24,10 +24,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.security.SecureRandom
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
@@ -39,66 +35,6 @@ object ConverterEngine {
 
     private val prettyJson = Json { prettyPrint = true }
     private val compactJson = Json { prettyPrint = false }
-
-    fun inspectAndRepackZip(context: Context, storage: FileStorageManager, uri: Uri, destZip: File): Pair<File, String> {
-        val entries = mutableListOf<String>()
-        var totalUncompressed = 0L
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            ZipInputStream(input).use { zis ->
-                ZipOutputStream(FileOutputStream(destZip)).use { zos ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        val bytes = zis.readBytes()
-                        totalUncompressed += bytes.size
-                        entries.add("${entry.name} (${storage.formatBytes(bytes.size.toLong())})")
-                        zos.putNextEntry(ZipEntry(entry.name))
-                        zos.write(bytes)
-                        zos.closeEntry()
-                        zis.closeEntry()
-                        entry = zis.nextEntry
-                    }
-                }
-            }
-        } ?: error("Gagal membuka arsip ZIP")
-        val report = "Total entri: ${entries.size} (${storage.formatBytes(totalUncompressed)})\n" +
-            entries.take(30).joinToString("\n")
-        return destZip to report
-    }
-
-    fun createEncryptedArchive(
-        context: Context,
-        storage: FileStorageManager,
-        uris: List<Uri>,
-        password: String,
-        destFile: File
-    ): File {
-        require(password.length >= 4) { "Kata sandi minimal 4 karakter" }
-        val zipBytes = ByteArrayOutputStream().use { bos ->
-            ZipOutputStream(bos).use { zos ->
-                uris.forEachIndexed { idx, uri ->
-                    val name = storage.getDisplayName(uri) ?: "file_${idx + 1}.bin"
-                    zos.putNextEntry(ZipEntry(name))
-                    context.contentResolver.openInputStream(uri)?.use { it.copyTo(zos, 16 * 1024) }
-                    zos.closeEntry()
-                }
-            }
-            bos.toByteArray()
-        }
-        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
-        val iv = ByteArray(12).also { SecureRandom().nextBytes(it) }
-        val key = deriveKey(password, salt)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
-            init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, iv))
-        }
-        val encrypted = cipher.doFinal(zipBytes)
-        FileOutputStream(destFile).use { fos ->
-            fos.write("HARIMUA1".toByteArray(Charsets.UTF_8))
-            fos.write(salt)
-            fos.write(iv)
-            fos.write(encrypted)
-        }
-        return destFile
-    }
 
     fun decryptArchiveToZip(rawBytes: ByteArray, password: String, destZip: File): File {
         val header = "HARIMUA1".toByteArray(Charsets.UTF_8)
@@ -196,38 +132,67 @@ object ConverterEngine {
         }
     }
 
-    fun csvToTsv(csv: String): String =
-        csv.lines().joinToString("\n") { line -> parseDelimitedLine(line, ',').joinToString("\t") }
+    fun csvToTsv(csv: String): String = rowsToDelimited(parseDelimitedRows(csv, ','), '\t')
 
-    fun tsvToCsv(tsv: String): String =
-        tsv.lines().joinToString("\n") { line ->
-            line.split("\t").joinToString(",") { cell ->
-                if (cell.contains(",") || cell.contains("\"")) "\"${cell.replace("\"", "\"\"")}\"" else cell
-            }
-        }
+    fun tsvToCsv(tsv: String): String = rowsToDelimited(parseDelimitedRows(tsv, '\t'), ',')
 
-    private fun parseDelimitedLine(line: String, delim: Char): List<String> {
-        val out = mutableListOf<String>()
-        val cur = StringBuilder()
+    /**
+     * Parser RFC-4180 penuh: kutip ganda, `""` sebagai kutip literal, dan baris baru di dalam
+     * kutip. Baris kosong di akhir berkas tidak menghasilkan baris palsu.
+     */
+    fun parseDelimitedRows(text: String, delimiter: Char): List<List<String>> {
+        val rows = mutableListOf<List<String>>()
+        val row = mutableListOf<String>()
+        val cell = StringBuilder()
         var inQuotes = false
         var i = 0
-        while (i < line.length) {
-            val ch = line[i]
-            if (ch == '"') {
-                if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
-                    cur.append('"'); i++
-                } else {
-                    inQuotes = !inQuotes
+        var sawAny = false
+        while (i < text.length) {
+            val ch = text[i]
+            if (inQuotes) {
+                if (ch == '"') {
+                    if (i + 1 < text.length && text[i + 1] == '"') {
+                        cell.append('"')
+                        i += 2
+                        continue
+                    }
+                    inQuotes = false
+                    i++
+                    continue
                 }
-            } else if (ch == delim && !inQuotes) {
-                out.add(cur.toString()); cur.clear()
-            } else {
-                cur.append(ch)
+                cell.append(ch)
+                i++
+                continue
             }
-            i++
+            when (ch) {
+                '"' -> { inQuotes = true; sawAny = true; i++ }
+                delimiter -> { row.add(cell.toString()); cell.clear(); sawAny = true; i++ }
+                '\r' -> {
+                    if (i + 1 < text.length && text[i + 1] == '\n') i++
+                    row.add(cell.toString()); cell.clear(); rows.add(row.toList()); row.clear(); sawAny = false; i++
+                }
+                '\n' -> {
+                    row.add(cell.toString()); cell.clear(); rows.add(row.toList()); row.clear(); sawAny = false; i++
+                }
+                else -> { cell.append(ch); sawAny = true; i++ }
+            }
         }
-        out.add(cur.toString())
-        return out
+        if (sawAny || cell.isNotEmpty() || row.isNotEmpty()) {
+            row.add(cell.toString())
+            rows.add(row.toList())
+        }
+        return rows
+    }
+
+    fun rowsToDelimited(rows: List<List<String>>, delimiter: Char): String =
+        rows.joinToString("\n") { row ->
+            row.joinToString(delimiter.toString()) { cell -> escapeDelimitedCell(cell, delimiter) }
+        }
+
+    fun escapeDelimitedCell(cell: String, delimiter: Char): String {
+        val needsQuote = cell.contains(delimiter) || cell.contains('"') ||
+            cell.contains('\n') || cell.contains('\r') || cell.trim() != cell
+        return if (needsQuote) "\"${cell.replace("\"", "\"\"")}\"" else cell
     }
 
     fun formatCode(raw: String, mode: String): String {
@@ -253,27 +218,70 @@ object ConverterEngine {
     fun markdownToHtml(md: String): String {
         val body = StringBuilder()
         var inCode = false
+        var codeLang = ""
+        var listKind = ""
+
+        fun closeList() {
+            if (listKind.isNotEmpty()) {
+                body.append("</$listKind>\n")
+                listKind = ""
+            }
+        }
+
         for (line in md.lines()) {
             val t = line.trimEnd()
-            if (t.startsWith("```")) {
-                if (!inCode) { body.append("<pre><code>\n"); inCode = true }
-                else { body.append("</code></pre>\n"); inCode = false }
+            if (t.trimStart().startsWith("```")) {
+                if (!inCode) {
+                    closeList()
+                    codeLang = t.trimStart().removePrefix("```").trim()
+                    val cls = if (codeLang.isBlank()) "" else " class=\"language-${escapeXml(codeLang)}\""
+                    body.append("<pre><code$cls>\n")
+                    inCode = true
+                } else {
+                    body.append("</code></pre>\n")
+                    inCode = false
+                    codeLang = ""
+                }
                 continue
             }
             if (inCode) {
                 body.append(escapeXml(t)).append("\n")
                 continue
             }
+            val heading = Regex("^(#{1,6})\\s+(.*)$").find(t)
+            val unordered = Regex("^\\s*[-*+]\\s+(.*)$").find(t)
+            val ordered = Regex("^\\s*\\d+[.)]\\s+(.*)$").find(t)
             when {
-                t.startsWith("### ") -> body.append("<h3>${inlineMd(t.drop(4))}</h3>\n")
-                t.startsWith("## ") -> body.append("<h2>${inlineMd(t.drop(3))}</h2>\n")
-                t.startsWith("# ") -> body.append("<h1>${inlineMd(t.drop(2))}</h1>\n")
-                t.startsWith("> ") -> body.append("<blockquote>${inlineMd(t.drop(2))}</blockquote>\n")
-                t.startsWith("- ") || t.startsWith("* ") -> body.append("<li>${inlineMd(t.drop(2))}</li>\n")
-                t.isBlank() -> body.append("<br/>\n")
-                else -> body.append("<p>${inlineMd(t)}</p>\n")
+                heading != null -> {
+                    closeList()
+                    val level = heading.groupValues[1].length
+                    body.append("<h$level>${inlineMd(heading.groupValues[2])}</h$level>\n")
+                }
+                t.trim() == "---" || t.trim() == "***" -> {
+                    closeList()
+                    body.append("<hr/>\n")
+                }
+                unordered != null -> {
+                    if (listKind != "ul") { closeList(); body.append("<ul>\n"); listKind = "ul" }
+                    body.append("<li>${inlineMd(unordered.groupValues[1])}</li>\n")
+                }
+                ordered != null -> {
+                    if (listKind != "ol") { closeList(); body.append("<ol>\n"); listKind = "ol" }
+                    body.append("<li>${inlineMd(ordered.groupValues[1])}</li>\n")
+                }
+                t.startsWith("> ") -> {
+                    closeList()
+                    body.append("<blockquote>${inlineMd(t.drop(2))}</blockquote>\n")
+                }
+                t.isBlank() -> closeList()
+                else -> {
+                    closeList()
+                    body.append("<p>${inlineMd(t)}</p>\n")
+                }
             }
         }
+        closeList()
+        if (inCode) body.append("</code></pre>\n")
         return """
             <!DOCTYPE html>
             <html lang="id">
@@ -293,87 +301,175 @@ object ConverterEngine {
         """.trimIndent()
     }
 
-    private fun inlineMd(text: String): String = escapeXml(text)
-        .replace(Regex("\\*\\*(.+?)\\*\\*"), "<strong>$1</strong>")
-        .replace(Regex("\\*(.+?)\\*"), "<em>$1</em>")
-        .replace(Regex("`(.+?)`"), "<code>$1</code>")
-        .replace(Regex("\\[(.+?)\\]\\((.+?)\\)"), "<a href=\"$2\">$1</a>")
+    /**
+     * Inline Markdown: kode inline dan tautan dilindungi dulu agar tidak ikut di-escape atau
+     * di-format sebagai penekanan (mencegah XSS lewat URL `javascript:`).
+     */
+    fun inlineMd(text: String): String {
+        val tokens = mutableListOf<String>()
+        var working = text
+
+        working = Regex("`([^`]+)`").replace(working) { match ->
+            tokens.add("<code>${escapeXml(match.groupValues[1])}</code>")
+            "\u0000${tokens.lastIndex}\u0000"
+        }
+        working = Regex("\\[([^\\]]+)]\\(([^)\\s]+)\\)").replace(working) { match ->
+            val label = escapeXml(match.groupValues[1])
+            val url = match.groupValues[2]
+            val safe = safeUrl(url)
+            val html = if (safe == null) label else "<a href=\"${escapeXml(safe)}\">$label</a>"
+            tokens.add(html)
+            "\u0000${tokens.lastIndex}\u0000"
+        }
+
+        var escaped = escapeXml(working)
+        escaped = escaped
+            .replace(Regex("\\*\\*(.+?)\\*\\*"), "<strong>$1</strong>")
+            .replace(Regex("__(.+?)__"), "<strong>$1</strong>")
+            .replace(Regex("~~(.+?)~~"), "<del>$1</del>")
+            .replace(Regex("\\*(.+?)\\*"), "<em>$1</em>")
+            .replace(Regex("(?<!\\w)_(.+?)_(?!\\w)"), "<em>$1</em>")
+        tokens.forEachIndexed { index, html ->
+            escaped = escaped.replace("\u0000$index\u0000", html)
+        }
+        return escaped
+    }
+
+    /** Hanya skema aman yang diizinkan; selain itu tautan diturunkan menjadi teks. */
+    fun safeUrl(raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        val lower = trimmed.lowercase()
+        if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return null
+        return trimmed
+    }
 
     fun geoJsonToKml(rawGeoJson: String): String {
         val root = Json.parseToJsonElement(rawGeoJson.trim()).jsonObject
-        val features = if (root["type"]?.jsonPrimitive?.content == "FeatureCollection") {
-            root["features"]!!.jsonArray
-        } else {
-            JsonArray(listOf(root))
+        val features = when (root["type"]?.jsonPrimitive?.content) {
+            "FeatureCollection" -> root["features"]?.jsonArray ?: JsonArray(emptyList())
+            "Feature" -> JsonArray(listOf(root))
+            else -> JsonArray(listOf(root))
         }
         val sb = StringBuilder(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n"
         )
-        for (i in features.indices) {
-            val feat = features[i].jsonObject
-            val props = feat["properties"] as? JsonObject
-            val name = props?.get("name")?.jsonPrimitive?.content?.ifBlank { null } ?: "Feature ${i + 1}"
-            val geom = (feat["geometry"] as? JsonObject) ?: feat
-            val type = geom["type"]?.jsonPrimitive?.content ?: ""
-            val coords = geom["coordinates"]?.jsonArray ?: continue
+        features.forEachIndexed { index, element ->
+            val feature = element as? JsonObject ?: return@forEachIndexed
+            val props = feature["properties"] as? JsonObject
+            fun property(key: String): String? =
+                (props?.get(key) as? JsonPrimitive)?.contentOrNull()?.takeIf { it.isNotBlank() }
+            val name = property("name") ?: property("title") ?: "Feature ${index + 1}"
+            val description = property("description")
+            val geometry = (feature["geometry"] as? JsonObject) ?: feature
             sb.append("  <Placemark>\n    <name>${escapeXml(name)}</name>\n")
-            when (type) {
-                "Point" -> {
-                    val lon = coords[0].jsonPrimitive.double
-                    val lat = coords[1].jsonPrimitive.double
-                    sb.append("    <Point><coordinates>$lon,$lat,0</coordinates></Point>\n")
-                }
-                "LineString" -> {
-                    val pts = coords.joinToString(" ") { el ->
-                        val c = el.jsonArray
-                        "${c[0].jsonPrimitive.double},${c[1].jsonPrimitive.double},0"
-                    }
-                    sb.append("    <LineString><coordinates>$pts</coordinates></LineString>\n")
-                }
-                "Polygon" -> {
-                    val ring = coords[0].jsonArray
-                    val pts = ring.joinToString(" ") { el ->
-                        val c = el.jsonArray
-                        "${c[0].jsonPrimitive.double},${c[1].jsonPrimitive.double},0"
-                    }
-                    sb.append("    <Polygon><outerBoundaryIs><LinearRing><coordinates>$pts</coordinates></LinearRing></outerBoundaryIs></Polygon>\n")
-                }
+            if (!description.isNullOrBlank()) {
+                sb.append("    <description>${escapeXml(description)}</description>\n")
             }
+            appendKmlGeometry(sb, geometry, "    ")
             sb.append("  </Placemark>\n")
         }
         sb.append("</Document>\n</kml>")
         return sb.toString()
     }
 
-    fun stlToObj(stlBytes: ByteArray): String {
-        val asText = stlBytes.toString(Charsets.UTF_8)
-        val vertices = mutableListOf<Triple<Float, Float, Float>>()
-        if (asText.trimStart().startsWith("solid") && asText.contains("facet normal")) {
-            val regex = Regex("vertex\\s+([-+0-9.eE]+)\\s+([-+0-9.eE]+)\\s+([-+0-9.eE]+)")
-            regex.findAll(asText).forEach { m ->
-                vertices.add(
-                    Triple(
-                        m.groupValues[1].toFloat(),
-                        m.groupValues[2].toFloat(),
-                        m.groupValues[3].toFloat()
-                    )
-                )
+    private fun appendKmlGeometry(sb: StringBuilder, geometry: JsonObject, pad: String) {
+        when (geometry["type"]?.jsonPrimitive?.content) {
+            "Point" -> {
+                val point = coordinate(geometry["coordinates"] as? JsonArray)
+                if (point != null) sb.append("$pad<Point><coordinates>$point</coordinates></Point>\n")
             }
-        } else {
-            require(stlBytes.size >= 84) { "File STL binary tidak valid" }
-            val bb = ByteBuffer.wrap(stlBytes).order(ByteOrder.LITTLE_ENDIAN)
-            bb.position(80)
-            val triCount = bb.int
-            for (i in 0 until triCount) {
-                if (bb.remaining() < 50) break
-                bb.float; bb.float; bb.float // skip normal
-                repeat(3) {
-                    vertices.add(Triple(bb.float, bb.float, bb.float))
+            "MultiPoint" -> {
+                val points = geometry["coordinates"]?.jsonArray ?: return
+                sb.append("$pad<MultiGeometry>\n")
+                points.forEach { value ->
+                    coordinate(value as? JsonArray)?.let {
+                        sb.append("$pad  <Point><coordinates>$it</coordinates></Point>\n")
+                    }
                 }
-                bb.short // attribute byte count
+                sb.append("$pad</MultiGeometry>\n")
             }
+            "LineString" -> {
+                val line = coordinateLine(geometry["coordinates"] as? JsonArray)
+                if (line != null) sb.append("$pad<LineString><coordinates>$line</coordinates></LineString>\n")
+            }
+            "MultiLineString", "Polygon" -> {
+                val rings = geometry["coordinates"]?.jsonArray ?: return
+                if (geometry["type"]?.jsonPrimitive?.content == "MultiLineString") {
+                    sb.append("$pad<MultiGeometry>\n")
+                    rings.forEach { ring ->
+                        coordinateLine(ring as? JsonArray)?.let {
+                            sb.append("$pad  <LineString><coordinates>$it</coordinates></LineString>\n")
+                        }
+                    }
+                    sb.append("$pad</MultiGeometry>\n")
+                } else {
+                    appendPolygon(sb, rings, pad)
+                }
+            }
+            "MultiPolygon" -> {
+                val polygons = geometry["coordinates"]?.jsonArray ?: return
+                sb.append("$pad<MultiGeometry>\n")
+                polygons.forEach { polygon ->
+                    (polygon as? JsonArray)?.let { appendPolygon(sb, it, "$pad  ") }
+                }
+                sb.append("$pad</MultiGeometry>\n")
+            }
+            "GeometryCollection" -> {
+                val geometries = geometry["geometries"]?.jsonArray ?: return
+                sb.append("$pad<MultiGeometry>\n")
+                geometries.forEach { child ->
+                    (child as? JsonObject)?.let { appendKmlGeometry(sb, it, "$pad  ") }
+                }
+                sb.append("$pad</MultiGeometry>\n")
+            }
+            null -> Unit
         }
+    }
+
+    private fun appendPolygon(sb: StringBuilder, rings: JsonArray, pad: String) {
+        if (rings.isEmpty()) return
+        sb.append("$pad<Polygon>\n")
+        val outer = coordinateLine(rings[0] as? JsonArray)
+        if (outer != null) {
+            sb.append("$pad  <outerBoundaryIs><LinearRing><coordinates>$outer</coordinates></LinearRing></outerBoundaryIs>\n")
+        }
+        for (i in 1 until rings.size) {
+            val inner = coordinateLine(rings[i] as? JsonArray) ?: continue
+            sb.append("$pad  <innerBoundaryIs><LinearRing><coordinates>$inner</coordinates></LinearRing></innerBoundaryIs>\n")
+        }
+        sb.append("$pad</Polygon>\n")
+    }
+
+    private fun coordinate(value: JsonArray?): String? {
+        if (value == null || value.size < 2) return null
+        val lon = value[0].jsonPrimitive.doubleOrNull() ?: return null
+        val lat = value[1].jsonPrimitive.doubleOrNull() ?: return null
+        val alt = if (value.size > 2) value[2].jsonPrimitive.doubleOrNull() ?: 0.0 else 0.0
+        return "$lon,$lat,$alt"
+    }
+
+    private fun coordinateLine(value: JsonArray?): String? {
+        if (value == null || value.isEmpty()) return null
+        val points = value.mapNotNull { coordinate(it as? JsonArray) }
+        return if (points.size < 2) null else points.joinToString(" ")
+    }
+
+    private fun JsonPrimitive.doubleOrNull(): Double? =
+        if (this is JsonNull) null else runCatching { double }.getOrNull()
+
+    private fun JsonPrimitive.contentOrNull(): String? =
+        if (this is JsonNull) null else runCatching { content }.getOrNull()
+
+    fun stlToObj(stlBytes: ByteArray): String {
+        val vertices = when {
+            isBinaryStl(stlBytes) -> parseBinaryStl(stlBytes)
+            looksLikeAsciiStl(stlBytes) -> parseAsciiStl(stlBytes.toString(Charsets.UTF_8))
+            else -> error("STL tidak dikenali (bukan ASCII ber-'facet normal' maupun binary 84+50n byte)")
+        }
+        require(vertices.size % 3 == 0) { "Jumlah verteks STL bukan kelipatan 3" }
+        require(vertices.isNotEmpty()) { "STL tidak berisi segitiga" }
         val sb = StringBuilder("# Converted by HariMu STL->OBJ\n")
         vertices.forEach { (x, y, z) -> sb.append("v $x $y $z\n") }
         var idx = 1
@@ -382,6 +478,50 @@ object ConverterEngine {
             idx += 3
         }
         return sb.toString()
+    }
+
+    /**
+     * Deteksi binary memakai ukuran pasti `84 + 50 × jumlah segitiga`. Ini lebih andal daripada
+     * memeriksa kata "solid", karena banyak STL binary juga diawali "solid".
+     */
+    fun isBinaryStl(bytes: ByteArray): Boolean {
+        if (bytes.size < 84) return false
+        val triangles = ByteBuffer.wrap(bytes, 80, 4).order(ByteOrder.LITTLE_ENDIAN).int
+        if (triangles <= 0) return false
+        return 84L + 50L * triangles == bytes.size.toLong()
+    }
+
+    fun looksLikeAsciiStl(bytes: ByteArray): Boolean {
+        val head = bytes.toString(Charsets.UTF_8).take(2048)
+        return head.trimStart().startsWith("solid") &&
+            (head.contains("facet normal") || head.contains("endsolid"))
+    }
+
+    private fun parseBinaryStl(bytes: ByteArray): List<Triple<Float, Float, Float>> {
+        require(bytes.size >= 84) { "File STL binary tidak valid" }
+        val bb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        bb.position(80)
+        val triangles = bb.int
+        val vertices = ArrayList<Triple<Float, Float, Float>>(triangles * 3)
+        for (i in 0 until triangles) {
+            if (bb.remaining() < 50) break
+            bb.float
+            bb.float
+            bb.float // normal diabaikan
+            repeat(3) { vertices.add(Triple(bb.float, bb.float, bb.float)) }
+            bb.short
+        }
+        return vertices
+    }
+
+    private fun parseAsciiStl(text: String): List<Triple<Float, Float, Float>> {
+        val regex = Regex("(?im)^\\s*vertex\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)")
+        return regex.findAll(text).mapNotNull { match ->
+            val x = match.groupValues[1].toFloatOrNull()
+            val y = match.groupValues[2].toFloatOrNull()
+            val z = match.groupValues[3].toFloatOrNull()
+            if (x == null || y == null || z == null) null else Triple(x, y, z)
+        }.toList()
     }
 
     private fun escapeXml(s: String): String = s

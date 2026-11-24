@@ -36,7 +36,7 @@
     <string name="group_pdf_title">PDF Vault</string>
     <string name="group_pdf_subtitle">Merge, split, rotate, watermark &amp; compare</string>
     <string name="group_converter_title">Universal Converter</string>
-    <string name="group_converter_subtitle">ZIP/AES archives, JSON/XML, 3D &amp; code</string>
+    <string name="group_converter_subtitle">Archives, EPUB/comics, fonts, JSON/XML, 3D &amp; code</string>
 
     <!-- Shared Components & Actions -->
     <string name="catalog_all_count">All (%1$d)</string>

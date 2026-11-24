@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.ViewInAr
+import com.harimu.app.core.engines.ArchiveEngine
 import com.harimu.app.core.engines.ConverterEngine
 import com.harimu.app.core.engines.PdfEngine
 import com.harimu.app.core.toolapi.InputSpec
@@ -56,15 +57,35 @@ fun converterTools(): List<Tool> = listOf(
         override val engineLabel = "ZIP"
         override val icon = Icons.Filled.FolderZip
         override val inputSpec = InputSpec.ZipFile
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "ZIP Archive Inspector" else "Inspeksi & Ekstrak ZIP"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Inspect archive file list, sizes, and repack cleanly." else "Periksa daftar file, ukuran terkompres, dan kemas ulang ZIP."
+        override val params = listOf(
+            ToolParam.TextParam(
+                "password", "Kata Sandi ZIP", "ZIP Password", "",
+                "Kosongkan bila tidak ada", "Leave empty if none"
+            )
+        )
+        override fun title(isEnglish: Boolean) = if (isEnglish) "Universal Archive Extractor" else "Ekstraktor Arsip Universal"
+        override fun description(isEnglish: Boolean) = if (isEnglish) {
+            "List and extract ZIP contents into a clean ZIP. Entry paths are sanitized (zip-slip) and size/ratio caps block zip bombs."
+        } else {
+            "Tampilkan daftar isi dan ekstrak ZIP menjadi ZIP bersih. Path entri divalidasi (zip-slip) dan batas ukuran/rasio mencegah zip bomb."
+        }
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih file .zip")
-            emit(ToolProgress.Running(45, "Membaca entri arsip ZIP..."))
-            val dest = ctx.storage.createOutputFile("ZIP_CLEAN", "zip")
-            val (_, report) = ConverterEngine.inspectAndRepackZip(ctx.appContext, ctx.storage, uri, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/zip", dest.name)), textOutput = report, summary = "Arsip ZIP diinspeksi")))
+            emit(ToolProgress.Running(40, "Memvalidasi dan mengekstrak entri ZIP…"))
+            val dest = ctx.storage.createOutputFile("ZIP_EXTRACT", "zip")
+            val result = ArchiveEngine.extractToZip(
+                ctx.appContext, ctx.storage, uri, dest,
+                input.getString("password", ""), ctx.storage.getDisplayName(uri)
+            )
+            emit(
+                ToolProgress.Done(
+                    ToolResult(
+                        listOf(ToolOutputFile(dest, "application/zip", dest.name)),
+                        textOutput = result.report(ctx.storage, ctx.isEnglish),
+                        summary = "${result.extracted}/${result.entries.size} entri diekstrak (${ctx.storage.formatBytes(dest.length())})"
+                    )
+                )
+            )
         }.flowOn(Dispatchers.IO)
     },
     object : Tool {
@@ -74,25 +95,63 @@ fun converterTools(): List<Tool> = listOf(
         override val icon = Icons.Filled.Lock
         override val inputSpec = InputSpec.AnyFile
         override val params = listOf(
-            ToolParam.DropdownParam("mode", "Operasi", "Operation", listOf("Enkripsi ke .hzm", "Dekripsi .hzm ke .zip"), "Enkripsi ke .hzm"),
-            ToolParam.TextParam("password", "Kata Sandi", "Password", "harimu1234", "Minimal 4 karakter", "Min 4 chars")
+            ToolParam.DropdownParam(
+                "mode", "Operasi", "Operation",
+                listOf("Enkripsi ZIP AES-256", "Dekripsi ZIP AES-256"), "Enkripsi ZIP AES-256"
+            ),
+            ToolParam.TextParam("password", "Kata Sandi", "Password", "", "Minimal 4 karakter", "Min 4 chars")
         )
         override fun title(isEnglish: Boolean) = if (isEnglish) "AES-256 Encrypted Archive" else "Arsip Terenkripsi AES-256"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Encrypt or decrypt files using PBKDF2 + AES-256-GCM." else "Kunci file sensitif ke arsip AES-256-GCM (.hzm) atau buka kembali."
+        override fun description(isEnglish: Boolean) = if (isEnglish) {
+            "Create or open standard AES-256 ZIP archives (zip4j). The password is never stored in the output, name, or logs."
+        } else {
+            "Buat atau buka ZIP AES-256 standar (zip4j). Kata sandi tidak pernah disimpan di keluaran, nama berkas, maupun log."
+        }
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uris = input.uris
             require(uris.isNotEmpty()) { "Pilih minimal 1 file" }
             val pass = input.getString("password", "")
-            val decrypt = input.getString("mode").startsWith("Dekripsi")
+            val decrypt = input.getString("mode", "").startsWith("Dekripsi")
             if (decrypt) {
-                val raw = ctx.appContext.contentResolver.openInputStream(uris.first())?.use { it.readBytes() } ?: error("Gagal membaca file")
+                require(pass.isNotBlank()) { "Masukkan kata sandi untuk mendekripsi" }
+                val raw = ctx.appContext.contentResolver.openInputStream(uris.first())?.use { it.readBytes() }
+                    ?: error("Gagal membaca file")
                 val dest = ctx.storage.createOutputFile("DECRYPTED", "zip")
-                ConverterEngine.decryptArchiveToZip(raw, pass, dest)
-                emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/zip", dest.name)), summary = "Arsip didekripsi ke ZIP")))
+                val legacy = raw.size > 8 && raw.copyOfRange(0, 8).contentEquals("HARIMUA1".toByteArray(Charsets.UTF_8))
+                if (legacy) {
+                    ConverterEngine.decryptArchiveToZip(raw, pass, dest)
+                    emit(
+                        ToolProgress.Done(
+                            ToolResult(
+                                listOf(ToolOutputFile(dest, "application/zip", dest.name)),
+                                summary = "Arsip .hzm lama (AES-256-GCM) didekripsi ke ZIP"
+                            )
+                        )
+                    )
+                } else {
+                    emit(ToolProgress.Running(50, "Mendekripsi ZIP AES-256…"))
+                    val count = ArchiveEngine.decryptZipToPlain(ctx.appContext, ctx.storage, uris.first(), pass, dest)
+                    emit(
+                        ToolProgress.Done(
+                            ToolResult(
+                                listOf(ToolOutputFile(dest, "application/zip", dest.name)),
+                                summary = "$count entri didekripsi ke ZIP"
+                            )
+                        )
+                    )
+                }
             } else {
-                val dest = ctx.storage.createOutputFile("ENCRYPTED", "hzm")
-                ConverterEngine.createEncryptedArchive(ctx.appContext, ctx.storage, uris, pass, dest)
-                emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/octet-stream", dest.name)), summary = "${uris.size} file dikunci AES-256-GCM")))
+                val dest = ctx.storage.createOutputFile("ENCRYPTED", "zip")
+                emit(ToolProgress.Running(50, "Mengenkripsi ZIP AES-256…"))
+                val count = ArchiveEngine.createAesZip(ctx.appContext, ctx.storage, uris, pass, dest)
+                emit(
+                    ToolProgress.Done(
+                        ToolResult(
+                            listOf(ToolOutputFile(dest, "application/zip", dest.name)),
+                            summary = "$count file dikunci ZIP AES-256 (${ctx.storage.formatBytes(dest.length())})"
+                        )
+                    )
+                )
             }
         }.flowOn(Dispatchers.IO)
     },

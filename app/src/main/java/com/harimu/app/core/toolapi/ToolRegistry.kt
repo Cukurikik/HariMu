@@ -4,12 +4,12 @@ import com.harimu.app.feature.tools.InternalMediaTestTool
 import com.harimu.app.feature.tools.aiCloudTools
 import com.harimu.app.feature.tools.aiLocalTools
 import com.harimu.app.feature.tools.audioTools
+import com.harimu.app.feature.tools.converterSuiteTools
 import com.harimu.app.feature.tools.converterTools
 import com.harimu.app.feature.tools.coreTools
 import com.harimu.app.feature.tools.imageTools
 import com.harimu.app.feature.tools.pdfVaultTools
 import com.harimu.app.feature.tools.stubAudioTools
-import com.harimu.app.feature.tools.stubConverterTools
 import com.harimu.app.feature.tools.stubCoreTools
 import com.harimu.app.feature.tools.stubImageTools
 import com.harimu.app.feature.tools.stubVideoTools
@@ -24,7 +24,7 @@ object ToolRegistry {
             audioTools() + stubAudioTools() +
             imageTools() + stubImageTools() +
             pdfVaultTools() +
-            converterTools() + stubConverterTools()
+            converterTools() + converterSuiteTools()
 
         combined.distinctBy { it.id }.sortedWith(
             compareBy<Tool>(

@@ -24,6 +24,11 @@ androidxTestExtJunit = "1.3.0"
 okhttp = "4.12.0"
 pdfboxAndroid = "2.0.27.0"
 tesseract4android = "4.8.0"
+androidsvg = "1.4"
+commonsCompress = "1.27.1"
+xz = "1.10"
+junrar = "7.5.5"
+zip4j = "2.11.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +69,11 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit-ktx", ver
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
 tesseract4android = { group = "com.github.adaptech-cz.Tesseract4Android", name = "tesseract4android-openmp", version.ref = "tesseract4android" }
+androidsvg = { group = "com.caverock", name = "androidsvg", version.ref = "androidsvg" }
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
+xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
+junrar = { group = "com.github.junrar", name = "junrar", version.ref = "junrar" }
+zip4j = { group = "net.lingala.zip4j", name = "zip4j", version.ref = "zip4j" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

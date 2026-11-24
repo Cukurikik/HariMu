@@ -173,34 +173,34 @@
 
 | ID | Tool | Engine | Fase | Alias / Catatan |
 |---|---|---|---|---|
-| CNV-01 | Universal Video Transcoder | FF | P13 | alias VID-18 |
-| CNV-02 | Video to Animated GIF | FF | P13 | alias VID-06 |
-| CNV-03 | Video to Audio Extractor (MP3/WAV/FLAC/AAC) | FF | P13 | perluasan VID-08 |
-| CNV-04 | Video Upscaler (AI) 2x | ML | P13 | alias VID-07 |
-| CNV-05 | Universal Audio Transcoder | FF | P13 | alias AUD-13 |
-| CNV-06 | Hi-Res Lossless Converter | FF | P13 | FLAC/WAV |
-| CNV-07 | Voice to Text Converter | ML/CL | P13 | alias AUD-27 |
-| CNV-08 | 8D / Spatial Audio Generator | FF | P13 | alias AUD-05 |
-| CNV-09 | Universal Image Converter (PNG/JPG/WebP/AVIF) | NAT | P13 | alias IMG-23 |
-| CNV-10 | SVG to Raster (PNG/JPG) | LIB | P13 | |
-| CNV-11 | Icon Asset Generator (+favicon) | NAT | P13 | alias IMG-24 |
-| CNV-12 | Base64 Image Encoder | NAT | P13 | alias IMG-25 |
-| CNV-13 | PDF to Word / Word to PDF | CL | P13 | alias PDF-06/07 |
-| CNV-14 | PDF to Image Matrix | NAT | P13 | PdfRenderer |
-| CNV-15 | OCR Document Scanner → .txt | ML/LIB | P13 | alias PDF-15 |
-| CNV-16 | Universal Archive Extractor (.zip) | LIB | P13 | |
-| CNV-17 | Cross-Archive Converter (ZIP/RAR/7Z/TAR.GZ) | LIB | P13 | RAR hanya baca; tulis RAR tidak didukung → catat |
-| CNV-18 | AES-256 Encrypted Archive | LIB | P13 | zip4j |
-| CNV-19 | EPUB Converter | LIB | P13 | 🔴 kualitas konversi |
-| CNV-20 | Comic Book Converter (CBZ/CBR → PDF/EPUB) | LIB | P13 | |
-| CNV-21 | Universal Font Converter (TTF/OTF/WOFF/WOFF2) | LIB/CL | P13 | 🔴 OTF↔TTF sulit; WOFF/WOFF2 lebih mudah |
-| CNV-22 | Web-Font Optimizer (subsetting) | LIB/CL | P13 | 🔴 |
-| CNV-23 | JSON ⇄ XML | NAT | P13 | |
-| CNV-24 | CSV ⇄ TSV | NAT | P13 | |
-| CNV-25 | Code Formatter (JSON/kode) | LIB | P13 | |
-| CNV-26 | Markdown to HTML | LIB | P13 | |
-| CNV-27 | GeoJSON to KML | NAT | P13 | |
-| CNV-28 | STL to OBJ | NAT | P13 | parser sendiri (ASCII + binary) |
+| CNV-01 | Universal Video Transcoder | FF | P13 | ✅ alias VID-18 (MP4/WebM/AVI/MKV) |
+| CNV-02 | Video to Animated GIF | FF | P13 | ✅ alias VID-06 (palet 2-pass) |
+| CNV-03 | Video to Audio Extractor (MP3/WAV/FLAC/AAC) | FF | P13 | ✅ perluasan VID-08 (4 format; WAV/FLAC hanya wadah lossless dari audio terdekode) |
+| CNV-04 | Video Upscaler (AI) 2x | ML | P13 | ✅ alias VID-07 (FFmpeg lanczos + unsharp, bukan model neural) |
+| CNV-05 | Universal Audio Transcoder | FF | P13 | ✅ alias AUD-13 (MP3/WAV/OGG/FLAC/M4A/OPUS) |
+| CNV-06 | Hi-Res Lossless Converter | FF | P13 | ✅ FLAC/WAV 24-bit hingga 96 kHz (upsampling tidak menambah detail) |
+| CNV-07 | Voice to Text Converter | ML/CL | P13 | ✅ alias AUD-27 (butuh AI Gateway; tanpa kredensial gagal jelas) |
+| CNV-08 | 8D / Spatial Audio Generator | FF | P13 | ✅ alias AUD-05 |
+| CNV-09 | Universal Image Converter (PNG/JPG/WebP/AVIF) | NAT | P13 | ✅ alias IMG-23 (AVIF/HEIC tergantung dukungan perangkat) |
+| CNV-10 | SVG to Raster (PNG/JPG) | SVG | P13 | ✅ AndroidSVG 1.4; filter efek/teks font sistem/animasi tidak dirender; maks 4096 px |
+| CNV-11 | Icon Asset Generator (+favicon) | NAT | P13 | ✅ alias IMG-24 |
+| CNV-12 | Base64 Image Encoder | NAT | P13 | ✅ alias IMG-25 |
+| CNV-13 | PDF to Word / Word to PDF | LIB | P13 | ✅ router ke PDF-06 (.pdf) / PDF-07 (.docx); konversi "Dasar" |
+| CNV-14 | PDF to Image Matrix | NAT | P13 | ✅ PdfRenderer → ZIP PNG/JPG (skala 1–3x) |
+| CNV-15 | OCR Document Scanner → .txt | ML/LIB | P13 | ✅ alias PDF-15 (OCR 8 bahasa, data bahasa diunduh saat dipakai) |
+| CNV-16 | Universal Archive Extractor (.zip) | LIB | P13 | ✅ daftar isi + ekstrak; nama entri disanitasi (zip-slip), batas 128 MB/entri & 512 MB total, rasio 200x (zip bomb) |
+| CNV-17 | Cross-Archive Converter (ZIP/RAR/7Z/TAR.GZ) | LIB | P13 | ✅ ZIP/TAR.GZ/7Z/RAR → ZIP; **RAR hanya dibaca**, tulis RAR tidak didukung |
+| CNV-18 | AES-256 Encrypted Archive | LIB | P13 | ✅ ZIP AES-256 standar via zip4j (kompatibel 7-Zip/WinRAR); kata sandi tidak disimpan; .hzm lama masih bisa dibuka |
+| CNV-19 | EPUB Converter | LIB | P13 | ✅ EPUB → TXT/HTML/PDF berdasarkan spine; teks saja, gambar/CSS/DRM tidak didukung |
+| CNV-20 | Comic Book Converter (CBZ/CBR → PDF/EPUB) | LIB | P13 | ✅ CBZ (ZIP) & CBR (RAR baca-saja); urutan halaman natural; EPUB keluaran minimal |
+| CNV-21 | Universal Font Converter (TTF/OTF/WOFF/WOFF2) | LIB | P13 | ✅ TTF/OTF ⇄ WOFF 1.0. **WOFF2 ditolak** (butuh Brotli + transformasi glyf). OTF(CFF) ⇄ TTF ditolak (konversi outline tidak tersedia) |
+| CNV-22 | Web-Font Optimizer (subsetting) | LIB | P13 | ✅ subset TrueType per karakter + ekspor WOFF; tabel hinting/tata letak dibuang; font CFF & WOFF2 ditolak |
+| CNV-23 | JSON ⇄ XML | NAT | P13 | ✅ dua arah; nama elemen disanitasi, array/null didukung |
+| CNV-24 | CSV ⇄ TSV | NAT | P13 | ✅ RFC-4180 (kutip ganda, `""`, baris baru dalam sel, CRLF) |
+| CNV-25 | Code Formatter (JSON/kode) | NAT | P13 | ✅ pretty/minify JSON + pretty CSS |
+| CNV-26 | Markdown to HTML | NAT | P13 | ✅ heading, list, blockquote, hr, kode berpagar, tautan; URL `javascript:`/`data:` ditolak |
+| CNV-27 | GeoJSON to KML | NAT | P13 | ✅ Point/LineString/Polygon (termasuk lubang), Multi*, GeometryCollection |
+| CNV-28 | STL to OBJ | NAT | P13 | ✅ ASCII + binary (deteksi ukuran `84+50n`), normal diabaikan |
 
 ---
 

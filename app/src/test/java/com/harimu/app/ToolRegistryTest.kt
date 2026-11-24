@@ -76,6 +76,15 @@ class ToolRegistryTest {
         assertTrue(pdfRedact.any { it.id == "PDF-14" && !it.isStub })
 
         val base64 = ToolRegistry.search("Base64", isEnglish = true, groupFilter = ToolGroup.CONVERTER)
-        assertTrue(base64.any { it.id == "CNV-12" && it.isStub })
+        assertTrue(base64.any { it.id == "CNV-12" && !it.isStub }) // FASE 13: alias IMG-25
+
+        val archive = ToolRegistry.search("Cross-Archive", isEnglish = true, groupFilter = ToolGroup.CONVERTER)
+        assertTrue(archive.any { it.id == "CNV-17" && !it.isStub })
+
+        val font = ToolRegistry.search("Web-Font", isEnglish = true, groupFilter = ToolGroup.CONVERTER)
+        assertTrue(font.any { it.id == "CNV-22" && !it.isStub })
+
+        val converterStubs = ToolRegistry.byGroup(ToolGroup.CONVERTER).filter { it.isStub }
+        assertTrue("All converter tools must be implemented in Fase 13: $converterStubs", converterStubs.isEmpty())
     }
 }

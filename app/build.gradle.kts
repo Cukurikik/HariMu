@@ -127,6 +127,11 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.pdfbox.android)
     implementation(libs.tesseract4android)
+    implementation(libs.androidsvg)
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
+    implementation(libs.junrar)
+    implementation(libs.zip4j)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

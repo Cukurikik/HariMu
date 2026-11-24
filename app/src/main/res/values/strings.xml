@@ -36,7 +36,7 @@
     <string name="group_pdf_title">PDF Vault</string>
     <string name="group_pdf_subtitle">Gabung, pisah, putar, watermark &amp; banding</string>
     <string name="group_converter_title">Universal Converter</string>
-    <string name="group_converter_subtitle">Arsip ZIP/AES, JSON/XML, 3D &amp; kode</string>
+    <string name="group_converter_subtitle">Arsip, EPUB/komik, font, JSON/XML, 3D &amp; kode</string>
 
     <!-- Komponen Bersama & Aksi -->
     <string name="catalog_all_count">Semua (%1$d)</string>
