@@ -1,6 +1,6 @@
 {
   "name": "HariMu",
-  "description": "Aplikasi utilitas serbaguna Android untuk video, audio, gambar, PDF, konverter format, perekam suara, dan brankas kunci kriptografi.",
+  "description": "Aplikasi utilitas Android offline-first untuk video, audio, gambar, PDF, konverter format, perekam layar/suara, brankas kunci kriptografi, backup .omni, dan koneksi cloud opsional (S3/R2, Google Drive, Dropbox, REST). AI memakai gateway sendiri, bukan Gemini SDK di klien.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

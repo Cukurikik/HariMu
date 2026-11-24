@@ -14,6 +14,15 @@ export function fromBase64url(text: string): Uint8Array {
   return out;
 }
 
+/** Varian aman: input rusak mengembalikan null (bukan exception 500). */
+export function tryFromBase64url(text: string): Uint8Array | null {
+  try {
+    return fromBase64url(text);
+  } catch {
+    return null;
+  }
+}
+
 export async function hmacSha256(secret: string, data: string): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(
     "raw",

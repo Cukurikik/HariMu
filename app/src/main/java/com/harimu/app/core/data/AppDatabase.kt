@@ -15,7 +15,7 @@ import androidx.room.RoomDatabase
         AudioProjectEntity::class
     ],
     version = 4,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
@@ -30,7 +30,12 @@ abstract class AppDatabase : RoomDatabase() {
             context.applicationContext,
             AppDatabase::class.java,
             "harimu.db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        )
+            // Hanya downgrade yang boleh destruktif. Upgrade versi skema WAJIB punya
+            // Migration eksplisit (lihat docs/DECISIONS.md §18) supaya riwayat, favorit,
+            // kunci vault, dan proyek tidak pernah terhapus diam-diam.
+            .fallbackToDestructiveMigrationOnDowngrade()
+            .build()
     }
 }
 

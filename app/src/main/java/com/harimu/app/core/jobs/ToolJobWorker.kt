@@ -16,11 +16,18 @@ import com.harimu.app.R
 import com.harimu.app.core.data.AppDatabase
 import com.harimu.app.core.data.HistoryEntity
 import com.harimu.app.core.files.FileStorageManager
+import com.harimu.app.core.toolapi.ToolContext
+import com.harimu.app.core.toolapi.ToolInputCodec
+import com.harimu.app.core.toolapi.ToolOutputCodec
+import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.core.toolapi.ToolRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 
 class ToolJobWorker(
@@ -123,18 +130,16 @@ class ToolJobWorker(
                     )
                 )
             } else {
-                val msg = applicationContext.getString(R.string.badge_coming_soon)
-                jobDao.updateCompletion(
+                return runRealTool(
                     jobId = jobId,
-                    status = STATUS_FAILED,
-                    percent = 0,
-                    message = msg,
-                    outputPath = "",
-                    outputMime = "",
-                    summary = "",
-                    errorMessage = msg
+                    toolId = toolId,
+                    toolTitle = toolTitle,
+                    groupName = groupName,
+                    isEnglish = isEnglish,
+                    notificationId = notificationId,
+                    db = db,
+                    storage = storage
                 )
-                return Result.failure(workDataOf(KEY_ERROR to msg))
             }
         } catch (ce: CancellationException) {
             withContext(NonCancellable) {
@@ -171,6 +176,138 @@ class ToolJobWorker(
                 storage.cleanupJobTemp(jobId)
                 app?.container?.jobManager?.onWorkerFinished(jobId)
             }
+        }
+    }
+
+    /**
+     * Menjalankan tool nyata di dalam WorkManager (FASE 15/H5): proses bertahan saat layar mati
+     * berkat foreground service `dataSync`, progres ditulis ke Room, dan hasil dikembalikan lewat
+     * `outputsJson` agar UI bisa menampilkan semua berkas.
+     */
+    private suspend fun runRealTool(
+        jobId: String,
+        toolId: String,
+        toolTitle: String,
+        groupName: String,
+        isEnglish: Boolean,
+        notificationId: Int,
+        db: AppDatabase,
+        storage: FileStorageManager
+    ): Result {
+        val jobDao = db.jobDao()
+        val tool = ToolRegistry.findById(toolId)
+        val inputJson = inputData.getString(KEY_INPUT_JSON).orEmpty().ifBlank {
+            runCatching {
+                java.io.File(storage.createJobTempDir(jobId), "input.json")
+                    .takeIf { it.exists() }?.readText(Charsets.UTF_8)
+            }.getOrNull().orEmpty()
+        }
+        if (tool == null) {
+            val msg = "Tool $toolId tidak terdaftar"
+            jobDao.updateCompletion(jobId, STATUS_FAILED, 0, msg, "", "", "", msg)
+            return Result.failure(workDataOf(KEY_ERROR to msg))
+        }
+        val container = (applicationContext as? HariMuApp)?.container
+        val ctx = ToolContext(
+            appContext = applicationContext,
+            storage = storage,
+            isEnglish = isEnglish,
+            ai = container?.aiClient,
+            models = container?.modelManager
+        )
+        val input = ToolInputCodec.decode(inputJson)
+        var lastMessage = applicationContext.getString(R.string.progress_queued)
+
+        return try {
+            val terminal = tool.run(ctx, input)
+                .onEach { progress ->
+                    currentCoroutineContext().ensureActive()
+                    if (isStopped) throw CancellationException("Worker stopped")
+                    when (progress) {
+                        is ToolProgress.Queued -> {
+                            lastMessage = applicationContext.getString(R.string.progress_queued)
+                        }
+                        is ToolProgress.Running -> {
+                            lastMessage = progress.message
+                            jobDao.updateProgress(jobId, STATUS_RUNNING, progress.percent.coerceIn(0, 100), progress.message)
+                            setProgress(
+                                workDataOf(
+                                    KEY_PROGRESS_PERCENT to progress.percent,
+                                    KEY_PROGRESS_MESSAGE to progress.message
+                                )
+                            )
+                            runCatching {
+                                setForeground(
+                                    createForegroundInfo(notificationId, toolTitle, progress.percent, progress.message)
+                                )
+                            }
+                        }
+                        else -> Unit
+                    }
+                }
+                .first { it is ToolProgress.Done || it is ToolProgress.Failed }
+
+            when (terminal) {
+                is ToolProgress.Done -> {
+                    val outputs = terminal.result.outputs
+                    val first = outputs.firstOrNull()
+                    val summary = terminal.result.summary
+                    jobDao.updateCompletion(
+                        jobId = jobId,
+                        status = STATUS_SUCCEEDED,
+                        percent = 100,
+                        message = summary,
+                        outputPath = first?.file?.absolutePath ?: "",
+                        outputMime = first?.mimeType ?: "text/plain",
+                        summary = summary,
+                        errorMessage = ""
+                    )
+                    if (outputs.isNotEmpty()) {
+                        db.historyDao().insert(
+                            HistoryEntity(
+                                toolId = toolId,
+                                toolTitle = toolTitle,
+                                groupName = groupName,
+                                outputPath = first?.file?.absolutePath ?: "",
+                                outputName = first?.displayName ?: toolTitle,
+                                mimeType = first?.mimeType ?: "text/plain",
+                                fileSizeBytes = first?.file?.length() ?: 0L,
+                                summary = summary,
+                                success = true
+                            )
+                        )
+                    }
+                    val entries = outputs.map {
+                        ToolOutputCodec.Entry(it.file.absolutePath, it.mimeType, it.displayName)
+                    }
+                    runCatching { setForeground(createForegroundInfo(notificationId, toolTitle, 100, summary)) }
+                    Result.success(
+                        workDataOf(
+                            KEY_OUTPUT_PATH to (first?.file?.absolutePath ?: ""),
+                            KEY_OUTPUT_MIME to (first?.mimeType ?: "text/plain"),
+                            KEY_SUMMARY to summary,
+                            KEY_OUTPUTS_JSON to ToolOutputCodec.encode(entries),
+                            KEY_TEXT_OUTPUT to (terminal.result.textOutput ?: "")
+                        )
+                    )
+                }
+                is ToolProgress.Failed -> {
+                    jobDao.updateCompletion(jobId, STATUS_FAILED, 0, terminal.error, "", "", "", terminal.error)
+                    Result.failure(workDataOf(KEY_ERROR to terminal.error))
+                }
+                else -> {
+                    jobDao.updateCompletion(jobId, STATUS_FAILED, 0, lastMessage, "", "", "", lastMessage)
+                    Result.failure(workDataOf(KEY_ERROR to lastMessage))
+                }
+            }
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            val err = t.localizedMessage ?: "Tool gagal dijalankan"
+            withContext(NonCancellable) {
+                jobDao.updateCompletion(jobId, STATUS_FAILED, 0, err, "", "", "", err)
+            }
+            Result.failure(workDataOf(KEY_ERROR to err))
         }
     }
 
@@ -227,11 +364,14 @@ class ToolJobWorker(
         const val KEY_GROUP_NAME = "group_name"
         const val KEY_IS_DUMMY = "is_dummy"
         const val KEY_IS_ENGLISH = "is_english"
+        const val KEY_INPUT_JSON = "input_json"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
         const val KEY_PROGRESS_MESSAGE = "progress_message"
         const val KEY_OUTPUT_PATH = "output_path"
         const val KEY_OUTPUT_MIME = "output_mime"
         const val KEY_SUMMARY = "summary"
+        const val KEY_OUTPUTS_JSON = "outputs_json"
+        const val KEY_TEXT_OUTPUT = "text_output"
         const val KEY_ERROR = "error"
 
         const val STATUS_QUEUED = "QUEUED"

@@ -1,6 +1,6 @@
 import type { Env } from "./config";
 import { ApiError } from "./errors";
-import { base64url, hmacSha256, timingSafeEqual, fromBase64url } from "./http-util";
+import { base64url, hmacSha256, timingSafeEqual, tryFromBase64url } from "./http-util";
 
 /**
  * URL unduhan berumur pendek untuk artefak job.
@@ -46,8 +46,12 @@ export async function verifyDownload(
   if (!Number.isFinite(expiresAt) || !sig) {
     throw new ApiError(403, "forbidden", "URL unduhan tidak lengkap");
   }
+  const signatureBytes = tryFromBase64url(sig);
+  if (!signatureBytes) {
+    throw new ApiError(403, "forbidden", "Tanda tangan URL unduhan tidak valid");
+  }
   const expected = await hmacSha256(secret, `${objectKey}.${expiresAt}`);
-  if (!timingSafeEqual(expected, fromBase64url(sig))) {
+  if (!timingSafeEqual(expected, signatureBytes)) {
     throw new ApiError(403, "forbidden", "Tanda tangan URL unduhan tidak cocok");
   }
   if (expiresAt <= Math.floor(Date.now() / 1000)) {

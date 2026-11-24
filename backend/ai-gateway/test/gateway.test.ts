@@ -313,3 +313,38 @@ describe("routing", () => {
     expect(response.headers.get("access-control-allow-methods")).toContain("POST");
   });
 });
+
+describe("install hardening", () => {
+  it("rate-limits token issuance per IP", async () => {
+    const ip = `203.0.113.${Math.floor(Math.random() * 200) + 1}`;
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const response = await SELF.fetch(`${BASE}/v1/install`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "cf-connecting-ip": ip },
+        body: JSON.stringify({ installId: installId(`ip${i}`) }),
+      });
+      statuses.push(response.status);
+    }
+    expect(statuses.slice(0, 4).every((code) => code === 200)).toBe(true);
+    expect(statuses[4]).toBe(429);
+    expect(statuses[5]).toBe(429);
+  });
+
+  it("returns 401 (not 500) for a malformed bearer signature", async () => {
+    const base = installId("badsig");
+    const response = await SELF.fetch(`${BASE}/v1/quota`, {
+      headers: { authorization: `Bearer ${base}.eyJzdWIiOiJ4In0.%%%not-base64%%%` },
+    });
+    expect(response.status).toBe(401);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe("unauthorized");
+  });
+
+  it("returns 403 (not 500) for a malformed download signature", async () => {
+    const response = await SELF.fetch(`${BASE}/v1/download/abc.png?exp=9999999999&sig=%%%`);
+    expect(response.status).toBe(403);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe("forbidden");
+  });
+});

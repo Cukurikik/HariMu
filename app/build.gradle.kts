@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -19,26 +21,38 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Rilis hanya ditandatangani bila keystore sungguhan tersedia; clone bersih tetap bisa
+    // membangun debug (Gradle memakai debug keystore bawaan) dan release tanpa tanda tangan.
+    // Isi keystore.properties di root (JANGAN di-commit) atau set env HARIMU_KEYSTORE_*.
+    val releaseKeystoreProps = Properties().apply {
+        val propsFile = rootProject.file("keystore.properties")
+        if (propsFile.exists()) propsFile.inputStream().use { load(it) }
+    }
+    val releaseStorePath = releaseKeystoreProps.getProperty("storeFile")
+        ?: System.getenv("HARIMU_KEYSTORE_FILE")
+
     signingConfigs {
-        create("debugConfig") {
-            storeFile = file("${rootDir}/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        if (!releaseStorePath.isNullOrBlank()) {
+            create("releaseConfig") {
+                storeFile = rootProject.file(releaseStorePath)
+                storePassword = releaseKeystoreProps.getProperty("storePassword")
+                    ?: System.getenv("HARIMU_KEYSTORE_PASSWORD")
+                keyAlias = releaseKeystoreProps.getProperty("keyAlias") ?: System.getenv("HARIMU_KEY_ALIAS")
+                keyPassword = releaseKeystoreProps.getProperty("keyPassword")
+                    ?: System.getenv("HARIMU_KEY_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debugConfig")
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("debugConfig")
+            signingConfig = signingConfigs.findByName("releaseConfig")
         }
     }
 
@@ -88,6 +102,11 @@ android {
             }
         }
     }
+}
+
+ksp {
+    // Schema Room diekspor supaya migrasi versi berikutnya bisa ditulis & diuji.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

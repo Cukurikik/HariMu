@@ -22,6 +22,13 @@ export interface Env {
   DAILY_QUOTA?: string;
   MAX_UPLOAD_BYTES?: string;
   TOKEN_TTL_SEC?: string;
+  /** Batas penerbitan token baru per IP (anti token-farming). */
+  INSTALL_RATE_PER_MIN?: string;
+  INSTALL_DAILY_PER_IP?: string;
+  /** Bila di-set, /v1/install wajib menyertakan header x-install-key yang cocok. */
+  INSTALL_REGISTRATION_KEY?: string;
+  /** Origin yang diizinkan CORS; kosong berarti "*" (aman untuk Bearer token). */
+  ALLOWED_ORIGIN?: string;
   VIDEO_JOB_TTL_SEC?: string;
 }
 

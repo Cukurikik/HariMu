@@ -10,6 +10,8 @@ import com.harimu.app.core.data.JobDao
 import com.harimu.app.core.data.JobEntity
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.Tool
+import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolInputCodec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -75,6 +77,60 @@ class JobManager(
         )
         jobDao.upsert(entity)
 
+        if (queuePolicy.enqueue(jobId) == EnqueueOutcome.START_NOW) {
+            workManager.enqueue(request)
+        }
+        return entity
+    }
+
+    /** Menjalankan tool berat di WorkManager (foreground `dataSync`) alih-alih viewModelScope. */
+    suspend fun enqueueToolJob(tool: Tool, input: ToolInput, isEnglish: Boolean): JobEntity {
+        val jobId = UUID.randomUUID().toString()
+        val toolTitle = tool.title(isEnglish)
+        if (!storage.hasEnoughDiskSpace()) {
+            val lowDiskMsg = context.getString(R.string.job_error_low_disk)
+            val failed = JobEntity(
+                jobId = jobId,
+                workRequestId = "",
+                toolId = tool.id,
+                toolTitle = toolTitle,
+                groupName = tool.group.name,
+                isDummy = false,
+                status = ToolJobWorker.STATUS_FAILED,
+                progressPercent = 0,
+                progressMessage = lowDiskMsg,
+                errorMessage = lowDiskMsg
+            )
+            jobDao.upsert(failed)
+            return failed
+        }
+        val queuedMessage = context.getString(R.string.job_queued_message)
+        val inputJson = ToolInputCodec.encode(input)
+        // Disimpan juga di temp job agar job yang di-requeue (queuePolicy/recover) tetap punya input.
+        runCatching {
+            storage.createJobTempDir(jobId).resolve("input.json").writeText(inputJson, Charsets.UTF_8)
+        }
+        val request = buildWorkRequest(
+            jobId = jobId,
+            toolId = tool.id,
+            toolTitle = toolTitle,
+            groupName = tool.group.name,
+            isDummy = false,
+            isEnglish = isEnglish,
+            inputJson = inputJson
+        )
+        val entity = JobEntity(
+            jobId = jobId,
+            workRequestId = request.id.toString(),
+            toolId = tool.id,
+            toolTitle = toolTitle,
+            groupName = tool.group.name,
+            isDummy = false,
+            status = ToolJobWorker.STATUS_QUEUED,
+            progressPercent = 0,
+            progressMessage = queuedMessage
+        )
+        jobDao.upsert(entity)
         if (queuePolicy.enqueue(jobId) == EnqueueOutcome.START_NOW) {
             workManager.enqueue(request)
         }
@@ -197,13 +253,17 @@ class JobManager(
     private suspend fun dispatchQueuedJob(jobId: String) {
         val job = jobDao.getById(jobId) ?: return
         if (job.status == ToolJobWorker.STATUS_CANCELLED) return
+        val restoredInput = runCatching {
+            storage.createJobTempDir(jobId).resolve("input.json").takeIf { it.exists() }?.readText(Charsets.UTF_8)
+        }.getOrNull().orEmpty()
         val req = buildWorkRequest(
             jobId = job.jobId,
             toolId = job.toolId,
             toolTitle = job.toolTitle,
             groupName = job.groupName,
             isDummy = job.isDummy,
-            isEnglish = false
+            isEnglish = false,
+            inputJson = restoredInput
         )
         jobDao.upsert(job.copy(workRequestId = req.id.toString(), updatedAt = System.currentTimeMillis()))
         workManager.enqueue(req)
@@ -215,7 +275,8 @@ class JobManager(
         toolTitle: String,
         groupName: String,
         isDummy: Boolean,
-        isEnglish: Boolean
+        isEnglish: Boolean,
+        inputJson: String = ""
     ) = OneTimeWorkRequestBuilder<ToolJobWorker>()
         .addTag(ToolJobWorker.TAG_HARIMU_JOB)
         .addTag(jobId)
@@ -226,7 +287,8 @@ class JobManager(
                 ToolJobWorker.KEY_TOOL_TITLE to toolTitle,
                 ToolJobWorker.KEY_GROUP_NAME to groupName,
                 ToolJobWorker.KEY_IS_DUMMY to isDummy,
-                ToolJobWorker.KEY_IS_ENGLISH to isEnglish
+                ToolJobWorker.KEY_IS_ENGLISH to isEnglish,
+                ToolJobWorker.KEY_INPUT_JSON to inputJson
             )
         )
         .build()

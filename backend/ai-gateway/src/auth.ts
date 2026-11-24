@@ -1,7 +1,7 @@
 import type { Env } from "./config";
 import { num } from "./config";
 import { ApiError } from "./errors";
-import { base64url, fromBase64url, hmacSha256, timingSafeEqual } from "./http-util";
+import { base64url, hmacSha256, timingSafeEqual, tryFromBase64url } from "./http-util";
 
 interface TokenPayload {
   sub: string;
@@ -54,14 +54,25 @@ export async function requireInstallToken(request: Request, env: Env): Promise<A
     throw new ApiError(401, "unauthorized", "Format token tidak valid");
   }
   const [installId, encodedPayload, encodedSignature] = parts;
+  if (!INSTALL_ID_PATTERN.test(installId)) {
+    throw new ApiError(401, "unauthorized", "Token tidak valid");
+  }
+  const signatureBytes = tryFromBase64url(encodedSignature);
+  if (!signatureBytes) {
+    throw new ApiError(401, "unauthorized", "Tanda tangan token tidak valid");
+  }
   const secret = requireSecret(env);
   const expected = await hmacSha256(secret, `${installId}.${encodedPayload}`);
-  if (!timingSafeEqual(expected, fromBase64url(encodedSignature))) {
+  if (!timingSafeEqual(expected, signatureBytes)) {
     throw new ApiError(401, "unauthorized", "Tanda tangan token tidak cocok");
+  }
+  const payloadBytes = tryFromBase64url(encodedPayload);
+  if (!payloadBytes) {
+    throw new ApiError(401, "unauthorized", "Payload token tidak dapat dibaca");
   }
   let payload: TokenPayload;
   try {
-    payload = JSON.parse(new TextDecoder().decode(fromBase64url(encodedPayload))) as TokenPayload;
+    payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as TokenPayload;
   } catch {
     throw new ApiError(401, "unauthorized", "Payload token tidak dapat dibaca");
   }

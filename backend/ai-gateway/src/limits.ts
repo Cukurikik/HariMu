@@ -36,6 +36,41 @@ export async function enforceRateLimit(env: Env, installId: string): Promise<voi
   await env.JOBS.put(key, String(used + 1), { expirationTtl: 180 });
 }
 
+/**
+ * Batas penerbitan token per IP. Tanpa ini, `/v1/install` bisa dipakai membuat `installId` baru
+ * tanpa henti sehingga kuota/rate per-instalasi tidak berarti apa-apa.
+ *
+ * Batas dihitung hanya bila Worker menerima `cf-connecting-ip` (selalu ada di produksi Cloudflare);
+ * di lingkungan uji tanpa header IP, limiter dilewati agar tidak memblokir test suite.
+ */
+export async function enforceInstallRateLimit(env: Env, request: Request): Promise<void> {
+  const ip = request.headers.get("cf-connecting-ip") ?? "";
+  if (!ip) return;
+  const perMinute = num(env.INSTALL_RATE_PER_MIN, 10);
+  const perDay = num(env.INSTALL_DAILY_PER_IP, 40);
+  const minute = Math.floor(Date.now() / 60000);
+  const minuteKey = `rl:install:${ip}:${minute}`;
+  const minuteUsed = Number((await env.JOBS.get(minuteKey)) ?? "0");
+  if (minuteUsed >= perMinute) {
+    throw new ApiError(429, "rate_limited", `Batas ${perMinute} token/menit per IP tercapai`, {
+      retryable: true,
+      retryAfterSec: secondsUntilNextMinute(),
+      details: { perMinute },
+    });
+  }
+  const dayKey = `rl:install_day:${ip}:${new Date().toISOString().slice(0, 10)}`;
+  const dayUsed = Number((await env.JOBS.get(dayKey)) ?? "0");
+  if (dayUsed >= perDay) {
+    throw new ApiError(429, "rate_limited", `Batas ${perDay} token/hari per IP tercapai`, {
+      retryable: true,
+      retryAfterSec: secondsUntilTomorrowUtc(),
+      details: { perDay },
+    });
+  }
+  await env.JOBS.put(minuteKey, String(minuteUsed + 1), { expirationTtl: 180 });
+  await env.JOBS.put(dayKey, String(dayUsed + 1), { expirationTtl: 172800 });
+}
+
 export interface QuotaSnapshot {
   used: number;
   limit: number;

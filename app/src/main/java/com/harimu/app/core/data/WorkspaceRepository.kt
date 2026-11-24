@@ -1,5 +1,6 @@
 package com.harimu.app.core.data
 
+import androidx.room.withTransaction
 import com.harimu.app.core.backup.BackupEngine
 import com.harimu.app.core.files.FileStorageManager
 import kotlinx.coroutines.Dispatchers
@@ -165,19 +166,22 @@ class WorkspaceRepository(
         payload.settingsJson?.let { raw ->
             runCatching { json.decodeFromString<AppSettings>(raw) }.getOrNull()?.let { settings.applyImported(it) }
         }
-        payload.favoritesJson?.let { raw ->
-            runCatching { json.decodeFromString<List<FavoriteEntity>>(raw) }.getOrDefault(emptyList()).forEach {
-                db.favoriteDao().insert(it)
-                importedFavorites++
-            }
-        }
-        payload.historyJson?.let { raw ->
-            runCatching { json.decodeFromString<List<HistoryEntity>>(raw) }.getOrDefault(emptyList())
-                .take(MAX_RESTORED_HISTORY)
-                .forEach {
-                    db.historyDao().insert(it.copy(id = 0))
-                    importedHistory++
+        // Satu transaksi: bila ada entri rusak, tidak ada favorit/riwayat yang tersimpan separuh.
+        db.withTransaction {
+            payload.favoritesJson?.let { raw ->
+                runCatching { json.decodeFromString<List<FavoriteEntity>>(raw) }.getOrDefault(emptyList()).forEach {
+                    db.favoriteDao().insert(it)
+                    importedFavorites++
                 }
+            }
+            payload.historyJson?.let { raw ->
+                runCatching { json.decodeFromString<List<HistoryEntity>>(raw) }.getOrDefault(emptyList())
+                    .take(MAX_RESTORED_HISTORY)
+                    .forEach {
+                        db.historyDao().insert(it.copy(id = 0))
+                        importedHistory++
+                    }
+            }
         }
         val vaultMetadata = payload.vaultKeysJson?.let { raw ->
             runCatching { json.decodeFromString<List<VaultKeyEntity>>(raw) }.getOrDefault(emptyList()).size

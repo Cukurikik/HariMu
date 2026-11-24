@@ -102,9 +102,25 @@ object ConverterEngine {
         }
     }
 
+    private const val MAX_XML_CHARS = 4 * 1024 * 1024
+
     fun xmlToJson(rawXml: String): String {
-        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-            .parse(ByteArrayInputStream(rawXml.toByteArray(Charsets.UTF_8)))
+        // Hardening XXE / billion-laughs. Sebagian fitur Xerces tidak didukung parser Android,
+        // jadi setiap setFeature dibuat toleran dan EntityResolver tetap menolak entitas luar.
+        require(rawXml.length <= MAX_XML_CHARS) { "XML melebihi batas ${MAX_XML_CHARS / 1024} KB" }
+        val factory = DocumentBuilderFactory.newInstance().apply {
+            runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+            runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+            runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+            runCatching { setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
+            runCatching { isXIncludeAware = false }
+            isExpandEntityReferences = false
+        }
+        val builder = factory.newDocumentBuilder()
+        builder.setEntityResolver { _, _ ->
+            throw org.xml.sax.SAXException("Entitas eksternal dilarang")
+        }
+        val doc = builder.parse(ByteArrayInputStream(rawXml.toByteArray(Charsets.UTF_8)))
         doc.documentElement.normalize()
         val rootObj = buildJsonObject {
             put(doc.documentElement.tagName, elementToJson(doc.documentElement))
@@ -340,7 +356,15 @@ object ConverterEngine {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return null
         val lower = trimmed.lowercase()
-        if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return null
+        // Tolak skema berbahaya dan URL protocol-relative (`//evil`) yang lolos dari anchor.
+        if (lower.startsWith("//")) return null
+        if (lower.startsWith("javascript:") || lower.startsWith("data:") ||
+            lower.startsWith("vbscript:") || lower.startsWith("file:")
+        ) return null
+        val scheme = lower.substringBefore(':', missingDelimiterValue = "")
+        val allowed = setOf("http", "https", "mailto", "tel", "")
+        if (scheme.isNotEmpty() && scheme !in allowed) return null
+        if (trimmed.any { it.isWhitespace() }) return null
         return trimmed
     }
 

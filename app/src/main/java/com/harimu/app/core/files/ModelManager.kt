@@ -64,15 +64,19 @@ class ModelManager(private val context: Context) {
 
     fun isDownloaded(modelId: String): Boolean {
         val file = modelFile(modelId)
-        return file.exists() && file.length() > 0L
+        if (!file.exists() || file.length() <= 0L) return false
+        val spec = ModelRegistry.allModels.firstOrNull { it.id == modelId } ?: return true
+        // Ukuran harus sama persis dengan manifes; SHA-256 diverifikasi saat unduh.
+        return spec.sizeBytes <= 0L || file.length() == spec.sizeBytes
     }
 
     fun listStatuses(): List<LocalModelStatus> = ModelRegistry.allModels.map { spec ->
         val file = modelFile(spec.id)
         val exists = file.exists() && file.length() > 0L
+        val sizeOk = spec.sizeBytes <= 0L || file.length() == spec.sizeBytes
         LocalModelStatus(
             spec = spec,
-            isDownloaded = exists,
+            isDownloaded = exists && sizeOk,
             localSizeBytes = if (exists) file.length() else 0L
         )
     }

@@ -15,6 +15,7 @@ import com.harimu.app.core.toolapi.ToolInput
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.core.toolapi.ToolResult
 import kotlinx.coroutines.Job
@@ -157,6 +158,35 @@ class ToolViewModel(
 
         val ctxRef = appContextRef ?: return
         runJob?.cancel()
+
+        // Tool berat (video/audio/PDF/konverter/AI) dijalankan WorkManager + foreground service
+        // supaya tidak mati saat aplikasi di latar belakang.
+        if (shouldUseWorker(tool)) {
+            val input = ToolInput(
+                uris = _state.value.selectedUris,
+                secondaryUri = _state.value.secondaryUri,
+                textInput = _state.value.textInput,
+                params = _state.value.paramValues
+            )
+            runJob = viewModelScope.launch {
+                _state.update { it.copy(isRunning = true, progress = ToolProgress.Queued) }
+                val job = container.jobManager.enqueueToolJob(tool, input, isEnglish)
+                _state.update {
+                    it.copy(
+                        isRunning = job.status == ToolJobWorker.STATUS_QUEUED ||
+                            job.status == ToolJobWorker.STATUS_RUNNING,
+                        activeJobId = if (job.status == ToolJobWorker.STATUS_FAILED) null else job.jobId,
+                        progress = if (job.status == ToolJobWorker.STATUS_FAILED) {
+                            ToolProgress.Failed(job.errorMessage.ifBlank { "Job gagal" })
+                        } else {
+                            ToolProgress.Queued
+                        }
+                    )
+                }
+            }
+            return
+        }
+
         runJob = viewModelScope.launch {
             if (!container.storage.hasEnoughDiskSpace()) {
                 _state.update {
@@ -213,6 +243,11 @@ class ToolViewModel(
                 }
         }
     }
+
+    private fun shouldUseWorker(tool: Tool): Boolean =
+        tool.requiresNetwork || tool.requiresModel != null ||
+            tool.group == ToolGroup.VIDEO || tool.group == ToolGroup.AUDIO ||
+            tool.group == ToolGroup.PDF || tool.group == ToolGroup.CONVERTER
 
     fun cancel() {
         val currentJobId = _state.value.activeJobId

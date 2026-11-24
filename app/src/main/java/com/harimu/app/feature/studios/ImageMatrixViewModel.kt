@@ -76,6 +76,10 @@ class ImageMatrixViewModel(
     fun addImage(uri: Uri) {
         viewModelScope.launch {
             val key = uri.toString()
+            if (bitmaps.size >= MAX_CACHED_BITMAPS && !bitmaps.containsKey(key)) {
+                _state.update { it.copy(lastMessage = "Batas ${MAX_CACHED_BITMAPS} gambar tercapai; hapus layer lama dulu") }
+                return@launch
+            }
             val bitmap = withContext(Dispatchers.IO) {
                 runCatching { ImageIO.decodePreview(appContext, uri, 2048) }.getOrNull()
             }
@@ -171,6 +175,7 @@ class ImageMatrixViewModel(
         val next = history.current.filterNot { it.id == id }
         if (next.size == history.current.size) return
         pushLayers(next)
+        releaseUnreferencedBitmaps(next)
         if (_state.value.selectedLayerId == id) {
             _state.update { it.copy(selectedLayerId = next.lastOrNull()?.id) }
         }
@@ -320,10 +325,31 @@ class ImageMatrixViewModel(
         }
     }
 
+    /** Lepas bitmap yang tidak lagi dirujuk layer mana pun (setelah hapus/undo/redo). */
+    private fun releaseUnreferencedBitmaps(layers: List<MatrixLayer>) {
+        val referenced = layers.map { it.uri }.toSet()
+        val stale = bitmaps.keys.filterNot { it in referenced }
+        stale.forEach { key ->
+            bitmaps.remove(key)?.takeIf { !it.isRecycled }?.recycle()
+        }
+    }
+
+    override fun onCleared() {
+        renderJob?.cancel()
+        bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
+        bitmaps.clear()
+        _state.value.preview?.takeIf { !it.isRecycled }?.recycle()
+        super.onCleared()
+    }
+
     fun layerKindLabel(kind: MatrixLayerKind): String = when (kind) {
         MatrixLayerKind.IMAGE -> "Gambar"
         MatrixLayerKind.TEXT -> "Teks"
         MatrixLayerKind.STICKER -> "Stiker"
+    }
+
+    private companion object {
+        const val MAX_CACHED_BITMAPS = 24
     }
 
     class Factory(

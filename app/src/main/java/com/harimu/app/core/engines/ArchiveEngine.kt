@@ -389,7 +389,7 @@ object ArchiveEngine {
         password: String,
         dest: File
     ): Int {
-        require(password.length >= 4) { "Kata sandi minimal 4 karakter" }
+        require(password.length >= 8) { "Kata sandi minimal 8 karakter" }
         val jobDir = storage.createJobTempDir("aes_${System.currentTimeMillis()}")
         try {
             val used = mutableSetOf<String>()

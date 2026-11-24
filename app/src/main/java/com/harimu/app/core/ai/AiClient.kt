@@ -430,6 +430,9 @@ class AiClient(
         response.use { res ->
             val body = res.body ?: throw AiException("bad_response", "Unduhan kosong")
             val total = body.contentLength()
+            if (total > MAX_DOWNLOAD_BYTES) {
+                throw AiException("payload_too_large", "Unduhan melebihi batas ${MAX_DOWNLOAD_BYTES / (1024 * 1024)} MB")
+            }
             dest.parentFile?.mkdirs()
             body.byteStream().use { input ->
                 dest.outputStream().use { output ->
@@ -441,6 +444,10 @@ class AiClient(
                         if (read <= 0) break
                         output.write(buffer, 0, read)
                         written += read
+                        if (written > MAX_DOWNLOAD_BYTES) {
+                            dest.delete()
+                            throw AiException("payload_too_large", "Unduhan melebihi batas ${MAX_DOWNLOAD_BYTES / (1024 * 1024)} MB")
+                        }
                         onProgress(written, total)
                     }
                 }
@@ -459,7 +466,25 @@ class AiClient(
         onProgress: (Long, Long) -> Unit = { _, _ -> }
     ): AiBinary {
         val mime = response.header("content-type")?.substringBefore(';') ?: "application/octet-stream"
-        val bytes = response.body?.bytes() ?: ByteArray(0)
+        val declared = response.body?.contentLength() ?: -1L
+        if (declared > MAX_BINARY_BYTES) {
+            throw AiException("payload_too_large", "Respons biner melebihi batas ${MAX_BINARY_BYTES / (1024 * 1024)} MB")
+        }
+        val stream = response.body?.byteStream() ?: throw AiException("bad_response", "Gateway mengembalikan berkas kosong")
+        val buffer = java.io.ByteArrayOutputStream()
+        val chunk = ByteArray(64 * 1024)
+        stream.use { input ->
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val read = input.read(chunk)
+                if (read <= 0) break
+                if (buffer.size().toLong() + read > MAX_BINARY_BYTES) {
+                    throw AiException("payload_too_large", "Respons biner melebihi batas ${MAX_BINARY_BYTES / (1024 * 1024)} MB")
+                }
+                buffer.write(chunk, 0, read)
+            }
+        }
+        val bytes = buffer.toByteArray()
         if (bytes.isEmpty()) {
             throw AiException("bad_response", "Gateway mengembalikan berkas kosong", retryable = true)
         }
@@ -557,6 +582,10 @@ class AiClient(
     }
 
     companion object {
+        /** Batas keras agar respons gateway tidak menghabiskan memori proses. */
+        private const val MAX_BINARY_BYTES = 96L * 1024 * 1024
+        private const val MAX_DOWNLOAD_BYTES = 512L * 1024 * 1024
+
         private const val MAX_RETRIES = 2
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaTypeOrNull()
         private val EMPTY_BODY = ByteArray(0).toRequestBody(null)

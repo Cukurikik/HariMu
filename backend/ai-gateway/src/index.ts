@@ -3,7 +3,7 @@ import { isMockMode, num } from "./config";
 import { signDownload, verifyDownload } from "./downloads";
 import { ApiError, asApiError, binaryResponse, errorResponse, jsonResponse } from "./errors";
 import { issueInstallToken, requireInstallToken } from "./auth";
-import { enforceQuota, enforceRateLimit, quotaStatus } from "./limits";
+import { enforceInstallRateLimit, enforceQuota, enforceRateLimit, quotaStatus } from "./limits";
 import { createVideoJob, refreshJob } from "./jobs";
 import { resolveProvider } from "./providers";
 import {
@@ -15,6 +15,14 @@ import {
 
 const VERSION = "1.0.0";
 
+/** Perbandingan string waktu-konstan sederhana untuk kunci registrasi instalasi. */
+function constantTimeStringEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 /** Kuota berbobot per operasi (lihat limits.ts). */
 const QUOTA_COST = {
   tts: 1,
@@ -25,15 +33,21 @@ const QUOTA_COST = {
   video: 5,
 } as const;
 
-const CORS_HEADERS: Record<string, string> = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, content-type",
-  "access-control-allow-methods": "GET, POST, OPTIONS",
-};
+function corsHeaders(env: Env): Record<string, string> {
+  // Origin dapat dibatasi lewat ALLOWED_ORIGIN; default "*" aman karena semua endpoint data
+  // memakai Bearer token (tanpa cookie), sehingga tidak ada credentialed CORS.
+  const origin = (env.ALLOWED_ORIGIN ?? "*").trim() || "*";
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-headers": "authorization, content-type, x-install-key",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    vary: "origin",
+  };
+}
 
-function withCors(response: Response): Response {
+function withCors(response: Response, env: Env): Response {
   const headers = new Headers(response.headers);
-  for (const [key, value] of Object.entries(CORS_HEADERS)) headers.set(key, value);
+  for (const [key, value] of Object.entries(corsHeaders(env))) headers.set(key, value);
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -72,9 +86,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const requestId = crypto.randomUUID().slice(0, 8);
     try {
-      return withCors(await route(request, env, requestId));
+      return withCors(await route(request, env, requestId), env);
     } catch (cause) {
-      return withCors(errorResponse(asApiError(cause), requestId));
+      return withCors(errorResponse(asApiError(cause), requestId), env);
     }
   },
 };
@@ -86,7 +100,7 @@ async function route(request: Request, env: Env, requestId: string): Promise<Res
   const maxUploadBytes = num(env.MAX_UPLOAD_BYTES, 10 * 1024 * 1024);
 
   if (method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: corsHeaders(env) });
   }
 
   if (path === "/v1/health" && method === "GET") {
@@ -103,6 +117,14 @@ async function route(request: Request, env: Env, requestId: string): Promise<Res
   }
 
   if (path === "/v1/install" && method === "POST") {
+    await enforceInstallRateLimit(env, request);
+    const registrationKey = env.INSTALL_REGISTRATION_KEY ?? "";
+    if (registrationKey) {
+      const provided = request.headers.get("x-install-key") ?? "";
+      if (!constantTimeStringEquals(provided, registrationKey)) {
+        throw new ApiError(401, "unauthorized", "Header x-install-key tidak valid");
+      }
+    }
     const body = await readJson<{ installId?: string }>(request, 4096);
     const installId = requireString(body.installId, "installId", 64);
     const issued = await issueInstallToken(env, installId);
