@@ -4,14 +4,24 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.C
+import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
+import androidx.media3.common.audio.SpeedProvider
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.Presentation
+import androidx.media3.effect.ScaleAndRotateTransformation
 import androidx.media3.transformer.Composition
+import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.VideoEncoderSettings
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
@@ -25,7 +35,9 @@ import kotlinx.coroutines.flow.flow
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 
+@androidx.annotation.OptIn(UnstableApi::class)
 data class Media3Request(
     val inputUri: Uri,
     val toolTag: String,
@@ -34,8 +46,25 @@ data class Media3Request(
     val removeAudio: Boolean = false,
     val removeVideo: Boolean = false,
     val videoMimeType: String? = null,
-    val audioMimeType: String? = null
-)
+    val audioMimeType: String? = null,
+    val additionalInputUris: List<Uri> = emptyList(),
+    val clipStartMs: Long = 0L,
+    val clipEndMs: Long = Long.MAX_VALUE,
+    val cropAspectRatio: String? = null,
+    val targetWidth: Int? = null,
+    val targetHeight: Int? = null,
+    val rotationDegrees: Float = 0f,
+    val flipHorizontal: Boolean = false,
+    val flipVertical: Boolean = false,
+    val speed: Float = 1.0f,
+    val targetVideoBitrateBps: Int? = null,
+    val trimOptimization: Boolean = false,
+    val extraVideoEffects: List<Effect> = emptyList(),
+    val imageFrameDurationMs: Long = 0L
+) {
+    val allInputUris: List<Uri>
+        get() = listOf(inputUri) + additionalInputUris
+}
 
 interface TransformerHandle {
     fun cancel()
@@ -52,7 +81,7 @@ interface TransformerBackend {
     ): TransformerHandle
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class, ExperimentalApi::class)
 object RealMedia3TransformerBackend : TransformerBackend {
     override fun startExport(
         context: Context,
@@ -69,15 +98,54 @@ object RealMedia3TransformerBackend : TransformerBackend {
         mainHandler.post {
             if (stopped.get()) return@post
             try {
-                val mediaItem = MediaItem.fromUri(request.inputUri)
-                val edited = EditedMediaItem.Builder(mediaItem)
-                    .setRemoveAudio(request.removeAudio)
-                    .setRemoveVideo(request.removeVideo)
-                    .build()
+                val videoEffects = buildList<Effect> {
+                    request.cropAspectRatio?.let { ratio ->
+                        add(
+                            Presentation.createForAspectRatio(
+                                VideoToolMath.parseAspectRatio(ratio),
+                                Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP
+                            )
+                        )
+                    }
+                    if (request.targetWidth != null && request.targetHeight != null) {
+                        add(
+                            Presentation.createForWidthAndHeight(
+                                request.targetWidth,
+                                request.targetHeight,
+                                Presentation.LAYOUT_SCALE_TO_FIT
+                            )
+                        )
+                    }
+                    if (request.rotationDegrees != 0f || request.flipHorizontal || request.flipVertical) {
+                        add(
+                            ScaleAndRotateTransformation.Builder()
+                                .setRotationDegrees(request.rotationDegrees)
+                                .setScale(
+                                    if (request.flipHorizontal) -1f else 1f,
+                                    if (request.flipVertical) -1f else 1f
+                                )
+                                .build()
+                        )
+                    }
+                    addAll(request.extraVideoEffects)
+                }
 
                 val builder = Transformer.Builder(context)
                 request.videoMimeType?.let { builder.setVideoMimeType(it) }
                 request.audioMimeType?.let { builder.setAudioMimeType(it) }
+                request.targetVideoBitrateBps?.let { bitrate ->
+                    val encoderFactory = DefaultEncoderFactory.Builder(context)
+                        .setRequestedVideoEncoderSettings(
+                            VideoEncoderSettings.Builder()
+                                .setBitrate(bitrate)
+                                .build()
+                        )
+                        .build()
+                    builder.setEncoderFactory(encoderFactory)
+                }
+                if (request.trimOptimization && videoEffects.isEmpty() && abs(request.speed - 1.0f) < 0.01f) {
+                    builder.experimentalSetTrimOptimizationEnabled(true)
+                }
 
                 val transformer = builder.addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
@@ -96,7 +164,52 @@ object RealMedia3TransformerBackend : TransformerBackend {
                 }).build()
 
                 transformerRef = transformer
-                transformer.start(edited, outputFile.absolutePath)
+
+                val allUris = request.allInputUris
+                if (allUris.size > 1) {
+                    val items = allUris.map { uri ->
+                        val itemBuilder = MediaItem.Builder().setUri(uri)
+                        if (request.imageFrameDurationMs > 0L) {
+                            itemBuilder.setImageDurationMs(request.imageFrameDurationMs)
+                        }
+                        val editedBuilder = EditedMediaItem.Builder(itemBuilder.build())
+                        if (videoEffects.isNotEmpty()) {
+                            editedBuilder.setEffects(Effects(emptyList(), videoEffects))
+                        }
+                        editedBuilder.build()
+                    }
+                    val sequence = if (request.imageFrameDurationMs > 0L) {
+                        EditedMediaItemSequence.withVideoFrom(items)
+                    } else {
+                        EditedMediaItemSequence.withAudioAndVideoFrom(items)
+                    }
+                    val composition = Composition.Builder(sequence).build()
+                    transformer.start(composition, outputFile.absolutePath)
+                } else {
+                    val mediaBuilder = MediaItem.Builder().setUri(request.inputUri)
+                    if (request.clipStartMs > 0L || request.clipEndMs < Long.MAX_VALUE) {
+                        val clipBuilder = MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(request.clipStartMs.coerceAtLeast(0L))
+                        if (request.clipEndMs in 1L until Long.MAX_VALUE) {
+                            clipBuilder.setEndPositionMs(request.clipEndMs)
+                        }
+                        mediaBuilder.setClippingConfiguration(clipBuilder.build())
+                    }
+                    val editedBuilder = EditedMediaItem.Builder(mediaBuilder.build())
+                        .setRemoveAudio(request.removeAudio)
+                        .setRemoveVideo(request.removeVideo)
+                    if (videoEffects.isNotEmpty()) {
+                        editedBuilder.setEffects(Effects(emptyList(), videoEffects))
+                    }
+                    if (abs(request.speed - 1.0f) > 0.01f) {
+                        val targetSpeed = request.speed.coerceIn(0.25f, 4.0f)
+                        editedBuilder.setSpeed(object : SpeedProvider {
+                            override fun getSpeed(timeUs: Long): Float = targetSpeed
+                            override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = C.TIME_UNSET
+                        })
+                    }
+                    transformer.start(editedBuilder.build(), outputFile.absolutePath)
+                }
 
                 val holder = ProgressHolder()
                 val poller = object : Runnable {
@@ -226,6 +339,7 @@ class Media3TransformerEngine @JvmOverloads constructor(
         context: Context,
         storage: FileStorageManager,
         request: Media3Request,
+        expectedDurationMs: Long = 0L,
         isEnglish: Boolean = false,
         ffmpegFallbackCommand: (inputs: List<File>, output: File) -> List<String>
     ): Flow<ToolProgress> = flow {
@@ -264,10 +378,11 @@ class Media3TransformerEngine @JvmOverloads constructor(
             ffmpegJob.runCommand(
                 context = context,
                 storage = storage,
-                inputUris = listOf(request.inputUri),
+                inputUris = request.allInputUris,
                 toolTag = request.toolTag,
                 outputExt = request.outputExt,
                 outputMime = request.outputMime,
+                expectedDurationMs = expectedDurationMs,
                 isEnglish = isEnglish,
                 commandBuilder = ffmpegFallbackCommand
             ).collect { ffProgress ->

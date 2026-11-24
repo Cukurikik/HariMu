@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -77,6 +78,7 @@ fun SettingsScreen(
     onOpenInternalTool: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
 
     var tempBytes by remember { mutableLongStateOf(container.storage.tempCacheSizeBytes()) }
@@ -214,7 +216,7 @@ fun SettingsScreen(
                             onClick = {
                                 scope.launch(Dispatchers.IO) {
                                     val freed = container.storage.clearTempCache()
-                                    val msg = context.getString(R.string.toast_temp_cleared, container.storage.formatBytes(freed))
+                                    val msg = resources.getString(R.string.toast_temp_cleared, container.storage.formatBytes(freed))
                                     withContext(Dispatchers.Main) {
                                         tempBytes = container.storage.tempCacheSizeBytes()
                                         freeBytes = container.storage.availableDiskSpaceBytes()

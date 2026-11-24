@@ -30,7 +30,7 @@
     <string name="group_video_title">Video Forge</string>
     <string name="group_video_subtitle">Potong, gabung, ekstrak audio &amp; frame</string>
     <string name="group_audio_title">Audio Forge</string>
-    <string name="group_audio_subtitle">DSP WAV, EQ 5-band, gema &amp; visualizer</string>
+    <string name="group_audio_subtitle">Mastering, EQ 10-band, 8D, Reverb &amp; Visualizer</string>
     <string name="group_image_title">Image Forge</string>
     <string name="group_image_subtitle">Crop, filter, EXIF, palet &amp; ikon</string>
     <string name="group_pdf_title">PDF Vault</string>
@@ -131,4 +131,101 @@
     <!-- Izin -->
     <string name="permission_audio_rationale">Izin mikrofon diperlukan untuk merekam audio PCM langsung ke file WAV.</string>
     <string name="settings_test_media_engine">Uji Engine Media (Remux MP4)</string>
+
+    <!-- Pratinjau Video & Trim -->
+    <string name="video_preview_title">Pratinjau Video (ExoPlayer)</string>
+    <string name="video_audio_present">Ada audio</string>
+    <string name="video_audio_missing">Tanpa audio</string>
+    <string name="video_trim_range_title">Kontrol Rentang &amp; Strip Thumbnail</string>
+    <string name="video_trim_range_labels">Mulai: %1$s  •  Selesai: %2$s</string>
+    <string name="video_set_start_playhead">Set Mulai</string>
+    <string name="video_set_end_playhead">Set Selesai</string>
+    <string name="video_cd_play_pause">Putar atau jeda pratinjau video</string>
+    <string name="video_loading_thumbnails">Memuat strip thumbnail…</string>
+    <string name="video_safety_reverse_title">Batas Memori (Reverse)</string>
+    <string name="video_safety_reverse_body">Reverse memproses frame tak terkompresi di RAM. Video &gt; 20 dtk otomatis dipecah per 12 dtk; maks. 3 menit.</string>
+    <string name="video_safety_loop_title">Pengaman Durasi Loop</string>
+    <string name="video_safety_loop_body">Loop besar melipatgandakan durasi dan ukuran file output (batas aman total 10 menit).</string>
+
+    <!-- Video Forge Batch 2: Picker Sekunder & Pratinjau -->
+    <string name="action_pick_image_overlay">Pilih Gambar Overlay</string>
+    <string name="action_pick_subtitle_file">Pilih File Subtitle (.srt / .vtt)</string>
+    <string name="action_pick_bg_media">Pilih Latar (Gambar / Video, Opsional)</string>
+    <string name="action_clear_secondary">Hapus Pilihan Latar</string>
+    <string name="fallback_image_name">gambar_overlay</string>
+    <string name="fallback_subtitle_name">subtitle</string>
+    <string name="fallback_media_name">latar_media</string>
+
+    <string name="vid14_roi_title">Pratinjau Area Hapus Logo</string>
+    <string name="vid14_roi_coords">Kotak area: X %1$d%%, Y %2$d%% • %3$d%% × %4$d%%</string>
+
+    <string name="vid25_limit_title">Keterbatasan Deteksi Wajah (ML Kit)</string>
+    <string name="vid25_limit_body">Deteksi sampling mungkin melewatkan wajah kecil (&lt; 8%% layar), profil menyamping ekstrem, pencahayaan sangat gelap, atau wajah tertutup objek. Periksa pratinjau sebelum render.</string>
+    <string name="vid25_preview_time">Waktu sampel pratinjau: %1$s</string>
+    <string name="vid25_preview_button">Pratinjau Deteksi Wajah</string>
+    <string name="vid25_preview_scanning">Mendeteksi wajah…</string>
+    <string name="vid25_preview_found">%1$d wajah terdeteksi pada %2$s</string>
+    <string name="vid25_preview_none">Tidak ada wajah terdeteksi pada detik ini — geser waktu atau naikkan FPS.</string>
+
+    <!-- CORE-01 Pro Video Editor -->
+    <string name="editor_title">Pro Video Editor</string>
+    <string name="editor_default_project_title">Proyek Baru</string>
+    <string name="editor_projects_btn">Proyek</string>
+    <string name="editor_save_btn">Simpan</string>
+    <string name="editor_project_saved_toast">Proyek disimpan ke database lokal</string>
+    <string name="editor_project_title_label">Nama Proyek</string>
+    <string name="editor_add_clips">Tambah Klip Video</string>
+    <string name="editor_resolution_label">Resolusi Ekspor</string>
+    <string name="editor_timeline_header">Timeline (%1$d klip • Total %2$s)</string>
+    <string name="editor_timeline_empty_title">Timeline Masih Kosong</string>
+    <string name="editor_timeline_empty_desc">Tambahkan klip video (disarankan ≥3 klip) untuk mengatur urutan, trim, kecepatan, dan rotasi.</string>
+    <string name="editor_clip_index">#%1$d</string>
+    <string name="editor_clip_muted">Bisu</string>
+    <string name="editor_cd_move_left">Geser klip ke kiri</string>
+    <string name="editor_cd_move_right">Geser klip ke kanan</string>
+    <string name="editor_cd_duplicate">Duplikat klip</string>
+    <string name="editor_cd_remove">Hapus klip</string>
+    <string name="editor_inspector_title">Inspektor Klip: #%1$d %2$s</string>
+    <string name="editor_clip_trim_label">Rentang Trim: %1$s – %2$s (Efektif: %3$s)</string>
+    <string name="editor_clip_speed_label">Kecepatan Klip: %1$sx</string>
+    <string name="editor_clip_rotation_label">Rotasi Klip</string>
+    <string name="editor_clip_mute_label">Bisukan audio klip ini</string>
+    <string name="editor_export_button">Render &amp; Gabung Timeline (%1$d Klip)</string>
+    <string name="editor_saved_projects_title">Proyek Tersimpan (Room)</string>
+    <string name="editor_new_project">Buat Proyek Baru</string>
+    <string name="editor_no_saved_projects">Belum ada proyek tersimpan. Tambahkan klip lalu ketuk Simpan atau Ekspor.</string>
+    <string name="editor_project_meta">%1$d klip • %2$s</string>
+    <string name="editor_load_project">Lanjutkan</string>
+
+    <!-- Audio Forge Batch 1: Waveform & Before/After Preview -->
+    <string name="audio_preview_title">Pratinjau Audio &amp; Waveform</string>
+    <string name="audio_tab_before">Sebelum (Asli)</string>
+    <string name="audio_tab_after">Sesudah (Hasil)</string>
+    <string name="audio_loading_waveform">Mengekstrak bentuk gelombang…</string>
+    <string name="audio_cd_play_pause">Putar atau jeda pratinjau audio</string>
+    <string name="audio_trim_range_title">Rentang Potong pada Waveform</string>
+    <string name="action_pick_cover_image">Pilih Gambar Sampul (Opsional)</string>
+    <string name="fallback_cover_name">sampul_album</string>
+    <string name="audio_channels_mono">Mono (1 kanal)</string>
+    <string name="audio_channels_stereo">Stereo (%1$d kanal)</string>
+
+    <!-- Audio Forge Batch 2: Watermark & Pro Equalizer 10-Band -->
+    <string name="action_pick_watermark_audio">Pilih Suara Penanda (Opsional)</string>
+    <string name="eq_title">Pro Equalizer 10-Band</string>
+    <string name="eq_pick_audio">Pilih File Audio</string>
+    <string name="eq_play_live">Putar Pratinjau Live</string>
+    <string name="eq_pause_live">Jeda Pratinjau</string>
+    <string name="eq_bypass_label">Bypass (Suara Asli)</string>
+    <string name="eq_reset_flat">Reset Flat</string>
+    <string name="eq_presets_title">Preset Studio</string>
+    <string name="eq_curve_title">Kurva Respons 10-Band (31 Hz – 16 kHz)</string>
+    <string name="eq_preamp_label">Preamp / Trim Gain</string>
+    <string name="eq_parity_title">Kesesuaian Pratinjau ↔ Ekspor FFmpeg</string>
+    <string name="eq_engine_dp">Engine Live: DynamicsProcessing 10-Band + Limiter</string>
+    <string name="eq_engine_legacy">Engine Live: Android Equalizer (%1$d-Band Fallback)</string>
+    <string name="eq_engine_idle">Pilih audio untuk mengaktifkan pratinjau Android AudioFX &amp; perbandingan paritas.</string>
+    <string name="eq_export_format">Format Ekspor</string>
+    <string name="eq_export_button">Ekspor Audio EQ (FFmpeg)</string>
+    <string name="eq_exporting_msg">Menerapkan 10-band EQ &amp; limiter via FFmpeg…</string>
+    <string name="eq_export_done_summary">Ekspor EQ 10-Band selesai • %1$s (%2$s)</string>
 </resources>

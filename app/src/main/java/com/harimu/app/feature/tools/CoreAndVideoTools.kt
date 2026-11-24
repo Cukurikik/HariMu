@@ -8,13 +8,11 @@ import androidx.compose.material.icons.filled.BurstMode
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.harimu.app.core.engines.AudioEngine
-import com.harimu.app.core.engines.VideoEngine
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
@@ -31,6 +29,17 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
 fun coreTools(): List<Tool> = listOf(
+    DedicatedTool(
+        id = "CORE-01",
+        group = ToolGroup.CORE,
+        engineLabel = "M3+FF",
+        icon = Icons.Filled.MovieCreation,
+        dedicatedRoute = DedicatedScreenRoute.VIDEO_EDITOR,
+        titleId = "Pro Video Editor",
+        titleEn = "Pro Video Editor",
+        descId = "Editor timeline video: susun klip, trim, kecepatan, rotasi, dan gabung.",
+        descEn = "Timeline video editor: arrange clips, trim, speed, rotate, and merge."
+    ),
     DedicatedTool(
         id = "CORE-06",
         group = ToolGroup.CORE,
@@ -120,159 +129,11 @@ fun coreTools(): List<Tool> = listOf(
     )
 )
 
-fun videoTools(): List<Tool> = listOf(
-    object : Tool {
-        override val id = "VID-01"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "M3/NAT"
-        override val icon = Icons.Filled.ContentCut
-        override val inputSpec = InputSpec.SingleVideo
-        override val params = listOf(
-            ToolParam.SliderParam("startSec", "Mulai (detik)", "Start (sec)", 0f, 120f, 0f, 1f, "s"),
-            ToolParam.SliderParam("endSec", "Selesai (detik, 0=akhir)", "End (sec, 0=end)", 0f, 180f, 10f, 1f, "s")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Trim Video" else "Potong Video"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Cut a video segment without re-encoding loss." else "Potong segmen video MP4 secara cepat lewat MediaMuxer."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-            emit(ToolProgress.Running(30, "Memotong track video & audio..."))
-            val startMs = (input.getFloat("startSec", 0f) * 1000f).toLong()
-            val endVal = input.getFloat("endSec", 10f)
-            val endMs = if (endVal <= 0f) Long.MAX_VALUE else (endVal * 1000f).toLong()
-            val dest = ctx.storage.createOutputFile("VID_TRIM", "mp4")
-            VideoEngine.trimOrCopyTracks(ctx.appContext, uri, dest, startMs, endMs)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "video/mp4", dest.name)), summary = "Video dipotong: ${ctx.storage.formatBytes(dest.length())}")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "VID-02"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.MergeType
-        override val inputSpec = InputSpec.MultipleVideos
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Merge Videos" else "Gabung Video"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Concatenate compatible MP4 clips sequentially." else "Gabungkan beberapa klip MP4 berformat kompatibel secara berurutan."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            require(input.uris.size >= 2) { "Pilih minimal 2 video" }
-            emit(ToolProgress.Running(40, "Menggabungkan ${input.uris.size} klip..."))
-            val dest = ctx.storage.createOutputFile("VID_MERGE", "mp4")
-            VideoEngine.mergeVideos(ctx.appContext, input.uris, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "video/mp4", dest.name)), summary = "${input.uris.size} video digabung (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "VID-08"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.MusicNote
-        override val inputSpec = InputSpec.SingleVideo
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Video to Audio (M4A)" else "Video ke Audio (M4A)"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Extract audio track from a video into M4A." else "Ekstrak track audio asli dari video ke file .m4a."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-            emit(ToolProgress.Running(35, "Mengekstrak track audio..."))
-            val dest = ctx.storage.createOutputFile("VID_AUDIO", "m4a")
-            VideoEngine.trimOrCopyTracks(ctx.appContext, uri, dest, includeVideo = false, includeAudio = true)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/mp4", dest.name)), summary = "Audio diekstrak: ${ctx.storage.formatBytes(dest.length())}")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "VID-16"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.MusicNote
-        override val inputSpec = InputSpec.VideoAndAudio
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Add Audio to Video" else "Tambah Audio ke Video"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Mux a chosen audio track onto a video clip." else "Gabungkan track video dengan file audio AAC/M4A pilihan."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val vUri = input.uris.firstOrNull() ?: error("Pilih video utama")
-            val aUri = input.secondaryUri ?: error("Pilih audio latar")
-            emit(ToolProgress.Running(45, "Menggabungkan track video & audio..."))
-            val dest = ctx.storage.createOutputFile("VID_MUX", "mp4")
-            VideoEngine.muxVideoWithAudio(ctx.appContext, vUri, aUri, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "video/mp4", dest.name)), summary = "Muxing selesai (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "VID-21"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.CallSplit
-        override val inputSpec = InputSpec.SingleVideo
-        override val params = listOf(
-            ToolParam.SliderParam("segSec", "Durasi per Bagian (detik)", "Segment Duration (sec)", 3f, 60f, 10f, 1f, "s")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Video Splitter" else "Pecah Video (.zip)"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Split video into equal MP4 parts inside a ZIP." else "Pecah video menjadi beberapa bagian MP4 berdurasi sama dalam ZIP."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-            emit(ToolProgress.Running(30, "Memecah segmen video..."))
-            val dest = ctx.storage.createOutputFile("VID_SPLIT", "zip")
-            val (_, parts) = VideoEngine.splitVideoToZip(ctx.appContext, ctx.storage, uri, dest, input.getFloat("segSec", 10f).toInt())
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/zip", dest.name)), summary = "$parts segmen dikemas ke ZIP")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "VID-22"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.BurstMode
-        override val inputSpec = InputSpec.SingleVideo
-        override val params = listOf(
-            ToolParam.SliderParam("intervalSec", "Interval Frame (detik)", "Frame Interval (sec)", 1f, 10f, 2f, 1f, "s"),
-            ToolParam.SliderParam("maxFrames", "Maksimal Frame", "Max Frames", 5f, 30f, 12f, 1f, "")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Extract Video Frames" else "Ekstrak Frame Video"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Capture PNG frames at fixed intervals into a ZIP." else "Ambil tangkapan frame PNG dari video per interval detik."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-            emit(ToolProgress.Running(35, "Mengambil frame video..."))
-            val dest = ctx.storage.createOutputFile("VID_FRAMES", "zip")
-            val (_, count) = VideoEngine.extractFramesZip(
-                ctx.appContext,
-                uri,
-                dest,
-                input.getFloat("intervalSec", 2f).toInt(),
-                input.getFloat("maxFrames", 12f).toInt()
-            )
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "application/zip", dest.name)), summary = "$count frame PNG diekstrak ke ZIP")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "VID-24"
-        override val group = ToolGroup.VIDEO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.VolumeOff
-        override val inputSpec = InputSpec.SingleVideo
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Remove Video Audio" else "Bisukan Video"
-        override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Strip audio track and keep clean silent video." else "Hapus track suara dari video tanpa mengurangi kualitas gambar."
-
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-            emit(ToolProgress.Running(40, "Menghapus track audio..."))
-            val dest = ctx.storage.createOutputFile("VID_MUTE", "mp4")
-            VideoEngine.trimOrCopyTracks(ctx.appContext, uri, dest, includeVideo = true, includeAudio = false)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "video/mp4", dest.name)), summary = "Video bisu selesai (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    }
-)
+fun videoTools(): List<Tool> =
+    videoForgeBatch1CoreTools() +
+        videoForgeBatch1ExtraTools() +
+        videoForgeBatch2Tools() +
+        videoForgeBatch2ExtraTools()
 
 class DedicatedTool(
     override val id: String,

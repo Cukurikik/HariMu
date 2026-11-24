@@ -67,14 +67,6 @@ class StubTool(
 
 fun stubCoreTools(): List<Tool> = listOf(
     StubTool(
-        id = "CORE-01", group = ToolGroup.CORE, engineLabel = "M3+FF", plannedPhase = "P5",
-        icon = Icons.Filled.MovieCreation, inputSpec = InputSpec.MultipleVideos,
-        params = listOf(ToolParam.SliderParam("speed", "Kecepatan Preview", "Preview Speed", 0.5f, 2.0f, 1.0f, 0.25f, "x")),
-        titleId = "Pro Video Editor", titleEn = "Pro Video Editor",
-        descId = "Editor timeline video: trim, kecepatan, rotasi, dan gabung klip.",
-        descEn = "Timeline video editor: trim, speed, rotate, and merge clips."
-    ),
-    StubTool(
         id = "CORE-02", group = ToolGroup.CORE, engineLabel = "CL", plannedPhase = "P11",
         icon = Icons.Filled.MovieCreation, inputSpec = InputSpec.TextInput("Tulis prompt video...", "Write video prompt..."),
         params = listOf(ToolParam.DropdownParam("ratio", "Rasio", "Aspect Ratio", listOf("16:9", "9:16", "1:1"), "16:9")),

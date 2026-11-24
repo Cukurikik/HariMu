@@ -1,8 +1,12 @@
 package com.harimu.app
 
+import android.content.ContextWrapper
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -44,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,10 +68,12 @@ import com.harimu.app.feature.favorites.FavoritesScreen
 import com.harimu.app.feature.history.HistoryScreen
 import com.harimu.app.feature.home.HomeScreen
 import com.harimu.app.feature.settings.SettingsScreen
+import com.harimu.app.feature.studios.AudioStudioScreen
 import com.harimu.app.feature.studios.BackupScreen
 import com.harimu.app.feature.studios.EqualizerScreen
 import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
+import com.harimu.app.feature.studios.VideoEditorScreen
 import com.harimu.app.feature.studios.VoiceRecorderScreen
 import com.harimu.app.feature.toolscreen.ToolScreen
 import kotlinx.coroutines.Dispatchers
@@ -81,10 +88,13 @@ import java.util.Locale
 @Serializable data class CatalogRoute(val groupName: String? = null)
 @Serializable data class ToolRoute(val toolId: String)
 @Serializable data object VoiceRecorderRoute
+@Serializable data object VideoEditorRoute
 @Serializable data object ImageMatrixRoute
 @Serializable data object EqualizerRoute
+@Serializable data object AudioStudioRoute
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
+
 
 private data class TopLevelNav(
     val route: Any,
@@ -111,13 +121,21 @@ class MainActivity : ComponentActivity() {
             val localizedConfig = remember(baseConfig, targetLocale) {
                 Configuration(baseConfig).apply { setLocale(targetLocale) }
             }
-            val localizedContext = remember(baseContext, localizedConfig) {
-                baseContext.createConfigurationContext(localizedConfig)
+            val localizedResources = remember(baseContext, localizedConfig) {
+                baseContext.createConfigurationContext(localizedConfig).resources
+            }
+            val localizedContext = remember(baseContext, localizedResources) {
+                object : ContextWrapper(baseContext) {
+                    override fun getResources(): Resources = localizedResources
+                }
             }
 
             CompositionLocalProvider(
                 LocalConfiguration provides localizedConfig,
-                LocalContext provides localizedContext
+                LocalContext provides localizedContext,
+                LocalResources provides localizedResources,
+                LocalActivityResultRegistryOwner provides this@MainActivity,
+                LocalOnBackPressedDispatcherOwner provides this@MainActivity
             ) {
                 HariMuTheme(
                     themeMode = settings.resolvedThemeMode(),
@@ -164,9 +182,11 @@ private fun HariMuRoot(
 
     fun navigateToStudio(route: DedicatedScreenRoute) {
         when (route) {
+            DedicatedScreenRoute.VIDEO_EDITOR -> navController.navigate(VideoEditorRoute)
             DedicatedScreenRoute.VOICE_RECORDER -> navController.navigate(VoiceRecorderRoute)
             DedicatedScreenRoute.IMAGE_MATRIX -> navController.navigate(ImageMatrixRoute)
             DedicatedScreenRoute.EQUALIZER -> navController.navigate(EqualizerRoute)
+            DedicatedScreenRoute.AUDIO_STUDIO -> navController.navigate(AudioStudioRoute)
             DedicatedScreenRoute.KEY_VAULT -> navController.navigate(KeyVaultRoute)
             DedicatedScreenRoute.WORKSPACE_BACKUP -> navController.navigate(BackupRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
@@ -322,11 +342,17 @@ private fun HariMuRoot(
                     composable<VoiceRecorderRoute> {
                         VoiceRecorderScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
+                    composable<VideoEditorRoute> {
+                        VideoEditorScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
                     composable<ImageMatrixRoute> {
                         ImageMatrixScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<EqualizerRoute> {
                         EqualizerScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<AudioStudioRoute> {
+                        AudioStudioScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<KeyVaultRoute> {
                         KeyVaultScreen(container, settings.isEnglish) { navController.popBackStack() }

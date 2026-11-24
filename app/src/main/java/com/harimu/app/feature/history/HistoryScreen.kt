@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,6 +69,7 @@ fun HistoryScreen(
     container: AppContainer
 ) {
     val context = LocalContext.current
+    val currentLocale = LocalLocale.current.platformLocale
     val scope = rememberCoroutineScope()
     val items by container.workspace.historyFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     var pendingSave by remember { mutableStateOf<HistoryEntity?>(null) }
@@ -127,7 +129,7 @@ fun HistoryScreen(
                 val group = ToolGroup.entries.firstOrNull { it.name == item.groupName } ?: ToolGroup.CORE
                 val file = File(item.outputPath)
                 val fileExists = item.outputPath.isNotEmpty() && file.exists()
-                val timeStr = SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()).format(Date(item.createdAt))
+                val timeStr = SimpleDateFormat("dd MMM HH:mm", currentLocale).format(Date(item.createdAt))
 
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

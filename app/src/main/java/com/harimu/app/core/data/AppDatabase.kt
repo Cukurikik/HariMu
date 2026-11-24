@@ -6,8 +6,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [HistoryEntity::class, FavoriteEntity::class, VaultKeyEntity::class, JobEntity::class],
-    version = 2,
+    entities = [
+        HistoryEntity::class,
+        FavoriteEntity::class,
+        VaultKeyEntity::class,
+        JobEntity::class,
+        VideoProjectEntity::class,
+        AudioProjectEntity::class
+    ],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -15,6 +22,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun vaultKeyDao(): VaultKeyDao
     abstract fun jobDao(): JobDao
+    abstract fun videoProjectDao(): VideoProjectDao
+    abstract fun audioProjectDao(): AudioProjectDao
 
     companion object {
         fun create(context: Context): AppDatabase = Room.databaseBuilder(
@@ -24,3 +33,4 @@ abstract class AppDatabase : RoomDatabase() {
         ).fallbackToDestructiveMigration(dropAllTables = true).build()
     }
 }
+

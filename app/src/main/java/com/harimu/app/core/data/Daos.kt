@@ -90,3 +90,35 @@ interface JobDao {
     @Query("DELETE FROM jobs WHERE status NOT IN ('QUEUED', 'RUNNING')")
     suspend fun clearFinished()
 }
+
+@Dao
+interface VideoProjectDao {
+    @Query("SELECT * FROM video_projects ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<VideoProjectEntity>>
+
+    @Query("SELECT * FROM video_projects WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): VideoProjectEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: VideoProjectEntity)
+
+    @Query("DELETE FROM video_projects WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+@Dao
+interface AudioProjectDao {
+    @Query("SELECT * FROM audio_projects ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<AudioProjectEntity>>
+
+    @Query("SELECT * FROM audio_projects WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): AudioProjectEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: AudioProjectEntity)
+
+    @Query("DELETE FROM audio_projects WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+

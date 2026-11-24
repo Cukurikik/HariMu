@@ -30,7 +30,7 @@
     <string name="group_video_title">Video Forge</string>
     <string name="group_video_subtitle">Trim, merge, extract audio &amp; frames</string>
     <string name="group_audio_title">Audio Forge</string>
-    <string name="group_audio_subtitle">WAV DSP, 5-band EQ, echo &amp; visualizer</string>
+    <string name="group_audio_subtitle">Mastering, 10-band EQ, 8D, Reverb &amp; Visualizer</string>
     <string name="group_image_title">Image Forge</string>
     <string name="group_image_subtitle">Crop, filters, EXIF, palette &amp; icons</string>
     <string name="group_pdf_title">PDF Vault</string>
@@ -131,4 +131,101 @@
     <!-- Permissions -->
     <string name="permission_audio_rationale">Microphone permission is required to record live PCM audio directly to a WAV file.</string>
     <string name="settings_test_media_engine">Test Media Engine (Remux MP4)</string>
+
+    <!-- Video Preview & Trim -->
+    <string name="video_preview_title">Video Preview (ExoPlayer)</string>
+    <string name="video_audio_present">Audio present</string>
+    <string name="video_audio_missing">No audio</string>
+    <string name="video_trim_range_title">Trim Range &amp; Thumbnail Strip</string>
+    <string name="video_trim_range_labels">Start: %1$s  •  End: %2$s</string>
+    <string name="video_set_start_playhead">Set Start</string>
+    <string name="video_set_end_playhead">Set End</string>
+    <string name="video_cd_play_pause">Play or pause video preview</string>
+    <string name="video_loading_thumbnails">Loading thumbnail strip…</string>
+    <string name="video_safety_reverse_title">Memory Safety (Reverse)</string>
+    <string name="video_safety_reverse_body">Reverse buffers uncompressed frames in RAM. Videos &gt; 20s automatically use 12s segmented chunks; max 3 min.</string>
+    <string name="video_safety_loop_title">Loop Duration Guard</string>
+    <string name="video_safety_loop_body">Large loop counts multiply total duration and file size (10-minute total safety limit).</string>
+
+    <!-- Video Forge Batch 2: Secondary Pickers & Previews -->
+    <string name="action_pick_image_overlay">Select Overlay Image</string>
+    <string name="action_pick_subtitle_file">Select Subtitle File (.srt / .vtt)</string>
+    <string name="action_pick_bg_media">Select Background (Image / Video, Optional)</string>
+    <string name="action_clear_secondary">Clear Background</string>
+    <string name="fallback_image_name">overlay_image</string>
+    <string name="fallback_subtitle_name">subtitle</string>
+    <string name="fallback_media_name">background_media</string>
+
+    <string name="vid14_roi_title">Logo Blur Area Preview</string>
+    <string name="vid14_roi_coords">Target box: X %1$d%%, Y %2$d%% • %3$d%% × %4$d%%</string>
+
+    <string name="vid25_limit_title">Face Detection Limitations (ML Kit)</string>
+    <string name="vid25_limit_body">Sampled detection may miss small faces (&lt; 8%% of frame), extreme side profiles, very low light, or occluded faces. Check the preview below before rendering.</string>
+    <string name="vid25_preview_time">Preview sample timestamp: %1$s</string>
+    <string name="vid25_preview_button">Preview Face Detection</string>
+    <string name="vid25_preview_scanning">Detecting faces…</string>
+    <string name="vid25_preview_found">%1$d face(s) detected at %2$s</string>
+    <string name="vid25_preview_none">No faces detected at this timestamp — scrub time or increase FPS.</string>
+
+    <!-- CORE-01 Pro Video Editor -->
+    <string name="editor_title">Pro Video Editor</string>
+    <string name="editor_default_project_title">Untitled Project</string>
+    <string name="editor_projects_btn">Projects</string>
+    <string name="editor_save_btn">Save</string>
+    <string name="editor_project_saved_toast">Project saved to local database</string>
+    <string name="editor_project_title_label">Project Title</string>
+    <string name="editor_add_clips">Add Video Clips</string>
+    <string name="editor_resolution_label">Export Resolution</string>
+    <string name="editor_timeline_header">Timeline (%1$d clips • Total %2$s)</string>
+    <string name="editor_timeline_empty_title">Timeline Is Empty</string>
+    <string name="editor_timeline_empty_desc">Add video clips (recommended ≥3 clips) to arrange order, trim, speed, and rotation.</string>
+    <string name="editor_clip_index">#%1$d</string>
+    <string name="editor_clip_muted">Muted</string>
+    <string name="editor_cd_move_left">Move clip left</string>
+    <string name="editor_cd_move_right">Move clip right</string>
+    <string name="editor_cd_duplicate">Duplicate clip</string>
+    <string name="editor_cd_remove">Remove clip</string>
+    <string name="editor_inspector_title">Clip Inspector: #%1$d %2$s</string>
+    <string name="editor_clip_trim_label">Trim Range: %1$s – %2$s (Effective: %3$s)</string>
+    <string name="editor_clip_speed_label">Clip Speed: %1$sx</string>
+    <string name="editor_clip_rotation_label">Clip Rotation</string>
+    <string name="editor_clip_mute_label">Mute this clip\'s audio</string>
+    <string name="editor_export_button">Render &amp; Merge Timeline (%1$d Clips)</string>
+    <string name="editor_saved_projects_title">Saved Projects (Room)</string>
+    <string name="editor_new_project">New Project</string>
+    <string name="editor_no_saved_projects">No saved projects yet. Add clips and tap Save or Export.</string>
+    <string name="editor_project_meta">%1$d clips • %2$s</string>
+    <string name="editor_load_project">Resume</string>
+
+    <!-- Audio Forge Batch 1: Waveform & Before/After Preview -->
+    <string name="audio_preview_title">Audio &amp; Waveform Preview</string>
+    <string name="audio_tab_before">Before (Original)</string>
+    <string name="audio_tab_after">After (Output)</string>
+    <string name="audio_loading_waveform">Extracting waveform peaks…</string>
+    <string name="audio_cd_play_pause">Play or pause audio preview</string>
+    <string name="audio_trim_range_title">Waveform Trim Range</string>
+    <string name="action_pick_cover_image">Select Cover Art (Optional)</string>
+    <string name="fallback_cover_name">album_cover</string>
+    <string name="audio_channels_mono">Mono (1 ch)</string>
+    <string name="audio_channels_stereo">Stereo (%1$d ch)</string>
+
+    <!-- Audio Forge Batch 2: Watermark & Pro Equalizer 10-Band -->
+    <string name="action_pick_watermark_audio">Select Watermark Sound (Optional)</string>
+    <string name="eq_title">Pro 10-Band Equalizer</string>
+    <string name="eq_pick_audio">Pick Audio Track</string>
+    <string name="eq_play_live">Play Live Preview</string>
+    <string name="eq_pause_live">Pause Preview</string>
+    <string name="eq_bypass_label">Bypass (Original)</string>
+    <string name="eq_reset_flat">Reset Flat</string>
+    <string name="eq_presets_title">Studio Presets</string>
+    <string name="eq_curve_title">10-Band Response Curve (31 Hz – 16 kHz)</string>
+    <string name="eq_preamp_label">Preamp / Trim Gain</string>
+    <string name="eq_parity_title">Live Preview ↔ FFmpeg Export Parity</string>
+    <string name="eq_engine_dp">Live Engine: DynamicsProcessing 10-Band + Limiter</string>
+    <string name="eq_engine_legacy">Live Engine: Android Equalizer (%1$d-Band Fallback)</string>
+    <string name="eq_engine_idle">Pick an audio track to activate Android AudioFX live preview &amp; parity check.</string>
+    <string name="eq_export_format">Export Format</string>
+    <string name="eq_export_button">Export EQ Audio (FFmpeg)</string>
+    <string name="eq_exporting_msg">Applying 10-band EQ &amp; limiter via FFmpeg…</string>
+    <string name="eq_export_done_summary">10-Band EQ exported • %1$s (%2$s)</string>
 </resources>

@@ -37,8 +37,8 @@ enum class ToolGroup(
         R.string.group_audio_subtitle,
         "Audio Forge",
         "Audio Forge",
-        "DSP WAV, EQ 5-band, gema & visualizer",
-        "WAV DSP, 5-band EQ, echo & visualizer"
+        "Mastering, EQ 10-band, 8D, Reverb & Visualizer",
+        "Mastering, 10-band EQ, 8D, Reverb & Visualizer"
     ),
     IMAGE(
         R.string.group_image_title,
@@ -78,6 +78,11 @@ sealed interface InputSpec {
     data object SinglePdf : InputSpec
     data object MultiplePdfs : InputSpec
     data object VideoAndAudio : InputSpec
+    data object VideoAndImage : InputSpec
+    data object VideoAndSubtitle : InputSpec
+    data object VideoAndMedia : InputSpec
+    data object AudioAndImage : InputSpec
+    data object AudioAndWatermarkAudio : InputSpec
     data object ZipFile : InputSpec
     data object AnyFile : InputSpec
 }
@@ -177,13 +182,16 @@ data class ModelSpec(
 )
 
 enum class DedicatedScreenRoute {
+    VIDEO_EDITOR,
     VOICE_RECORDER,
     IMAGE_MATRIX,
     EQUALIZER,
+    AUDIO_STUDIO,
     KEY_VAULT,
     WORKSPACE_BACKUP,
     SETTINGS
 }
+
 
 interface Tool {
     val id: String

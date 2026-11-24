@@ -37,206 +37,29 @@ fun audioTools(): List<Tool> = listOf(
     DedicatedTool(
         id = "AUD-02",
         group = ToolGroup.AUDIO,
-        engineLabel = "NAT",
+        engineLabel = "NAT+FF",
         icon = Icons.Filled.Equalizer,
         dedicatedRoute = DedicatedScreenRoute.EQUALIZER,
-        titleId = "Pro Equalizer 5-Band Live",
-        titleEn = "Live 5-Band Equalizer",
-        descId = "Putar audio dengan kontrol Equalizer 5-band Android real-time & preset.",
-        descEn = "Play audio with real-time Android 5-band Equalizer & presets."
+        titleId = "Pro Equalizer 10-Band (Live + Ekspor)",
+        titleEn = "Pro 10-Band Equalizer (Live + Export)",
+        descId = "Pratinjau live 10-band (DynamicsProcessing/Equalizer) & ekspor FFmpeg setara.",
+        descEn = "Live 10-band AudioFX preview with matching FFmpeg 10-band EQ export."
     ),
-    object : Tool {
-        override val id = "AUD-08"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "PCM"
-        override val icon = Icons.Filled.VolumeUp
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.SliderParam("gain", "Penguatan Volume (%)", "Volume Gain (%)", 20f, 300f, 150f, 10f, "%")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Change Audio Volume" else "Ubah Volume Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Amplify or attenuate audio level cleanly to WAV." else "Naikkan atau turunkan gain audio dengan proteksi clipping."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(30, "Mendekode audio PCM..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            emit(ToolProgress.Running(70, "Menerapkan penguatan volume..."))
-            val out = AudioEngine.applyGain(pcm, input.getFloat("gain", 150f))
-            val dest = ctx.storage.createOutputFile("AUD_VOL", "wav")
-            AudioEngine.writeWav(out, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Volume ${input.getFloat("gain", 150f).toInt()}% (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-09"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "PCM"
-        override val icon = Icons.Filled.ContentCut
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.SliderParam("startSec", "Mulai (detik)", "Start (sec)", 0f, 120f, 0f, 1f, "s"),
-            ToolParam.SliderParam("endSec", "Selesai (detik, 0=akhir)", "End (sec, 0=end)", 0f, 180f, 15f, 1f, "s")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Trim Audio" else "Potong Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Cut an audio segment precisely at sample level." else "Potong segmen audio secara presisi ke format WAV."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(35, "Memotong sampel audio..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val trimmed = AudioEngine.trimPcm(pcm, input.getFloat("startSec", 0f), input.getFloat("endSec", 15f))
-            val dest = ctx.storage.createOutputFile("AUD_TRIM", "wav")
-            AudioEngine.writeWav(trimmed, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Audio dipotong (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-10"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "PCM"
-        override val icon = Icons.Filled.MergeType
-        override val inputSpec = InputSpec.MultipleAudios
-        override val params = listOf(
-            ToolParam.DropdownParam("mode", "Mode Gabung", "Merge Mode", listOf("Berurutan (Concat)", "Campur (Mix)"), "Berurutan (Concat)")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Merge / Mix Audio" else "Gabung / Mix Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Join audio clips sequentially or mix them together." else "Sambungkan klip audio berurutan atau campur bersamaan."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            require(input.uris.size >= 2) { "Pilih minimal 2 file audio" }
-            emit(ToolProgress.Running(40, "Memproses ${input.uris.size} track audio..."))
-            val pcms = input.uris.map { AudioEngine.decodeToPcm(ctx.appContext, it) }
-            val mix = input.getString("mode").contains("Mix")
-            val merged = AudioEngine.mergeOrMix(pcms, mix)
-            val dest = ctx.storage.createOutputFile("AUD_MERGE", "wav")
-            AudioEngine.writeWav(merged, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "${pcms.size} audio digabung (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-15"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "PCM"
-        override val icon = Icons.Filled.SurroundSound
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.DropdownParam("mode", "Operasi Kanal", "Channel Operation", listOf("Mono Mix", "Tukar L/R", "Hanya Kiri", "Hanya Kanan"), "Mono Mix")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Channel Manipulator" else "Manipulasi Kanal Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Downmix to mono, swap L/R, or isolate channels." else "Ubah stereo ke mono, tukar L/R, atau isolasi satu kanal."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(45, "Memanipulasi kanal..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val out = AudioEngine.manipulateChannels(pcm, input.getString("mode", "Mono Mix"))
-            val dest = ctx.storage.createOutputFile("AUD_CHAN", "wav")
-            AudioEngine.writeWav(out, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Kanal: ${input.getString("mode", "Mono Mix")}")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-16"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "DSP"
-        override val icon = Icons.Filled.VolumeOff
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.SliderParam("threshold", "Ambang Hening (%)", "Silence Threshold (%)", 1f, 20f, 3f, 1f, "%")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Silence Remover" else "Hapus Bagian Hening"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Detect and trim quiet RMS segments automatically." else "Pangkas segmen hening berdasarkan ambang energi RMS."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(45, "Menganalisis energi RMS..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val out = AudioEngine.removeSilence(pcm, input.getFloat("threshold", 3f).toInt())
-            val dest = ctx.storage.createOutputFile("AUD_NOSILENCE", "wav")
-            AudioEngine.writeWav(out, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Bagian hening dihapus (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-17"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "PCM"
-        override val icon = Icons.Filled.History
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = emptyList<ToolParam>()
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Reverse Audio" else "Putar Balik Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Reverse audio playback sample-by-sample." else "Balik arah pemutaran audio dari akhir ke awal."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(50, "Membalik sampel PCM..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val out = AudioEngine.reversePcm(pcm)
-            val dest = ctx.storage.createOutputFile("AUD_REV", "wav")
-            AudioEngine.writeWav(out, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Audio dibalik (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-24"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "DSP"
-        override val icon = Icons.Filled.GraphicEq
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.SliderParam("delayMs", "Jeda Gema (ms)", "Echo Delay (ms)", 80f, 800f, 260f, 20f, "ms"),
-            ToolParam.SliderParam("decay", "Peluruhan Gema", "Echo Decay", 0.1f, 0.7f, 0.4f, 0.05f, "")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Add Echo Effect" else "Tambah Efek Gema"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Apply multi-tap feedback delay echo filter." else "Tambahkan efek gema delay multi-tap pada audio."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(50, "Memproses efek gema..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val out = AudioEngine.addEcho(pcm, input.getFloat("delayMs", 260f).toInt(), input.getFloat("decay", 0.4f))
-            val dest = ctx.storage.createOutputFile("AUD_ECHO", "wav")
-            AudioEngine.writeWav(out, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Efek gema diterapkan (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-26"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "DSP"
-        override val icon = Icons.Filled.Tune
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.SliderParam("fadeIn", "Fade In (detik)", "Fade In (sec)", 0f, 10f, 2f, 0.5f, "s"),
-            ToolParam.SliderParam("fadeOut", "Fade Out (detik)", "Fade Out (sec)", 0f, 10f, 3f, 0.5f, "s")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Fade In / Out" else "Fade In / Out Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Apply smooth intro and outro volume envelopes." else "Terapkan transisi suara halus di awal dan akhir audio."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(50, "Menerapkan kurva fade..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val out = AudioEngine.applyFade(pcm, input.getFloat("fadeIn", 2f), input.getFloat("fadeOut", 3f))
-            val dest = ctx.storage.createOutputFile("AUD_FADE", "wav")
-            AudioEngine.writeWav(out, dest)
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "audio/wav", dest.name)), summary = "Fade selesai (${ctx.storage.formatBytes(dest.length())})")))
-        }.flowOn(Dispatchers.IO)
-    },
-    object : Tool {
-        override val id = "AUD-28"
-        override val group = ToolGroup.AUDIO
-        override val engineLabel = "NAT"
-        override val icon = Icons.Filled.GraphicEq
-        override val inputSpec = InputSpec.SingleAudio
-        override val params = listOf(
-            ToolParam.TextParam("title", "Judul Poster", "Poster Title", "HariMu Soundwave", "Judul audio...", "Audio title...")
-        )
-        override fun title(isEnglish: Boolean) = if (isEnglish) "Audio Waveform Poster" else "Visualizer Gelombang Audio"
-        override fun description(isEnglish: Boolean) = if (isEnglish) "Render high-res PNG waveform art from any audio." else "Buat gambar poster spektrum gelombang resolusi tinggi dari audio."
-        override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih file audio")
-            emit(ToolProgress.Running(45, "Merender gelombang audio..."))
-            val pcm = AudioEngine.decodeToPcm(ctx.appContext, uri)
-            val dest = ctx.storage.createOutputFile("AUD_WAVE", "png")
-            AudioEngine.renderWaveformPoster(pcm, dest, input.getString("title", "HariMu Soundwave"))
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Poster gelombang PNG dibuat")))
-        }.flowOn(Dispatchers.IO)
-    }
-)
+    DedicatedTool(
+        id = "AUD-21",
+        group = ToolGroup.AUDIO,
+        engineLabel = "NAT+FF",
+        icon = Icons.Filled.GraphicEq,
+        dedicatedRoute = DedicatedScreenRoute.AUDIO_STUDIO,
+        titleId = "Audio Studio Pro (DAW)",
+        titleEn = "Audio Studio Pro (Multitrack DAW)",
+        descId = "Mixer multitrack dengan kontrol gain, pan, dan trim.",
+        descEn = "Multitrack mixer with per-track gain, pan, and trim."
+    )
+) + audioForgeBatch1CoreTools() +
+    audioForgeBatch1ExtraTools() +
+    audioForgeBatch2CoreTools() +
+    audioForgeBatch2ExtraTools()
 
 fun pdfTools(): List<Tool> = listOf(
     object : Tool {

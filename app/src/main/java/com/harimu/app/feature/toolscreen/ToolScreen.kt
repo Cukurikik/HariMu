@@ -87,7 +87,9 @@ import com.harimu.app.core.design.ProgressSheet
 import com.harimu.app.core.design.ResultCard
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.accentColor
+import com.harimu.app.core.media.Id3TagHelper
 import com.harimu.app.core.toolapi.InputSpec
+import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
@@ -120,6 +122,29 @@ fun ToolScreen(
         onDispose { runCatching { audioPlayer?.release() } }
     }
 
+    LaunchedEffect(tool.id, state.selectedUris) {
+        if (tool.id == "AUD-18" && state.selectedUris.isNotEmpty()) {
+            val existing = withContext(Dispatchers.IO) {
+                Id3TagHelper.readTags(context, state.selectedUris.first())
+            }
+            if ((state.paramValues["title"]?.toString()).isNullOrBlank() && existing.title.isNotBlank()) {
+                vm.setParam("title", existing.title)
+            }
+            if ((state.paramValues["artist"]?.toString()).isNullOrBlank() && existing.artist.isNotBlank()) {
+                vm.setParam("artist", existing.artist)
+            }
+            if ((state.paramValues["album"]?.toString()).isNullOrBlank() && existing.album.isNotBlank()) {
+                vm.setParam("album", existing.album)
+            }
+            if ((state.paramValues["year"]?.toString()).isNullOrBlank() && existing.year.isNotBlank()) {
+                vm.setParam("year", existing.year)
+            }
+            if ((state.paramValues["genre"]?.toString()).isNullOrBlank() && existing.genre.isNotBlank()) {
+                vm.setParam("genre", existing.genre)
+            }
+        }
+    }
+
     val singleImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { vm.setUris(listOf(it)) }
     }
@@ -139,6 +164,15 @@ fun ToolScreen(
         if (uris.isNotEmpty()) vm.setUris(uris)
     }
     val secondaryAudioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { vm.setSecondaryUri(it) }
+    }
+    val secondaryImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { vm.setSecondaryUri(it) }
+    }
+    val secondarySubtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { vm.setSecondaryUri(it) }
+    }
+    val secondaryBgMediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { vm.setSecondaryUri(it) }
     }
 
@@ -275,6 +309,9 @@ fun ToolScreen(
                         val isMulti = spec == InputSpec.MultipleImages || spec == InputSpec.MultipleVideos ||
                             spec == InputSpec.MultipleAudios || spec == InputSpec.MultiplePdfs || spec == InputSpec.AnyFile
                         val fallbackAudio = stringResource(R.string.fallback_audio_name)
+                        val fallbackImage = stringResource(R.string.fallback_image_name)
+                        val fallbackSubtitle = stringResource(R.string.fallback_subtitle_name)
+                        val fallbackMedia = stringResource(R.string.fallback_media_name)
                         val fileNames = state.selectedUris.mapIndexed { idx, uri ->
                             container.storage.getDisplayName(uri) ?: stringResource(R.string.fallback_file_name, idx + 1)
                         }
@@ -290,13 +327,19 @@ fun ToolScreen(
                                     InputSpec.MultipleImages -> multiImagePicker.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                     )
-                                    InputSpec.SingleVideo, InputSpec.VideoAndAudio -> singleVideoPicker.launch(
+                                    InputSpec.SingleVideo,
+                                    InputSpec.VideoAndAudio,
+                                    InputSpec.VideoAndImage,
+                                    InputSpec.VideoAndSubtitle,
+                                    InputSpec.VideoAndMedia -> singleVideoPicker.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
                                     )
                                     InputSpec.MultipleVideos -> multiVideoPicker.launch(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
                                     )
-                                    InputSpec.SingleAudio -> singleDocPicker.launch(arrayOf("audio/*"))
+                                    InputSpec.SingleAudio,
+                                    InputSpec.AudioAndImage,
+                                    InputSpec.AudioAndWatermarkAudio -> singleDocPicker.launch(arrayOf("audio/*"))
                                     InputSpec.MultipleAudios -> multiDocPicker.launch(arrayOf("audio/*"))
                                     InputSpec.SinglePdf -> singleDocPicker.launch(arrayOf("application/pdf"))
                                     InputSpec.MultiplePdfs -> multiDocPicker.launch(arrayOf("application/pdf"))
@@ -305,25 +348,226 @@ fun ToolScreen(
                                     else -> Unit
                                 }
                             },
-                            secondaryContent = if (spec == InputSpec.VideoAndAudio) {
-                                {
-                                    OutlinedButton(
-                                        onClick = { secondaryAudioPicker.launch(arrayOf("audio/*")) },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(stringResource(R.string.action_pick_audio_bg))
-                                    }
-                                    state.secondaryUri?.let { aUri ->
-                                        Text(
-                                            text = container.storage.getDisplayName(aUri) ?: fallbackAudio,
-                                            style = MonoTextStyle,
-                                            color = MaterialTheme.colorScheme.secondary
-                                        )
+                            secondaryContent = when (spec) {
+                                InputSpec.VideoAndAudio -> {
+                                    {
+                                        OutlinedButton(
+                                            onClick = { secondaryAudioPicker.launch(arrayOf("audio/*")) },
+                                            modifier = Modifier.fillMaxWidth().testTag("pick_secondary_audio_btn")
+                                        ) {
+                                            Text(stringResource(R.string.action_pick_audio_bg))
+                                        }
+                                        state.secondaryUri?.let { aUri ->
+                                            Text(
+                                                text = container.storage.getDisplayName(aUri) ?: fallbackAudio,
+                                                style = MonoTextStyle,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
                                     }
                                 }
-                            } else null
+                                InputSpec.VideoAndImage -> {
+                                    {
+                                        OutlinedButton(
+                                            onClick = {
+                                                secondaryImagePicker.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth().testTag("pick_secondary_image_btn")
+                                        ) {
+                                            Text(stringResource(R.string.action_pick_image_overlay))
+                                        }
+                                        state.secondaryUri?.let { iUri ->
+                                            Text(
+                                                text = container.storage.getDisplayName(iUri) ?: fallbackImage,
+                                                style = MonoTextStyle,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                    }
+                                }
+                                InputSpec.VideoAndSubtitle -> {
+                                    {
+                                        OutlinedButton(
+                                            onClick = {
+                                                secondarySubtitlePicker.launch(
+                                                    arrayOf("application/x-subrip", "text/vtt", "text/plain", "*/*")
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth().testTag("pick_secondary_subtitle_btn")
+                                        ) {
+                                            Text(stringResource(R.string.action_pick_subtitle_file))
+                                        }
+                                        state.secondaryUri?.let { sUri ->
+                                            Text(
+                                                text = container.storage.getDisplayName(sUri) ?: fallbackSubtitle,
+                                                style = MonoTextStyle,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                    }
+                                }
+                                InputSpec.VideoAndMedia -> {
+                                    {
+                                        OutlinedButton(
+                                            onClick = { secondaryBgMediaPicker.launch(arrayOf("image/*", "video/*")) },
+                                            modifier = Modifier.fillMaxWidth().testTag("pick_secondary_media_btn")
+                                        ) {
+                                            Text(stringResource(R.string.action_pick_bg_media))
+                                        }
+                                        state.secondaryUri?.let { mUri ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = container.storage.getDisplayName(mUri) ?: fallbackMedia,
+                                                    style = MonoTextStyle,
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(onClick = { vm.setSecondaryUri(null) }) {
+                                                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.action_clear_secondary))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                InputSpec.AudioAndImage -> {
+                                    {
+                                        val fallbackCover = stringResource(R.string.fallback_cover_name)
+                                        OutlinedButton(
+                                            onClick = {
+                                                secondaryImagePicker.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("pick_cover_image_btn")
+                                        ) {
+                                            Text(stringResource(R.string.action_pick_cover_image))
+                                        }
+                                        state.secondaryUri?.let { imgUri ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = container.storage.getDisplayName(imgUri) ?: fallbackCover,
+                                                    style = MonoTextStyle,
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(onClick = { vm.setSecondaryUri(null) }) {
+                                                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.action_clear_secondary))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                InputSpec.AudioAndWatermarkAudio -> {
+                                    {
+                                        OutlinedButton(
+                                            onClick = { secondaryAudioPicker.launch(arrayOf("audio/*")) },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("pick_watermark_audio_btn")
+                                        ) {
+                                            Text(stringResource(R.string.action_pick_watermark_audio))
+                                        }
+                                        state.secondaryUri?.let { wmUri ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = container.storage.getDisplayName(wmUri) ?: fallbackAudio,
+                                                    style = MonoTextStyle,
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(onClick = { vm.setSecondaryUri(null) }) {
+                                                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.action_clear_secondary))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> null
+                            }
                         )
                     }
+                }
+
+                if (tool.id == "VID-12" || tool.id == "VID-19") {
+                    VideoSafetyWarningCard(isReverse = tool.id == "VID-19")
+                }
+
+                val isSingleVideoSpec = tool.inputSpec == InputSpec.SingleVideo ||
+                    tool.inputSpec == InputSpec.VideoAndAudio ||
+                    tool.inputSpec == InputSpec.VideoAndImage ||
+                    tool.inputSpec == InputSpec.VideoAndSubtitle ||
+                    tool.inputSpec == InputSpec.VideoAndMedia
+
+                if (isSingleVideoSpec && state.selectedUris.isNotEmpty()) {
+                    if (tool.id == "VID-14") {
+                        RoiLogoPreviewCard(
+                            videoUri = state.selectedUris.first(),
+                            xPct = (state.paramValues["xPct"] as? Number)?.toFloat() ?: 70f,
+                            yPct = (state.paramValues["yPct"] as? Number)?.toFloat() ?: 5f,
+                            wPct = (state.paramValues["wPct"] as? Number)?.toFloat() ?: 22f,
+                            hPct = (state.paramValues["hPct"] as? Number)?.toFloat() ?: 14f
+                        )
+                    } else if (tool.id == "VID-25") {
+                        FaceBlurPreviewCard(videoUri = state.selectedUris.first())
+                    } else {
+                        val showTrim = tool.id == "VID-01" || tool.id == "VID-21"
+                        val startVal = (state.paramValues["startSec"] as? Number)?.toFloat() ?: 0f
+                        val endVal = (state.paramValues["endSec"] as? Number)?.toFloat() ?: 0f
+                        VideoTrimPreviewCard(
+                            videoUri = state.selectedUris.first(),
+                            showTrimStrip = showTrim,
+                            startSec = startVal,
+                            endSec = endVal,
+                            onRangeChange = { newStart, newEnd ->
+                                vm.setParam("startSec", newStart)
+                                vm.setParam("endSec", newEnd)
+                                if (tool.id == "VID-21") {
+                                    vm.setParam("mode", "Rentang Pilihan")
+                                }
+                            }
+                        )
+                    }
+                }
+
+                val isSingleAudioSpec = tool.inputSpec == InputSpec.SingleAudio ||
+                    tool.inputSpec == InputSpec.AudioAndImage ||
+                    tool.inputSpec == InputSpec.AudioAndWatermarkAudio
+                val doneAudioOutput = (state.progress as? ToolProgress.Done)
+                    ?.result
+                    ?.outputs
+                    ?.firstOrNull { it.mimeType.startsWith("audio/") }
+                val showAudioCard = !tool.isStub && (
+                    (isSingleAudioSpec && state.selectedUris.isNotEmpty()) ||
+                        (tool.group == ToolGroup.AUDIO && doneAudioOutput != null)
+                    )
+                if (showAudioCard) {
+                    AudioBeforeAfterPreviewCard(
+                        inputUri = if (isSingleAudioSpec) state.selectedUris.firstOrNull() else null,
+                        outputFile = doneAudioOutput?.file,
+                        showTrimControls = tool.id == "AUD-09",
+                        startSec = (state.paramValues["startSec"] as? Number)?.toFloat() ?: 0f,
+                        endSec = (state.paramValues["endSec"] as? Number)?.toFloat() ?: 15f,
+                        onRangeChange = { newStart, newEnd ->
+                            vm.setParam("startSec", newStart)
+                            vm.setParam("endSec", newEnd)
+                        }
+                    )
                 }
 
                 if (tool.params.isNotEmpty()) {
@@ -460,6 +704,15 @@ fun ToolScreen(
                             }
                         ) {
                             prog.result.outputs.forEach { out ->
+                                if (out.mimeType.startsWith("video/") && tool.id == "AUD-28") {
+                                    VideoTrimPreviewCard(
+                                        videoUri = out.file.toUri(),
+                                        showTrimStrip = false,
+                                        startSec = 0f,
+                                        endSec = 0f,
+                                        onRangeChange = { _, _ -> }
+                                    )
+                                }
                                 if (out.mimeType.startsWith("image/")) {
                                     AsyncImage(
                                         model = out.file,

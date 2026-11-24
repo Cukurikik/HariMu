@@ -40,6 +40,9 @@ class WorkspaceRepository(
     val historyFlow: Flow<List<HistoryEntity>> = db.historyDao().observeAll()
     val favoriteIdsFlow: Flow<Set<String>> = db.favoriteDao().observeFavoriteIds().map { it.toSet() }
     val vaultKeysFlow: Flow<List<VaultKeyEntity>> = db.vaultKeyDao().observeAll()
+    val videoProjectsFlow: Flow<List<VideoProjectEntity>> = db.videoProjectDao().observeAll()
+    val audioProjectsFlow: Flow<List<AudioProjectEntity>> = db.audioProjectDao().observeAll()
+
 
     suspend fun recordHistory(
         toolId: String,
@@ -78,6 +81,67 @@ class WorkspaceRepository(
 
     suspend fun saveVaultKey(entity: VaultKeyEntity): Long = db.vaultKeyDao().insert(entity)
     suspend fun deleteVaultKey(id: Long) = db.vaultKeyDao().deleteById(id)
+
+    suspend fun saveVideoProject(
+        id: String,
+        title: String,
+        clips: List<EditorClipSpec>,
+        outputResolution: String,
+        lastExportPath: String = "",
+        createdAt: Long = System.currentTimeMillis()
+    ) {
+        db.videoProjectDao().upsert(
+            VideoProjectEntity(
+                id = id,
+                title = title,
+                clipsJson = encodeEditorClips(clips),
+                outputResolution = outputResolution,
+                lastExportPath = lastExportPath,
+                createdAt = createdAt,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun getVideoProject(id: String): VideoProjectEntity? = db.videoProjectDao().getById(id)
+
+    suspend fun deleteVideoProject(id: String) = db.videoProjectDao().deleteById(id)
+
+    fun encodeEditorClips(clips: List<EditorClipSpec>): String = json.encodeToString(clips)
+
+    fun decodeEditorClips(clipsJson: String): List<EditorClipSpec> =
+        runCatching { json.decodeFromString<List<EditorClipSpec>>(clipsJson) }.getOrDefault(emptyList())
+
+    suspend fun saveAudioProject(
+        id: String,
+        title: String,
+        tracks: List<AudioTrackSpec>,
+        masterVolume: Float,
+        lastExportPath: String = "",
+        createdAt: Long = System.currentTimeMillis()
+    ) {
+        db.audioProjectDao().upsert(
+            AudioProjectEntity(
+                id = id,
+                title = title,
+                tracksJson = encodeAudioTracks(tracks),
+                masterVolume = masterVolume,
+                lastExportPath = lastExportPath,
+                createdAt = createdAt,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun getAudioProject(id: String): AudioProjectEntity? = db.audioProjectDao().getById(id)
+
+    suspend fun deleteAudioProject(id: String) = db.audioProjectDao().deleteById(id)
+
+    fun encodeAudioTracks(tracks: List<AudioTrackSpec>): String = json.encodeToString(tracks)
+
+    fun decodeAudioTracks(tracksJson: String): List<AudioTrackSpec> =
+        runCatching { json.decodeFromString<List<AudioTrackSpec>>(tracksJson) }.getOrDefault(emptyList())
+
 
     suspend fun exportOmniBackup(password: String?): File = withContext(Dispatchers.IO) {
         val currentSettings = settings.current()

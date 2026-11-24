@@ -58,3 +58,63 @@ data class JobEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+@Serializable
+data class EditorClipSpec(
+    val id: String,
+    val uriString: String,
+    val displayName: String,
+    val durationMs: Long,
+    val trimStartMs: Long = 0L,
+    val trimEndMs: Long = durationMs,
+    val speed: Float = 1.0f,
+    val rotationDeg: Int = 0,
+    val muteAudio: Boolean = false
+)
+
+@Serializable
+data class AudioClipSpec(
+    val id: String,
+    val uriString: String,
+    val displayName: String,
+    val durationMs: Long,
+    val trimStartMs: Long = 0L,
+    val trimEndMs: Long = durationMs,
+    val offsetMs: Long = 0L,
+    val gainDb: Float = 0f
+)
+
+@Serializable
+data class AudioTrackSpec(
+    val trackId: String,
+    val name: String,
+    val volume: Float = 1.0f,
+    val pan: Float = 0.0f,
+    val mute: Boolean = false,
+    val solo: Boolean = false,
+    val clips: List<AudioClipSpec> = emptyList()
+)
+
+@Entity(tableName = "video_projects")
+data class VideoProjectEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val clipsJson: String,
+    val outputResolution: String = "720p",
+    val lastExportPath: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "audio_projects")
+data class AudioProjectEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val tracksJson: String,
+    val masterVolume: Float = 1.0f,
+    val lastExportPath: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+

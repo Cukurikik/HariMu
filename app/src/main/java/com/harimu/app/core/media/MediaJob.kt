@@ -234,6 +234,60 @@ class MediaJob(
         }
     }.flowOn(Dispatchers.IO)
 
+    suspend fun runStep(
+        arguments: List<String>,
+        expectedDurationMs: Long = 0L,
+        isEnglish: Boolean = false,
+        onProgress: (percent: Int) -> Unit = {}
+    ): Result<String> = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+        val logs = BoundedLogCollector()
+        val discoveredDuration = AtomicLong(expectedDurationMs.coerceAtLeast(0L))
+        logs.append("ffmpeg ${arguments.joinToString(" ")}")
+
+        val handle = runner.executeAsync(
+            arguments = arguments,
+            onLog = { line ->
+                logs.append(line)
+                if (discoveredDuration.get() <= 0L) {
+                    FfmpegProgressParser.parseDurationMsFromLog(line)?.let { d ->
+                        discoveredDuration.compareAndSet(0L, d)
+                    }
+                }
+                FfmpegProgressParser.parseTimeMsFromLog(line)?.let { tMs ->
+                    onProgress(FfmpegProgressParser.computePercent(tMs.toDouble(), discoveredDuration.get()))
+                }
+            },
+            onTimeMs = { processedMs ->
+                onProgress(FfmpegProgressParser.computePercent(processedMs, discoveredDuration.get()))
+            },
+            onComplete = { returnCode, isSuccess, isCancelled, allLogs ->
+                if (allLogs.isNotBlank()) logs.append(allLogs)
+                if (!cont.isActive) return@executeAsync
+                if (isCancelled) {
+                    cont.cancel(CancellationException("FFmpeg step cancelled"))
+                } else if (isSuccess) {
+                    cont.resumeWith(Result.success(Result.success(logs.tail(40))))
+                } else {
+                    val mapped = MediaErrorMapper.mapFfmpegFailure(
+                        returnCodeValue = returnCode,
+                        isCancelled = false,
+                        logs = logs.allLines().joinToString("\n"),
+                        isEnglish = isEnglish
+                    )
+                    cont.resumeWith(
+                        Result.success(
+                            Result.failure(IllegalStateException("${mapped.userMessage}\n${mapped.technicalDetail}".trim()))
+                        )
+                    )
+                }
+            }
+        )
+
+        cont.invokeOnCancellation {
+            handle.cancel()
+        }
+    }
+
     fun remuxMp4(
         context: Context,
         storage: FileStorageManager,
