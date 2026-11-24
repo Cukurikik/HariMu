@@ -187,7 +187,7 @@ fun audioForgeBatch2CoreTools(
                 listOf(
                     "Mode Cepat — Kanselasi Tengah (Instrumental)",
                     "Mode Cepat — Isolasi Vokal (Acapella)",
-                    "Mode AI — Demucs On-Device (P11)"
+                    "Mode DSP — Mid/Side Lokal (vokal + instrumen)"
                 ),
                 "Mode Cepat — Kanselasi Tengah (Instrumental)"
             ),
@@ -210,6 +210,37 @@ fun audioForgeBatch2CoreTools(
             }
             val probe = validation.probes.first()
             val mode = input.getString("mode", "Mode Cepat — Kanselasi Tengah (Instrumental)")
+            if (mode.startsWith("Mode DSP")) {
+                emit(ToolProgress.Running(20, "Mendekode PCM untuk pemisahan mid/side…"))
+                val pcm = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    com.harimu.app.core.engines.AudioEngine.decodeToPcm(ctx.appContext, input.uris.first())
+                }
+                require(pcm.samples.isNotEmpty()) { "Audio tidak dapat didekode" }
+                val dir = java.io.File(ctx.appContext.cacheDir, "aud04_${System.currentTimeMillis()}").apply { mkdirs() }
+                emit(ToolProgress.Running(60, "Memisahkan kanal tengah dan sisi…"))
+                val stems = kotlinx.coroutines.withContext(Dispatchers.Default) {
+                    com.harimu.app.core.ai.AiLocalEngines.splitStems(pcm, dir)
+                }
+                val zipFile = ctx.storage.createOutputFile("AUD_DSP_STEMS", "zip")
+                java.util.zip.ZipOutputStream(java.io.FileOutputStream(zipFile)).use { zip ->
+                    listOf(stems.vocals, stems.instrumental).forEach { file ->
+                        zip.putNextEntry(java.util.zip.ZipEntry(file.name))
+                        file.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+                dir.deleteRecursively()
+                emit(
+                    ToolProgress.Done(
+                        ToolResult(
+                            outputs = listOf(ToolOutputFile(zipFile, "application/zip", zipFile.name)),
+                            summary = "2 jalur WAV (vokal + instrumen) • ${ctx.storage.formatBytes(zipFile.length())}\n" +
+                                "Catatan: mid/side DSP lokal, bukan model Demucs; hasil terbaik untuk vokal center-panned."
+                        )
+                    )
+                )
+                return@flow
+            }
             val err = AudioBatch2Math.validateVocalRemoverInput(probe, mode, ctx.isEnglish)
             if (err != null) {
                 emit(ToolProgress.Failed(err))

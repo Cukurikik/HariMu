@@ -96,11 +96,11 @@ class AudioForgeBatch2Test {
             assertTrue("Expected $id to be active", tool != null && !tool.isStub)
         }
 
+        // FASE 11: AUD-20 (mid/side DSP) dan AUD-27 (cloud STT) sudah terimplementasi.
         listOf("AUD-20", "AUD-27").forEach { id ->
             val tool = ToolRegistry.findById(id)
-            assertTrue("Expected $id to stay deferred", tool != null && tool.isStub)
+            assertTrue("Expected $id to be implemented in Fase 11", tool != null && !tool.isStub)
         }
-        assertEquals("P11", ToolRegistry.findById("AUD-20")?.plannedPhase)
     }
 
     @Test

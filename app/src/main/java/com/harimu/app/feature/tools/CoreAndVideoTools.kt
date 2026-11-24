@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.harimu.app.core.ai.AiException
 import com.harimu.app.core.engines.AudioEngine
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.InputSpec
@@ -62,18 +63,67 @@ fun coreTools(): List<Tool> = listOf(
             sample = "Selamat datang di HariMu, studio utilitas harian Anda."
         )
         override val params = listOf(
+            ToolParam.DropdownParam(
+                "engine",
+                "Mesin Suara",
+                "Voice Engine",
+                listOf("Perangkat (offline)", "Gateway – 5 suara (cloud)"),
+                "Perangkat (offline)"
+            ),
+            ToolParam.DropdownParam(
+                "voice",
+                "Suara Gateway",
+                "Gateway Voice",
+                listOf("1 · Alloy", "2 · Echo", "3 · Fable", "4 · Onyx", "5 · Nova"),
+                "1 · Alloy"
+            ),
             ToolParam.DropdownParam("lang", "Bahasa Suara", "Voice Language", listOf("Indonesia", "English (US)"), "Indonesia"),
             ToolParam.SliderParam("rate", "Kecepatan Bicara", "Speech Rate", 0.5f, 2.0f, 1.0f, 0.1f, "x"),
             ToolParam.SliderParam("pitch", "Nada Suara", "Voice Pitch", 0.6f, 1.8f, 1.0f, 0.1f, "x")
         )
         override fun title(isEnglish: Boolean) = if (isEnglish) "Generate Speech (TTS)" else "Teks ke Suara (TTS)"
         override fun description(isEnglish: Boolean) =
-            if (isEnglish) "Synthesize text to a WAV file using Android TTS." else "Ubah teks menjadi file audio WAV dengan engine TTS perangkat."
+            if (isEnglish) {
+                "Synthesize text to WAV with the offline Android engine, or via the AI gateway's 5 cloud voices."
+            } else {
+                "Ubah teks menjadi WAV dengan engine perangkat (offline) atau 5 suara cloud lewat AI Gateway."
+            }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            emit(ToolProgress.Running(20, if (ctx.isEnglish) "Preparing TTS engine..." else "Menyiapkan engine TTS..."))
             val text = input.textInput.trim()
             require(text.isNotEmpty()) { if (ctx.isEnglish) "Enter text first" else "Masukkan teks terlebih dahulu" }
+            if (input.getString("engine", "Perangkat (offline)").startsWith("Gateway")) {
+                val client = ctx.ai ?: throw AiException(
+                    "ai_not_configured",
+                    "Klien AI tidak tersedia; atur AI Gateway di Pengaturan."
+                )
+                if (!client.hasUploadConsent()) {
+                    throw AiException(
+                        "upload_consent_required",
+                        "Unggahan cloud pertama butuh konfirmasi. Jalankan lagi lalu pilih “Izinkan unggah”."
+                    )
+                }
+                val voice = input.getString("voice", "1 · Alloy").substringBefore(' ').toIntOrNull() ?: 1
+                val language = if (input.getString("lang", "Indonesia") == "Indonesia") "id" else "en"
+                emit(ToolProgress.Running(25, "Meminta suara ke gateway (voice $voice)…"))
+                val audio = client.textToSpeech(text, voice, language)
+                val cloudDest = ctx.storage.createOutputFile("TTS_CLOUD", "wav")
+                cloudDest.writeBytes(audio.bytes)
+                emit(
+                    ToolProgress.Done(
+                        ToolResult(
+                            outputs = listOf(ToolOutputFile(cloudDest, "audio/wav", cloudDest.name)),
+                            summary = if (audio.mock) {
+                                "Suara MOCK (nada 440 Hz), bukan TTS model • ${ctx.storage.formatBytes(cloudDest.length())}"
+                            } else {
+                                "Voice $voice • ${ctx.storage.formatBytes(cloudDest.length())}"
+                            }
+                        )
+                    )
+                )
+                return@flow
+            }
+            emit(ToolProgress.Running(20, if (ctx.isEnglish) "Preparing TTS engine..." else "Menyiapkan engine TTS..."))
             val dest = ctx.storage.createOutputFile("TTS", "wav")
             val isIndo = input.getString("lang", "Indonesia") == "Indonesia"
             AudioEngine.synthesizeTtsToWav(

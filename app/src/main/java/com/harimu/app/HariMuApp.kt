@@ -8,6 +8,7 @@ import com.harimu.app.core.data.AppDatabase
 import com.harimu.app.core.data.SettingsRepository
 import com.harimu.app.core.data.WorkspaceRepository
 import com.harimu.app.core.files.FileStorageManager
+import com.harimu.app.core.ai.AiClient
 import com.harimu.app.core.files.ModelManager
 import com.harimu.app.core.jobs.JobManager
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,7 @@ class AppContainer(app: Application) {
     val modelManager = ModelManager(app)
     val settings = SettingsRepository(app)
     val workspace = WorkspaceRepository(database, settings, storage)
+    val aiClient: AiClient by lazy { AiClient(settings) }
     val jobManager: JobManager by lazy {
         JobManager(
             context = app,

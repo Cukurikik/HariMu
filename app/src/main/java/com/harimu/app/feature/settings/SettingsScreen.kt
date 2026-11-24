@@ -39,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -294,6 +295,90 @@ fun SettingsScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "AI Gateway",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = if (settings.isEnglish) {
+                                "Endpoint for cloud AI tools. Provider keys live on the server, never on this phone."
+                            } else {
+                                "Endpoint untuk tool AI cloud. Kunci provider disimpan di server, bukan di HP ini."
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        var gatewayUrl by remember(settings.aiGatewayUrl) { mutableStateOf(settings.aiGatewayUrl) }
+                        var aiStatus by remember { mutableStateOf("") }
+                        OutlinedTextField(
+                            value = gatewayUrl,
+                            onValueChange = { gatewayUrl = it },
+                            label = { Text("URL Gateway (https://…)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    container.settings.setAiGatewayUrl(gatewayUrl)
+                                    aiStatus = if (settings.isEnglish) "Saved" else "Tersimpan"
+                                }
+                            }) { Text(if (settings.isEnglish) "Save" else "Simpan") }
+                            TextButton(onClick = {
+                                scope.launch {
+                                    container.settings.setAiGatewayUrl(gatewayUrl)
+                                    aiStatus = if (settings.isEnglish) "Connecting…" else "Menghubungkan…"
+                                    runCatching {
+                                        container.aiClient.ensureToken(forceRefresh = true)
+                                        val quota = container.aiClient.quota()
+                                        aiStatus = if (settings.isEnglish) {
+                                            "Connected • quota ${quota.used}/${quota.limit}"
+                                        } else {
+                                            "Terhubung • kuota ${quota.used}/${quota.limit}"
+                                        }
+                                    }.onFailure { error ->
+                                        aiStatus = error.localizedMessage ?: "Gagal terhubung"
+                                    }
+                                }
+                            }) { Text(if (settings.isEnglish) "Test & connect" else "Uji & hubungkan") }
+                            TextButton(onClick = {
+                                scope.launch {
+                                    container.aiClient.forgetToken()
+                                    aiStatus = if (settings.isEnglish) "Token forgotten" else "Token dilupakan"
+                                }
+                            }) { Text(if (settings.isEnglish) "Forget token" else "Lupakan token") }
+                        }
+                        TextButton(onClick = {
+                            scope.launch {
+                                val granted = container.settings.aiUploadConsent()
+                                container.settings.setAiUploadConsent(!granted)
+                                aiStatus = if (!granted) {
+                                    if (settings.isEnglish) "Cloud upload allowed" else "Unggahan cloud diizinkan"
+                                } else {
+                                    if (settings.isEnglish) "Cloud upload revoked" else "Izin unggah dicabut"
+                                }
+                            }
+                        }) {
+                            Text(
+                                if (settings.aiUploadConsent) {
+                                    if (settings.isEnglish) "Revoke upload consent" else "Cabut izin unggah"
+                                } else {
+                                    if (settings.isEnglish) "Allow upload consent" else "Izinkan unggah"
+                                }
+                            )
+                        }
+                        if (aiStatus.isNotBlank()) {
+                            Text(aiStatus, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }

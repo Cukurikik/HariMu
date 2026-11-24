@@ -171,7 +171,9 @@ class ToolViewModel(
             val ctx = ToolContext(
                 appContext = ctxRef,
                 storage = container.storage,
-                isEnglish = isEnglish
+                isEnglish = isEnglish,
+                ai = container.aiClient,
+                models = container.modelManager
             )
             val input = ToolInput(
                 uris = _state.value.selectedUris,

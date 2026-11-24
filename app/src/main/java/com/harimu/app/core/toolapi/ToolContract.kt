@@ -4,7 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.harimu.app.R
+import com.harimu.app.core.ai.AiClient
 import com.harimu.app.core.files.FileStorageManager
+import com.harimu.app.core.files.ModelManager
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
@@ -77,6 +79,7 @@ sealed interface InputSpec {
     data object MultipleAudios : InputSpec
     data object SinglePdf : InputSpec
     data object MultiplePdfs : InputSpec
+    data object PdfAndImage : InputSpec
     data object VideoAndAudio : InputSpec
     data object VideoAndImage : InputSpec
     data object VideoAndSubtitle : InputSpec
@@ -170,7 +173,11 @@ data class ToolInput(
 class ToolContext(
     val appContext: Context,
     val storage: FileStorageManager,
-    val isEnglish: Boolean
+    val isEnglish: Boolean,
+    /** Klien AI Gateway; null pada tes/lingkungan tanpa container (tool cloud akan memberi error jelas). */
+    val ai: AiClient? = null,
+    /** Pengelola model on-device untuk unduh/checksum/hapus. */
+    val models: ModelManager? = null
 )
 
 data class ModelSpec(

@@ -49,13 +49,13 @@ class ToolRegistryTest {
         val core02 = ToolRegistry.search("CORE-02", isEnglish = false)
         assertEquals(1, core02.size)
         assertEquals("CORE-02", core02.first().id)
-        assertTrue(core02.first().isStub)
+        assertTrue(!core02.first().isStub)  // FASE 11: CORE-02 implemented (cloud)
 
         val speedTool = ToolRegistry.search("Change Video Speed", isEnglish = true, groupFilter = ToolGroup.VIDEO)
         assertTrue(speedTool.any { it.id == "VID-05" && !it.isStub })
 
         val upscalerStub = ToolRegistry.search("Video Upscaler", isEnglish = true, groupFilter = ToolGroup.VIDEO)
-        assertTrue(upscalerStub.any { it.id == "VID-07" && it.isStub })
+        assertTrue(upscalerStub.any { it.id == "VID-07" && !it.isStub })  // FASE 11: FFmpeg upscale
 
         val extractAudio = ToolRegistry.search("Video to Audio", isEnglish = true, groupFilter = ToolGroup.VIDEO)
         assertTrue(extractAudio.any { it.id == "VID-08" && !it.isStub })
@@ -67,7 +67,13 @@ class ToolRegistryTest {
         assertTrue(crop.any { it.id == "IMG-01" && !it.isStub })
 
         val pdfEncrypt = ToolRegistry.search("Enkripsi PDF", isEnglish = false, groupFilter = ToolGroup.PDF)
-        assertTrue(pdfEncrypt.any { it.id == "PDF-10" && it.isStub })
+        assertTrue(pdfEncrypt.any { it.id == "PDF-10" && !it.isStub })  // FASE 12: PDFBox encryption
+
+        val pdfMerge = ToolRegistry.search("Gabung PDF", isEnglish = false, groupFilter = ToolGroup.PDF)
+        assertTrue(pdfMerge.any { it.id == "PDF-01" && !it.isStub })
+
+        val pdfRedact = ToolRegistry.search("Redaksi", isEnglish = false, groupFilter = ToolGroup.PDF)
+        assertTrue(pdfRedact.any { it.id == "PDF-14" && !it.isStub })
 
         val base64 = ToolRegistry.search("Base64", isEnglish = true, groupFilter = ToolGroup.CONVERTER)
         assertTrue(base64.any { it.id == "CNV-12" && it.isStub })

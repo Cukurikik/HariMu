@@ -67,24 +67,6 @@ class StubTool(
 
 fun stubCoreTools(): List<Tool> = listOf(
     StubTool(
-        id = "CORE-02", group = ToolGroup.CORE, engineLabel = "CL", plannedPhase = "P11",
-        icon = Icons.Filled.MovieCreation, inputSpec = InputSpec.TextInput("Tulis prompt video...", "Write video prompt..."),
-        params = listOf(ToolParam.DropdownParam("ratio", "Rasio", "Aspect Ratio", listOf("16:9", "9:16", "1:1"), "16:9")),
-        requiresNetwork = true,
-        titleId = "Prompt Video Gen", titleEn = "Prompt Video Gen",
-        descId = "Buat video dari prompt teks via AI Gateway.",
-        descEn = "Generate video clips from text prompts via AI Gateway."
-    ),
-    StubTool(
-        id = "CORE-04", group = ToolGroup.CORE, engineLabel = "CL", plannedPhase = "P11",
-        icon = Icons.Filled.ImageSearch, inputSpec = InputSpec.SingleImage,
-        params = listOf(ToolParam.TextParam("question", "Pertanyaan", "Question", "Jelaskan isi gambar ini")),
-        requiresNetwork = true,
-        titleId = "Analyze Images", titleEn = "Analyze Images",
-        descId = "Analisis gambar dan tanya-jawab visual lewat AI Gateway.",
-        descEn = "Analyze images and answer visual questions via AI Gateway."
-    ),
-    StubTool(
         id = "CORE-05", group = ToolGroup.CORE, engineLabel = "NAT", plannedPhase = "P14",
         icon = Icons.Filled.Videocam, inputSpec = InputSpec.None,
         params = listOf(ToolParam.DropdownParam("format", "Format Rekam", "Record Format", listOf("MP4", "WebM"), "MP4")),
@@ -94,95 +76,6 @@ fun stubCoreTools(): List<Tool> = listOf(
     )
 )
 
-fun stubPdfTools(): List<Tool> = listOf(
-    StubTool(
-        id = "PDF-04", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.Reorder, inputSpec = InputSpec.SinglePdf,
-        params = listOf(ToolParam.TextParam("order", "Urutan Halaman", "Page Order", "1,3,2")),
-        titleId = "Urutkan Halaman PDF", titleEn = "Reorder PDF Pages",
-        descId = "Susun ulang urutan halaman dokumen PDF.", descEn = "Rearrange PDF page order."
-    ),
-    StubTool(
-        id = "PDF-06", group = ToolGroup.PDF, engineLabel = "CL", plannedPhase = "P12",
-        icon = Icons.Filled.Description, inputSpec = InputSpec.SinglePdf,
-        params = listOf(ToolParam.DropdownParam("target", "Format", "Target Format", listOf("DOCX", "XLSX", "PPTX"), "DOCX")),
-        requiresNetwork = true,
-        titleId = "PDF ke Word/Excel/PPT", titleEn = "PDF to Word/Excel/PowerPoint",
-        descId = "Konversi PDF menjadi dokumen Office.", descEn = "Convert PDF into Office documents."
-    ),
-    StubTool(
-        id = "PDF-07", group = ToolGroup.PDF, engineLabel = "CL", plannedPhase = "P12",
-        icon = Icons.Filled.PictureAsPdf, inputSpec = InputSpec.AnyFile,
-        requiresNetwork = true,
-        titleId = "Word ke PDF", titleEn = "Word to PDF",
-        descId = "Konversi dokumen Word ke PDF berkualitas cetak.", descEn = "Convert Word documents into print-ready PDF."
-    ),
-    StubTool(
-        id = "PDF-09", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.PictureAsPdf, inputSpec = InputSpec.SinglePdf,
-        params = listOf(ToolParam.SliderParam("dpi", "Resolusi Gambar", "Image DPI", 72f, 200f, 120f, 12f, "dpi")),
-        titleId = "Kompres PDF", titleEn = "Compress PDF",
-        descId = "Kecilkan ukuran file PDF tanpa merusak keterbacaan.", descEn = "Shrink PDF file size while preserving readability."
-    ),
-    StubTool(
-        id = "PDF-10", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.Lock, inputSpec = InputSpec.SinglePdf,
-        params = listOf(ToolParam.DropdownParam("cipher", "Enkripsi", "Cipher", listOf("AES-256", "AES-128"), "AES-256")),
-        titleId = "Enkripsi PDF", titleEn = "Encrypt PDF",
-        descId = "Lindungi PDF dengan kata sandi AES-256/128.", descEn = "Protect PDF with AES-256/128 password."
-    ),
-    StubTool(
-        id = "PDF-11", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.LockOpen, inputSpec = InputSpec.SinglePdf,
-        titleId = "Dekripsi PDF", titleEn = "Decrypt PDF",
-        descId = "Hapus proteksi kata sandi dari PDF.", descEn = "Remove password protection from PDF."
-    ),
-    StubTool(
-        id = "PDF-13", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.PictureAsPdf, inputSpec = InputSpec.SinglePdf,
-        titleId = "Hapus Watermark PDF", titleEn = "Remove PDF Watermark",
-        descId = "Bersihkan objek watermark yang terdeteksi di halaman PDF.", descEn = "Clean detected watermark objects from PDF pages."
-    ),
-    StubTool(
-        id = "PDF-14", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.Security, inputSpec = InputSpec.SinglePdf,
-        params = listOf(ToolParam.TextParam("pattern", "Teks/Pola Redaksi", "Redact Pattern", "")),
-        titleId = "Redaksi Konten PDF", titleEn = "Redact PDF Content",
-        descId = "Hapus teks sensitif secara permanen dari aliran PDF.", descEn = "Permanently remove sensitive text from PDF streams."
-    ),
-    StubTool(
-        id = "PDF-15", group = ToolGroup.PDF, engineLabel = "ML/LIB", plannedPhase = "P12",
-        icon = Icons.Filled.DocumentScanner, inputSpec = InputSpec.SinglePdf,
-        titleId = "Scan PDF ke Teks (OCR)", titleEn = "Scan PDF to Text (OCR)",
-        descId = "Ekstrak teks dari PDF hasil pindaian lewat OCR.", descEn = "Extract text from scanned PDFs via OCR."
-    ),
-    StubTool(
-        id = "PDF-16", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.DocumentScanner, inputSpec = InputSpec.MultipleImages,
-        titleId = "Gambar ke PDF Searchable", titleEn = "Image to Searchable PDF",
-        descId = "Buat PDF dengan lapisan teks OCR 8 bahasa.", descEn = "Create searchable PDFs with 8-language OCR text layer."
-    ),
-    StubTool(
-        id = "PDF-17", group = ToolGroup.PDF, engineLabel = "CL/ML", plannedPhase = "P12",
-        icon = Icons.Filled.DocumentScanner, inputSpec = InputSpec.SinglePdf,
-        requiresNetwork = true,
-        titleId = "AI Document Recognition", titleEn = "AI Document Recognition",
-        descId = "Ekstrak struktur faktur, KTP, atau tabel secara otomatis.", descEn = "Automatically extract structure from invoices or forms."
-    ),
-    StubTool(
-        id = "PDF-19", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.EditNote, inputSpec = InputSpec.SinglePdf,
-        params = listOf(ToolParam.TextParam("author", "Penulis", "Author", "")),
-        titleId = "Editor Metadata PDF", titleEn = "PDF Metadata Editor",
-        descId = "Ubah judul, penulis, subjek, dan kata kunci PDF.", descEn = "Edit PDF title, author, subject, and keywords."
-    ),
-    StubTool(
-        id = "PDF-21", group = ToolGroup.PDF, engineLabel = "LIB", plannedPhase = "P12",
-        icon = Icons.Filled.EditNote, inputSpec = InputSpec.SinglePdf,
-        titleId = "Pengisi Formulir PDF", titleEn = "PDF Form Filler (AcroForm)",
-        descId = "Isi dan simpan kolom formulir interaktif AcroForm.", descEn = "Fill and save interactive AcroForm fields."
-    )
-)
 
 fun stubConverterTools(): List<Tool> = listOf(
     StubTool(

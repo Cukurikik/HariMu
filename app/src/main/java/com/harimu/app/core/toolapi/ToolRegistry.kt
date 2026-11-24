@@ -1,27 +1,29 @@
 package com.harimu.app.core.toolapi
 
 import com.harimu.app.feature.tools.InternalMediaTestTool
+import com.harimu.app.feature.tools.aiCloudTools
+import com.harimu.app.feature.tools.aiLocalTools
 import com.harimu.app.feature.tools.audioTools
 import com.harimu.app.feature.tools.converterTools
 import com.harimu.app.feature.tools.coreTools
 import com.harimu.app.feature.tools.imageTools
-import com.harimu.app.feature.tools.pdfTools
+import com.harimu.app.feature.tools.pdfVaultTools
 import com.harimu.app.feature.tools.stubAudioTools
 import com.harimu.app.feature.tools.stubConverterTools
 import com.harimu.app.feature.tools.stubCoreTools
 import com.harimu.app.feature.tools.stubImageTools
-import com.harimu.app.feature.tools.stubPdfTools
 import com.harimu.app.feature.tools.stubVideoTools
 import com.harimu.app.feature.tools.videoTools
 
 object ToolRegistry {
 
     val allTools: List<Tool> by lazy {
-        val combined = coreTools() + stubCoreTools() +
+        val combined = coreTools() + aiCloudTools() + stubCoreTools() +
+            aiLocalTools() +
             videoTools() + stubVideoTools() +
             audioTools() + stubAudioTools() +
             imageTools() + stubImageTools() +
-            pdfTools() + stubPdfTools() +
+            pdfVaultTools() +
             converterTools() + stubConverterTools()
 
         combined.distinctBy { it.id }.sortedWith(

@@ -117,6 +117,8 @@
 
     <!-- Stub & JobManager -->
     <string name="badge_coming_soon">Segera hadir</string>
+    <string name="badge_needs_internet">Butuh internet</string>
+    <string name="badge_needs_model">Butuh model %1$s</string>
     <string name="stub_notice_title">Segera hadir (%1$s)</string>
     <string name="stub_notice_body">Tool ini sudah terdaftar di katalog dan memakai layar parameter generik. Logika engine asli dijadwalkan pada %1$s; Anda dapat menguji alur antrean WorkManager lewat tombol di bawah.</string>
     <string name="action_run_dummy_job">Uji Job Dummy (WorkManager)</string>

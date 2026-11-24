@@ -97,12 +97,10 @@ class AudioForgeBatch1Test {
             assertTrue("Expected $id to be active (not stub)", tool != null && !tool.isStub)
         }
 
-        val deferredAudioStubs = listOf(
-            "AUD-20", "AUD-27"
-        )
-        deferredAudioStubs.forEach { id ->
+        // FASE 11: AUD-20 dan AUD-27 sudah aktif.
+        listOf("AUD-20", "AUD-27").forEach { id ->
             val tool = ToolRegistry.findById(id)
-            assertTrue("Expected $id to remain deferred/stub for P11", tool != null && tool.isStub)
+            assertTrue("Expected $id implemented in Fase 11", tool != null && !tool.isStub)
         }
 
         val aud21 = ToolRegistry.findById("AUD-21")

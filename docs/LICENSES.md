@@ -13,6 +13,8 @@ Semua library dan aset di proyek ini diverifikasi memakai lisensi permisif (tanp
 | Android Platform APIs (`MediaExtractor`, `MediaMuxer`, `MediaCodec`, `PdfRenderer`, `PdfDocument`, `AudioRecord`, `TextToSpeech`, `AndroidKeyStore`) | Android SDK / Apache-2.0 | Engine pemrosesan lokal bawaan sistem |
 | Jetpack Media3 (`media3-transformer`, `media3-effect`, `media3-common` `1.11.1`) | Apache-2.0 | Transcoding, remux, & efek media akselerasi perangkat keras |
 | `dev.ffmpegkit-maintained:ffmpeg-kit-full:8.1.9` (`+ smart-exception-java:0.2.1`) | LGPL-3.0 | Wrapper FFmpeg/FFprobe terpelihara (non-GPL, dukungan 16 KB page size; AAR 30 MB, split ABI via AAB) |
+| `com.tom-roush:pdfbox-android:2.0.27.0` | Apache-2.0 | Operasi PDF pada objek asli: gabung, pisah, putar, susun ulang, ekstrak, watermark teks/gambar, metadata, enkripsi AES-256/AES-128/RC4-128, AcroForm, dan ekstraksi teks |
+| `com.github.adaptech-cz.Tesseract4Android:tesseract4android-openmp:4.8.0` (JitPack) | Apache-2.0 | OCR on-device (Tesseract 5 + OpenMP). Data bahasa `tessdata_fast` resmi (Apache-2.0) diunduh saat runtime ke `filesDir/tessdata`, **tidak** dibundel di APK. Artefak hanya tersedia via repositori JitPack (`settings.gradle.kts`) |
 | Google ML Kit Face Detection (`com.google.mlkit:face-detection:16.1.7`) | Apache-2.0 / Google APIs ToS | Deteksi & pelacakan wajah on-device untuk `VID-25` (dukungan 16 KB page size) |
 | Robolectric (`4.16.1`), AndroidX Test (`1.7.0` / `1.3.0`), `work-testing` (`2.10.1`) | MIT / Apache-2.0 | Pengujian JVM lokal (`testImplementation`, tidak masuk APK) |
 
@@ -20,3 +22,5 @@ Semua library dan aset di proyek ini diverifikasi memakai lisensi permisif (tanp
 - Tidak ada library **GPL** (seperti build FFmpeg `-gpl` dengan `x264`/`x265`) atau **AGPL** (seperti iText AGPL) yang dibundel di dalam proyek.
 - Varian FFmpeg yang dipakai adalah **`ffmpeg-kit-full` (LGPL v3.0)** dengan penautan dinamis pustaka native (`.so`) dalam App Bundle split ABI.
 - Setiap penambahan library pihak ketiga baru di fase berikutnya wajib dicatat di berkas ini sebelum digabungkan ke cabang utama.
+- FASE 12 memakai **PDFBox-Android (Apache-2.0)** dan **Tesseract4Android (Apache-2.0)**. iText (AGPL) dan MuPDF (AGPL) tetap **tidak dipakai**.
+- Data bahasa OCR diunduh dari repositori resmi `tesseract-ocr/tessdata_fast` (Apache-2.0) atas permintaan pengguna, bukan aset yang ikut didistribusikan.

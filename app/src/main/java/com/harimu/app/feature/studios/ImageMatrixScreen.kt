@@ -1,6 +1,5 @@
 package com.harimu.app.feature.studios
 
-import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -8,15 +7,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -25,9 +27,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.Flip
-import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +43,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,27 +52,27 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
-import com.harimu.app.core.engines.ImageEngine
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.harimu.app.core.engines.MatrixLayerKind
 
+/**
+ * IMG-47 Image Matrix: one canvas, many layers. Every edit re-renders through the compositor,
+ * so the preview above the controls is the same picture that gets exported.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageMatrixScreen(
@@ -72,212 +81,373 @@ fun ImageMatrixScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val vm: ImageMatrixViewModel = viewModel(
+        factory = ImageMatrixViewModel.Factory(container, context.applicationContext)
+    )
+    val state by vm.state.collectAsState()
 
-    var sourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var preset by remember { mutableStateOf("Normal") }
-    var contrast by remember { mutableFloatStateOf(1.0f) }
-    var brightness by remember { mutableFloatStateOf(0f) }
-    var watermark by remember { mutableStateOf("") }
-    var isExporting by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { vm.initialize() }
+    LaunchedEffect(state.lastMessage) {
+        val message = state.lastMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        vm.consumeMessage()
+    }
+
+    var textInput by remember { mutableStateOf("") }
+    var emojiInput by remember { mutableStateOf("⭐") }
+    var backgroundInput by remember { mutableStateOf(state.backgroundHex) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            scope.launch(Dispatchers.IO) {
-                val bmp = ImageEngine.decodeBitmapSafe(context, uri, maxDim = 1600)
-                withContext(Dispatchers.Main) {
-                    sourceBitmap = bmp
-                }
-            }
-        }
+        if (uri != null) vm.addImage(uri)
     }
 
-    val previewMatrix = remember(preset, contrast, brightness) {
-        val m = ColorMatrix()
-        when (preset) {
-            "Grayscale" -> m.setToSaturation(0f)
-            "Sepia" -> {
-                m.setToSaturation(0f)
-                m.timesAssign(ColorMatrix().apply { setToScale(1f, 0.92f, 0.78f, 1f) })
-            }
-            "Invert" -> m.set(
-                ColorMatrix(
-                    floatArrayOf(
-                        -1f, 0f, 0f, 0f, 255f,
-                        0f, -1f, 0f, 0f, 255f,
-                        0f, 0f, -1f, 0f, 255f,
-                        0f, 0f, 0f, 1f, 0f
-                    )
-                )
-            )
-            "Warm" -> m.setToScale(1.1f, 1.02f, 0.88f, 1f)
-            "Cool" -> m.setToScale(0.9f, 1.0f, 1.14f, 1f)
-        }
-        val t = (1f - contrast) * 128f + brightness
-        m.timesAssign(
-            ColorMatrix(
-                floatArrayOf(
-                    contrast, 0f, 0f, 0f, t,
-                    0f, contrast, 0f, 0f, t,
-                    0f, 0f, contrast, 0f, t,
-                    0f, 0f, 0f, 1f, 0f
-                )
-            )
-        )
-        m
-    }
+    val canvasW = state.canvasSize.first
+    val canvasH = state.canvasSize.second
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Image Matrix Studio") },
+                title = { Text(if (isEnglish) "Image Matrix Studio" else "Studio Image Matrix") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { vm.undo() }, enabled = state.canUndo) {
+                        Icon(Icons.Filled.Undo, contentDescription = "Undo")
+                    }
+                    IconButton(onClick = { vm.redo() }, enabled = state.canRedo) {
+                        Icon(Icons.Filled.Redo, contentDescription = "Redo")
                     }
                 }
             )
         }
-    ) { padding ->
+    ) { inner ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(inner)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                val bmp = sourceBitmap
-                if (bmp == null) {
-                    Button(
-                        onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+            // ------------------------------------------------- preview
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp)
+                            .aspectRatio(canvasW.toFloat() / canvasH.toFloat())
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (isEnglish) "Pick Photo to Edit" else "Pilih Foto untuk Diedit")
+                        state.preview?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        if (state.isRendering) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .align(Alignment.TopCenter)
+                            )
+                        }
                     }
-                } else {
-                    Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = "Preview",
-                        contentScale = ContentScale.Fit,
-                        colorFilter = ColorFilter.colorMatrix(previewMatrix),
-                        modifier = Modifier.fillMaxSize()
+                    Text(
+                        text = "${state.layers.size} layer • ${canvasW}×${canvasH}",
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
 
-            if (sourceBitmap != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(if (isEnglish) "Change" else "Ganti")
+            // ------------------------------------------------- add layer
+            Button(
+                onClick = {
+                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Tambah Layer Gambar")
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = textInput,
+                    onValueChange = { textInput = it },
+                    label = { Text("Teks baru") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                Button(onClick = {
+                    vm.addText(textInput)
+                    textInput = ""
+                }) { Text("+ Teks") }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = emojiInput,
+                    onValueChange = { emojiInput = it },
+                    label = { Text("Stiker / emoji") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                Button(onClick = { vm.addSticker(emojiInput) }) { Text("+ Stiker") }
+            }
+
+            // ------------------------------------------------- canvas
+            Text("Kanvas", style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                vm.canvasPresets.forEachIndexed { index, preset ->
+                    FilterChip(
+                        selected = state.canvasPresetIndex == index,
+                        onClick = { vm.setCanvasPreset(index) },
+                        label = { Text(preset.first) }
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = backgroundInput,
+                    onValueChange = { backgroundInput = it },
+                    label = { Text("Latar #Hex") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                Button(onClick = { vm.setBackground(backgroundInput) }) { Text("Terapkan") }
+            }
+
+            // ------------------------------------------------- layers
+            Text("Urutan Layer", style = MaterialTheme.typography.titleSmall)
+            if (state.layers.isEmpty()) {
+                Text(
+                    "Belum ada layer. Tambahkan gambar, teks atau stiker.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            state.layers.asReversed().forEachIndexed { reverseIndex, layer ->
+                val index = state.layers.lastIndex - reverseIndex
+                val selected = layer.id == state.selectedLayer?.id
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { vm.selectLayer(layer.id) },
+                    border = if (selected) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else {
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                     }
-                    OutlinedButton(
-                        onClick = { sourceBitmap = sourceBitmap?.let { ImageEngine.rotateBitmap(it, 90f) } },
-                        modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Filled.RotateRight, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("90°")
-                    }
-                    OutlinedButton(
-                        onClick = { sourceBitmap = sourceBitmap?.let { ImageEngine.flipBitmap(it, true, false) } },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.Flip, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Flip")
+                        Text(
+                            text = "${index + 1}. ${layer.title()}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (layer.kind != MatrixLayerKind.IMAGE) {
+                            Text(
+                                text = vm.layerKindLabel(layer.kind),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                        IconButton(onClick = { vm.toggleVisibility(layer.id) }) {
+                            Icon(
+                                if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = "Visibilitas"
+                            )
+                        }
+                        IconButton(onClick = { vm.moveLayer(layer.id, 1) }) {
+                            Icon(Icons.Filled.ArrowUpward, contentDescription = "Naik")
+                        }
+                        IconButton(onClick = { vm.moveLayer(layer.id, -1) }) {
+                            Icon(Icons.Filled.ArrowDownward, contentDescription = "Turun")
+                        }
+                        IconButton(onClick = { vm.duplicateLayer(layer.id) }) {
+                            Icon(Icons.Filled.ContentCopy, contentDescription = "Duplikat")
+                        }
+                        IconButton(onClick = { vm.deleteLayer(layer.id) }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Hapus")
+                        }
                     }
                 }
+            }
 
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(if (isEnglish) "Live Presets" else "Preset Filter Langsung", style = MaterialTheme.typography.titleSmall)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("Normal", "Grayscale", "Sepia", "Warm", "Cool", "Invert").forEach { p ->
-                                FilterChip(
-                                    selected = preset == p,
-                                    onClick = { preset = p },
-                                    label = { Text(p) }
+            // ------------------------------------------------- editor
+            state.selectedLayer?.let { layer ->
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Layer aktif: ${layer.title()}",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        if (layer.kind == MatrixLayerKind.IMAGE) {
+                            OutlinedButton(
+                                onClick = { vm.removeBackgroundOfLayer(layer.id) },
+                                enabled = !state.isRendering,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    if (isEnglish) "Remove background (local heuristic)" else "Hapus latar (heuristik lokal)"
                                 )
                             }
                         }
-
-                        Text("Contrast (${String.format("%.2f", contrast)}x)", style = MaterialTheme.typography.bodySmall)
-                        Slider(value = contrast, onValueChange = { contrast = it }, valueRange = 0.5f..1.8f)
-
-                        Text("Brightness (${brightness.toInt()})", style = MaterialTheme.typography.bodySmall)
-                        Slider(value = brightness, onValueChange = { brightness = it }, valueRange = -60f..60f)
-
-                        OutlinedTextField(
-                            value = watermark,
-                            onValueChange = { watermark = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            label = { Text(if (isEnglish) "Optional Watermark Text" else "Teks Watermark (Opsional)") }
-                        )
-                    }
-                }
-
-                Button(
-                    onClick = {
-                        val base = sourceBitmap ?: return@Button
-                        isExporting = true
-                        scope.launch(Dispatchers.IO) {
-                            val filtered = ImageEngine.applyFilter(base, preset, brightness, contrast, 1f)
-                            val finalBmp = if (watermark.isNotBlank()) {
-                                ImageEngine.addWatermark(filtered, watermark, 50, "Kanan Bawah", false).also {
-                                    if (it != filtered) filtered.recycle()
-                                }
-                            } else filtered
-                            val dest = container.storage.createOutputFile("MATRIX", "png")
-                            ImageEngine.saveBitmap(finalBmp, dest, "PNG", 100)
-                            finalBmp.recycle()
-                            container.workspace.recordHistory(
-                                toolId = "IMG-47",
-                                toolTitle = "Image Matrix Studio",
-                                groupName = "IMAGE",
-                                outputFile = dest,
-                                mimeType = "image/png",
-                                summary = "Ekspor ${dest.name} (${container.storage.formatBytes(dest.length())})"
+                        if (layer.kind != MatrixLayerKind.IMAGE) {
+                            OutlinedTextField(
+                                value = layer.text,
+                                onValueChange = { vm.updateText(layer.id, it) },
+                                label = { Text("Teks") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
                             )
-                            withContext(Dispatchers.Main) {
-                                isExporting = false
-                                Toast.makeText(
-                                    context,
-                                    if (isEnglish) "Exported to History: ${dest.name}" else "Diekspor ke Riwayat: ${dest.name}",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                            OutlinedTextField(
+                                value = layer.colorHex,
+                                onValueChange = { vm.setLayerColor(layer.id, it) },
+                                label = { Text("Warna #Hex") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            MatrixSlider(
+                                label = "Ukuran font (%)",
+                                value = layer.fontSizePct,
+                                range = 1f..40f,
+                                onValue = { value ->
+                                    vm.previewLayer(layer.id) { it.copy(fontSizePct = value) }
+                                },
+                                onCommit = { vm.commitLayers() }
+                            )
+                        }
+                        MatrixSlider(
+                            label = "Posisi X (%)",
+                            value = layer.xPct,
+                            range = 0f..100f,
+                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(xPct = value) } },
+                            onCommit = { vm.commitLayers() }
+                        )
+                        MatrixSlider(
+                            label = "Posisi Y (%)",
+                            value = layer.yPct,
+                            range = 0f..100f,
+                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(yPct = value) } },
+                            onCommit = { vm.commitLayers() }
+                        )
+                        MatrixSlider(
+                            label = "Skala (%)",
+                            value = layer.scalePct,
+                            range = 10f..300f,
+                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(scalePct = value) } },
+                            onCommit = { vm.commitLayers() }
+                        )
+                        MatrixSlider(
+                            label = "Rotasi (°)",
+                            value = layer.rotationDeg,
+                            range = -180f..180f,
+                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(rotationDeg = value) } },
+                            onCommit = { vm.commitLayers() }
+                        )
+                        MatrixSlider(
+                            label = "Opasitas (%)",
+                            value = layer.opacityPct.toFloat(),
+                            range = 10f..100f,
+                            onValue = { value ->
+                                vm.previewLayer(layer.id) { it.copy(opacityPct = value.toInt()) }
+                            },
+                            onCommit = { vm.commitLayers() }
+                        )
+
+                        Text("Blend", style = MaterialTheme.typography.labelMedium)
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            vm.blendModes.forEach { mode ->
+                                FilterChip(
+                                    selected = layer.blend == mode,
+                                    onClick = { vm.updateLayer(layer.id) { it.copy(blend = mode) } },
+                                    label = { Text(mode) }
+                                )
                             }
                         }
-                    },
-                    enabled = !isExporting,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    Icon(Icons.Filled.Save, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (isExporting) "Menyimpan..." else (if (isEnglish) "Export PNG to History" else "Ekspor PNG ke Riwayat"))
+                    }
                 }
             }
+
+            // ------------------------------------------------- export
+            Button(
+                onClick = {
+                    vm.export { _, message ->
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    }
+                },
+                enabled = state.layers.isNotEmpty() && !state.isExporting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.Save, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (state.isExporting) "Mengekspor..." else "Ekspor PNG ${canvasW}×${canvasH}")
+            }
+            Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun MatrixSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValue: (Float) -> Unit,
+    onCommit: () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium)
+            Text(value.toInt().toString(), style = MaterialTheme.typography.labelMedium)
+        }
+        Slider(
+            value = value.coerceIn(range.start, range.endInclusive),
+            onValueChange = onValue,
+            valueRange = range,
+            onValueChangeFinished = onCommit
+        )
     }
 }

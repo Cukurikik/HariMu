@@ -42,6 +42,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -88,6 +90,7 @@ import com.harimu.app.core.design.ResultCard
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.media.Id3TagHelper
+import com.harimu.app.core.pdf.PdfVaultEngine
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolOutputFile
@@ -107,6 +110,7 @@ fun ToolScreen(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    var showUploadConsent by remember { mutableStateOf(false) }
     val vm: ToolViewModel = viewModel(factory = ToolViewModel.Factory(toolId, container))
     LaunchedEffect(context) { vm.bindContext(context) }
 
@@ -254,6 +258,12 @@ fun ToolScreen(
                             if (tool.isStub) {
                                 EngineBadge(engine = stringResource(R.string.badge_coming_soon))
                             }
+                            if (tool.requiresNetwork) {
+                                EngineBadge(engine = stringResource(R.string.badge_needs_internet))
+                            }
+                            tool.requiresModel?.let { model ->
+                                EngineBadge(engine = stringResource(R.string.badge_needs_model, model.sizeLabel))
+                            }
                         }
                         Text(
                             text = tool.description(isEnglish),
@@ -341,7 +351,8 @@ fun ToolScreen(
                                     InputSpec.AudioAndImage,
                                     InputSpec.AudioAndWatermarkAudio -> singleDocPicker.launch(arrayOf("audio/*"))
                                     InputSpec.MultipleAudios -> multiDocPicker.launch(arrayOf("audio/*"))
-                                    InputSpec.SinglePdf -> singleDocPicker.launch(arrayOf("application/pdf"))
+                                    InputSpec.SinglePdf,
+                                    InputSpec.PdfAndImage -> singleDocPicker.launch(arrayOf("application/pdf"))
                                     InputSpec.MultiplePdfs -> multiDocPicker.launch(arrayOf("application/pdf"))
                                     InputSpec.ZipFile -> singleDocPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "*/*"))
                                     InputSpec.AnyFile -> multiDocPicker.launch(arrayOf("*/*"))
@@ -498,6 +509,39 @@ fun ToolScreen(
                                         }
                                     }
                                 }
+                                InputSpec.PdfAndImage -> {
+                                    {
+                                        OutlinedButton(
+                                            onClick = {
+                                                secondaryImagePicker.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("pick_pdf_watermark_image_btn")
+                                        ) {
+                                            Text(if (isEnglish) "Pick watermark image" else "Pilih gambar watermark")
+                                        }
+                                        state.secondaryUri?.let { wmImage ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = container.storage.getDisplayName(wmImage) ?: fallbackImage,
+                                                    style = MonoTextStyle,
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(onClick = { vm.setSecondaryUri(null) }) {
+                                                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.action_clear_secondary))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 else -> null
                             }
                         )
@@ -540,6 +584,60 @@ fun ToolScreen(
                                 if (tool.id == "VID-21") {
                                     vm.setParam("mode", "Rentang Pilihan")
                                 }
+                            }
+                        )
+                    }
+                }
+
+                if (tool.id == "IMG-06" && state.selectedUris.isNotEmpty()) {
+                    val keys = listOf("tlX", "tlY", "trX", "trY", "brX", "brY", "blX", "blY")
+                    val defaults = listOf(8f, 8f, 92f, 8f, 92f, 92f, 8f, 92f)
+                    PerspectivePointsCard(
+                        imageUri = state.selectedUris.first(),
+                        points = keys.mapIndexed { index, key ->
+                            (state.paramValues[key] as? Number)?.toFloat() ?: defaults[index]
+                        },
+                        onPointChange = { index, value -> vm.setParam(keys[index], value) }
+                    )
+                }
+
+                if (tool.id == "IMG-33" && state.selectedUris.isNotEmpty()) {
+                    FilterPreviewCard(
+                        imageUri = state.selectedUris.first(),
+                        preset = state.paramValues["preset"]?.toString() ?: "Vintage",
+                        brightness = (state.paramValues["brightness"] as? Number)?.toFloat() ?: 0f,
+                        contrast = (state.paramValues["contrast"] as? Number)?.toFloat() ?: 1.05f,
+                        saturation = (state.paramValues["saturation"] as? Number)?.toFloat() ?: 1f,
+                        temperature = (state.paramValues["temperature"] as? Number)?.toFloat() ?: 0f,
+                        blurRadius = (state.paramValues["blur"] as? Number)?.toInt() ?: 0,
+                        vignette = (state.paramValues["vignette"] as? Number)?.toInt() ?: 0
+                    )
+                }
+
+                if (tool.group == ToolGroup.PDF && !tool.isStub &&
+                    state.selectedUris.isNotEmpty() &&
+                    tool.inputSpec != InputSpec.MultiplePdfs &&
+                    tool.inputSpec != InputSpec.MultipleImages
+                ) {
+                    val pdfUri = state.selectedUris.first()
+                    if (tool.id == "PDF-04") {
+                        PdfPagePickerCard(
+                            pdfUri = pdfUri,
+                            storage = container.storage,
+                            isEnglish = isEnglish,
+                            reorderMode = true,
+                            pages = PdfVaultEngine.parsePagesLoose(state.paramValues["order"]?.toString() ?: ""),
+                            onPagesChange = { order -> vm.setParam("order", order.joinToString(",")) }
+                        )
+                    } else if (tool.params.any { it.key == "pages" }) {
+                        PdfPagePickerCard(
+                            pdfUri = pdfUri,
+                            storage = container.storage,
+                            isEnglish = isEnglish,
+                            reorderMode = false,
+                            pages = PdfVaultEngine.parsePagesLoose(state.paramValues["pages"]?.toString() ?: ""),
+                            onPagesChange = { pages ->
+                                vm.setParam("pages", PdfVaultEngine.formatPageRange(pages))
                             }
                         )
                     }
@@ -625,7 +723,16 @@ fun ToolScreen(
                 }
 
                 Button(
-                    onClick = { triggerExecution() },
+                    onClick = {
+                        if (tool.requiresNetwork && !state.isRunning) {
+                            scope.launch {
+                                val consent = runCatching { container.aiClient.hasUploadConsent() }.getOrDefault(false)
+                                if (consent) triggerExecution() else showUploadConsent = true
+                            }
+                        } else {
+                            triggerExecution()
+                        }
+                    },
                     enabled = !state.isRunning,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -639,6 +746,46 @@ fun ToolScreen(
                             else -> stringResource(R.string.action_run_tool)
                         },
                         style = MaterialTheme.typography.titleSmall
+                    )
+                }
+
+                if (showUploadConsent) {
+                    AlertDialog(
+                        onDismissRequest = { showUploadConsent = false },
+                        title = {
+                            Text(
+                                if (isEnglish) "Allow cloud upload?" else "Izinkan unggahan cloud?"
+                            )
+                        },
+                        text = {
+                            Text(
+                                if (isEnglish) {
+                                    "This tool sends your file to the AI gateway configured in Settings. " +
+                                        "Files are processed for this request only and the gateway keeps no copy " +
+                                        "beyond the job lifetime. Continue?"
+                                } else {
+                                    "Tool ini mengirim berkas Anda ke AI Gateway yang diatur di Pengaturan. " +
+                                        "Berkas hanya diproses untuk permintaan ini dan gateway tidak menyimpan " +
+                                        "salinan melebihi masa hidup job. Lanjutkan?"
+                                }
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showUploadConsent = false
+                                scope.launch {
+                                    runCatching { container.aiClient.grantUploadConsent() }
+                                    triggerExecution()
+                                }
+                            }) {
+                                Text(if (isEnglish) "Allow upload" else "Izinkan unggah")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showUploadConsent = false }) {
+                                Text(if (isEnglish) "Cancel" else "Batal")
+                            }
+                        }
                     )
                 }
 

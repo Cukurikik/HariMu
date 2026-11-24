@@ -1,0 +1,40 @@
+name = "harimu-ai-gateway"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Secret WAJIB diisi lewat `wrangler secret put`, tidak pernah di repo:
+#   INSTALL_TOKEN_SECRET, DOWNLOAD_SIGNING_SECRET,
+#   OPENAI_API_KEY (opsional), REPLICATE_API_TOKEN + REPLICATE_VIDEO_VERSION (opsional)
+
+[vars]
+PROVIDER_MODE = "mock"
+RATE_LIMIT_PER_MIN = "30"
+DAILY_QUOTA = "20"
+MAX_UPLOAD_BYTES = "10485760"
+TOKEN_TTL_SEC = "2592000"
+
+[[kv_namespaces]]
+binding = "JOBS"
+id = "REPLACE_WITH_KV_ID"
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "harimu-ai-artifacts"
+
+[observability]
+enabled = true
+
+# Lingkungan dev: pakai KV & bucket terpisah supaya uji coba tidak mencampuri produksi.
+[env.dev.vars]
+PROVIDER_MODE = "mock"
+RATE_LIMIT_PER_MIN = "60"
+DAILY_QUOTA = "50"
+
+[[env.dev.kv_namespaces]]
+binding = "JOBS"
+id = "REPLACE_WITH_DEV_KV_ID"
+
+[[env.dev.r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "harimu-ai-artifacts-dev"

@@ -193,11 +193,9 @@ class VideoForgeBatch1Test {
             assertTrue("Expected $id to be implemented (not stub)", tool != null && !tool.isStub)
         }
 
-        val deferredStubIds = listOf("VID-07")
-        deferredStubIds.forEach { id ->
-            val tool = ToolRegistry.findById(id)
-            assertTrue("Expected $id to stay a stub until P11", tool != null && tool.isStub)
-        }
+        // FASE 11: VID-07 sudah diimplementasikan (FFmpeg lanczos + unsharp).
+        val upscaler = ToolRegistry.findById("VID-07")
+        assertTrue("Expected VID-07 implemented", upscaler != null && !upscaler.isStub)
     }
 
     @Test

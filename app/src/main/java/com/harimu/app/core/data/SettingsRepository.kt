@@ -25,7 +25,9 @@ data class AppSettings(
     val outputFolderUri: String = "",
     val outputFolderLabel: String = "",
     val cloudEndpointUrl: String = "",
-    val cloudBucketName: String = ""
+    val cloudBucketName: String = "",
+    val aiGatewayUrl: String = "",
+    val aiUploadConsent: Boolean = false
 ) {
     fun resolvedThemeMode(): ThemeMode =
         ThemeMode.entries.firstOrNull { it.name == themeMode } ?: ThemeMode.DARK
@@ -43,6 +45,11 @@ class SettingsRepository(private val context: Context) {
         val OUTPUT_FOLDER_LABEL = stringPreferencesKey("output_folder_label")
         val CLOUD_ENDPOINT = stringPreferencesKey("cloud_endpoint")
         val CLOUD_BUCKET = stringPreferencesKey("cloud_bucket")
+        val AI_GATEWAY = stringPreferencesKey("ai_gateway_url")
+        val AI_INSTALL_ID = stringPreferencesKey("ai_install_id")
+        val AI_TOKEN = stringPreferencesKey("ai_install_token")
+        val AI_TOKEN_EXPIRES = stringPreferencesKey("ai_install_token_expires")
+        val AI_UPLOAD_CONSENT = booleanPreferencesKey("ai_upload_consent")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -55,7 +62,9 @@ class SettingsRepository(private val context: Context) {
             outputFolderUri = prefs[Keys.OUTPUT_FOLDER_URI] ?: "",
             outputFolderLabel = prefs[Keys.OUTPUT_FOLDER_LABEL] ?: "",
             cloudEndpointUrl = prefs[Keys.CLOUD_ENDPOINT] ?: "",
-            cloudBucketName = prefs[Keys.CLOUD_BUCKET] ?: ""
+            cloudBucketName = prefs[Keys.CLOUD_BUCKET] ?: "",
+            aiGatewayUrl = prefs[Keys.AI_GATEWAY] ?: "",
+            aiUploadConsent = prefs[Keys.AI_UPLOAD_CONSENT] ?: false
         )
     }
 
@@ -93,6 +102,50 @@ class SettingsRepository(private val context: Context) {
             it[Keys.CLOUD_ENDPOINT] = endpoint.trim()
             it[Keys.CLOUD_BUCKET] = bucket.trim()
         }
+    }
+
+    suspend fun setAiGatewayUrl(url: String) {
+        context.dataStore.edit { it[Keys.AI_GATEWAY] = url.trim().trimEnd('/') }
+    }
+
+    /**
+     * Token instal AI. Disimpan di DataStore biasa karena token ini bukan kunci provider — ia hanya
+     * identitas perangkat yang bisa dicabut dari sisi Worker dengan mengganti INSTALL_TOKEN_SECRET.
+     */
+    suspend fun aiInstallId(): String {
+        val existing = context.dataStore.data.first()[Keys.AI_INSTALL_ID]
+        if (!existing.isNullOrBlank()) return existing
+        val generated = java.util.UUID.randomUUID().toString().replace("-", "")
+        context.dataStore.edit { it[Keys.AI_INSTALL_ID] = generated }
+        return generated
+    }
+
+    suspend fun aiToken(): Pair<String, Long> {
+        val prefs = context.dataStore.data.first()
+        val token = prefs[Keys.AI_TOKEN] ?: ""
+        val expires = prefs[Keys.AI_TOKEN_EXPIRES]?.toLongOrNull() ?: 0L
+        return token to expires
+    }
+
+    suspend fun saveAiToken(token: String, expiresAtEpochSec: Long) {
+        context.dataStore.edit {
+            it[Keys.AI_TOKEN] = token
+            it[Keys.AI_TOKEN_EXPIRES] = expiresAtEpochSec.toString()
+        }
+    }
+
+    suspend fun clearAiToken() {
+        context.dataStore.edit {
+            it.remove(Keys.AI_TOKEN)
+            it.remove(Keys.AI_TOKEN_EXPIRES)
+        }
+    }
+
+    suspend fun aiUploadConsent(): Boolean =
+        context.dataStore.data.first()[Keys.AI_UPLOAD_CONSENT] ?: false
+
+    suspend fun setAiUploadConsent(granted: Boolean) {
+        context.dataStore.edit { it[Keys.AI_UPLOAD_CONSENT] = granted }
     }
 
     suspend fun applyImported(imported: AppSettings) {

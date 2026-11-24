@@ -1,0 +1,20 @@
+{
+  "name": "harimu-ai-gateway",
+  "private": true,
+  "version": "1.0.0",
+  "description": "HariMu AI Gateway \u2014 Cloudflare Worker untuk TTS, image gen/edit/analyze, video job, speech-to-text",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.9.0",
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "typescript": "^5.7.3",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.20.0"
+  }
+}

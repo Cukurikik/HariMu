@@ -475,55 +475,14 @@ object ImageEngine {
         thumb.getPixels(pixels, 0, thumb.width, 0, 0, thumb.width, thumb.height)
         thumb.recycle()
 
-        val sampled = pixels.filterIndexed { idx, p -> idx % 2 == 0 && Color.alpha(p) > 64 }
-            .ifEmpty { pixels.toList() }
-
-        val step = (sampled.size / k).coerceAtLeast(1)
-        val centroids = MutableList(k) { i -> sampled[(i * step).coerceAtMost(sampled.lastIndex)] }
-
-        repeat(8) {
-            val sumsR = LongArray(k)
-            val sumsG = LongArray(k)
-            val sumsB = LongArray(k)
-            val counts = IntArray(k)
-            for (p in sampled) {
-                val r = Color.red(p)
-                val g = Color.green(p)
-                val b = Color.blue(p)
-                var best = 0
-                var bestDist = Int.MAX_VALUE
-                for (c in 0 until k) {
-                    val dr = r - Color.red(centroids[c])
-                    val dg = g - Color.green(centroids[c])
-                    val db = b - Color.blue(centroids[c])
-                    val dist = dr * dr + dg * dg + db * db
-                    if (dist < bestDist) {
-                        bestDist = dist
-                        best = c
-                    }
-                }
-                sumsR[best] += r
-                sumsG[best] += g
-                sumsB[best] += b
-                counts[best]++
-            }
-            for (c in 0 until k) {
-                if (counts[c] > 0) {
-                    centroids[c] = Color.rgb(
-                        (sumsR[c] / counts[c]).toInt(),
-                        (sumsG[c] / counts[c]).toInt(),
-                        (sumsB[c] / counts[c]).toInt()
-                    )
-                }
-            }
-        }
+        val centroids = ImageGeometryMath.kMeansPalette(pixels, k)
 
         val cardW = 1080
         val cardH = 420
         val card = Bitmap.createBitmap(cardW, cardH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(card)
         canvas.drawColor(Color.parseColor("#11141C"))
-        val swatchW = cardW.toFloat() / k
+        val swatchW = cardW.toFloat() / centroids.size.coerceAtLeast(1)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE

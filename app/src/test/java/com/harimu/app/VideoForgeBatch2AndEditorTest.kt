@@ -148,7 +148,7 @@ class VideoForgeBatch2AndEditorTest {
         }
 
         val upscaler = ToolRegistry.findById("VID-07")
-        assertTrue("VID-07 must remain stub for P11", upscaler != null && upscaler.isStub)
+        assertTrue("VID-07 implemented in Fase 11", upscaler != null && !upscaler.isStub)
     }
 
     @Test

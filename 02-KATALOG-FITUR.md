@@ -12,9 +12,9 @@
 | ID | Tool | Engine | Fase | Risiko | Status | Catatan |
 |---|---|---|---|---|---|---|
 | CORE-01 | Pro Video Editor | M3+FF | P5 | 🟡 | ✅ | Timeline: susun klip, trim, kecepatan, rotasi, gabung; simpan ke Room |
-| CORE-02 | Prompt Video Gen | CL | P11 | 🟡 | ⬜ | Job async, polling, biaya & kuota |
-| CORE-03 | Generate Speech (TTS) | CL | P11 | 🟢 | ⬜ | 5 suara, output WAV |
-| CORE-04 | Analyze Images | CL | P11 | 🟢 | ⬜ | Gambar + pertanyaan → jawaban |
+| CORE-02 | Prompt Video Gen | CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) | Job async, polling, biaya & kuota |
+| CORE-03 | Generate Speech (TTS) | CL | P11 | 🟢 | ✅ (perangkat + 5 suara cloud) | 5 suara, output WAV |
+| CORE-04 | Analyze Images | CL | P11 | 🟢 | ✅ (cloud, butuh gateway+kunci) | Gambar + pertanyaan → jawaban |
 | CORE-05 | Screen Recorder | NAT | P14 | 🟡 | ⬜ | MediaProjection; "jendela/tab" tidak berlaku di Android |
 | CORE-06 | Voice Recorder | NAT | P14 | 🟢 | ⬜ | Spektrum audio live |
 | CORE-07 | Key Vault | NAT/LIB | P14 | 🟡 | ⬜ | AES/RSA/ECDSA + Keystore |
@@ -31,7 +31,7 @@
 | VID-04 | Resize Video (1080/720/480/360p) | M3 | P4 | 🟢 | ✅ |
 | VID-05 | Change Video Speed | M3/FF | P4 | 🟡 | ✅ |
 | VID-06 | Video to GIF | FF | P4 | 🟡 | ✅ |
-| VID-07 | Video Upscaler (1.5x–4x) | ML/FF | P11 | 🔴 | ⬜ |
+| VID-07 | Video Upscaler (1.5x–4x) | ML/FF | P11 | 🔴 | ✅ (FFmpeg lanczos+unsharp, maks 60s/1080p) |
 | VID-08 | Video to Audio (MP3) | FF | P4 | 🟢 | ✅ |
 | VID-09 | Rotate Video | M3 | P4 | 🟢 | ✅ |
 | VID-10 | Flip Video | M3/FF | P4 | 🟢 | ✅ |
@@ -63,7 +63,7 @@
 | AUD-01 | Mastering Hub | FF | P7 | 🟡 | ✅ |
 | AUD-02 | Pro Equalizer 10-band (live + ekspor) | NAT/FF | P7 | 🟡 | ✅ |
 | AUD-03 | AI Noise Reduction | FF/ML | P7 | 🟡 | ✅ |
-| AUD-04 | Vocal Remover | FF / ML | P7 | 🟡 | ✅ |
+| AUD-04 | Vocal Remover | FF / ML | P7 | 🟡 | ✅ (FFmpeg + mode DSP lokal) |
 | AUD-05 | 8D Audio Engine | FF | P7 | 🟡 | ✅ |
 | AUD-06 | Change Audio Pitch | FF | P6 | 🟡 | ✅ |
 | AUD-07 | Change Audio Speed | FF | P6 | 🟢 | ✅ |
@@ -79,93 +79,93 @@
 | AUD-17 | Reverse Audio | FF | P6 | 🟢 | ✅ |
 | AUD-18 | Audio Metadata Editor (ID3) | LIB | P6 | 🟡 | ✅ |
 | AUD-19 | Audio Watermark | FF | P7 | 🟢 | ✅ |
-| AUD-20 | AI Stem Splitter (4 track) | ML/CL | P7 (kontrak) / P11 (inferensi) | 🔴 | ⬜ |
+| AUD-20 | AI Stem Splitter (4 track) | ML/CL | P7 (kontrak) / P11 (inferensi) | 🔴 | ✅ (2 jalur mid/side DSP, bukan Demucs) |
 | AUD-21 | Audio Studio Pro (DAW multitrack) | NAT+FF | P8 | 🔴 | ✅ |
 | AUD-22 | Audio Enhancer | FF/ML | P7 | 🟡 | ✅ |
 | AUD-23 | Audio Splitter | FF | P6 | 🟢 | ✅ |
 | AUD-24 | Add Echo | FF | P7 | 🟢 | ✅ |
 | AUD-25 | Add Reverb | FF | P7 | 🟡 | ✅ |
 | AUD-26 | Audio Fade | FF | P6 | 🟢 | ✅ |
-| AUD-27 | Speech to Text | ML/CL | P11 | 🟡 | ⬜ |
+| AUD-27 | Speech to Text | ML/CL | P11 | 🟡 | ✅ (cloud Whisper-compatible, butuh gateway) |
 | AUD-28 | Audio Visualizer (video gelombang) | FF/Canvas | P7 | 🟡 | ✅ |
 
 ## 4. Image Forge & Image Matrix
 
 | ID | Tool | Engine | Fase | Risiko | Status |
 |---|---|---|---|---|---|
-| IMG-01 | Image Cropper Pro | NAT | P9 | 🟢 | ⬜ |
-| IMG-02 | Smart Image Resizer | NAT | P9 | 🟢 | ⬜ |
-| IMG-03 | Image Rotator | NAT | P9 | 🟢 | ⬜ |
-| IMG-04 | Image Flipper | NAT | P9 | 🟢 | ⬜ |
-| IMG-05 | Canvas Expander | NAT | P9 | 🟢 | ⬜ |
-| IMG-06 | Perspective Corrector | NAT (Matrix.setPolyToPoly) | P9 | 🟡 | ⬜ |
-| IMG-07 | Image Straightener | NAT | P9 | 🟢 | ⬜ |
-| IMG-08 | Smart Auto-Crop | ML | P9 | 🟡 | ⬜ |
-| IMG-09 | Image Alignment | NAT | P9 | 🟢 | ⬜ |
-| IMG-10 | Multi-layer Crop | NAT | P9 | 🟡 | ⬜ |
-| IMG-11 | AI Image Upscaler / Super Resolution | ML | P11 | 🔴 | ⬜ |
-| IMG-12 | AI Background Remover | ML | P11 | 🟡 | ⬜ |
-| IMG-13 | AI Object Remover | ML/CL | P11 | 🔴 | ⬜ |
-| IMG-14 | AI Photo Enhancer | ML/CL | P11 | 🟡 | ⬜ |
-| IMG-15 | AI Face Restorer | ML/CL | P11 | 🔴 | ⬜ |
-| IMG-16 | AI Style Transfer | ML/CL | P11 | 🟡 | ⬜ |
-| IMG-17 | AI Image Colorizer | ML/CL | P11 | 🟡 | ⬜ |
-| IMG-18 | AI Sky Replacement | ML/CL | P11 | 🔴 | ⬜ |
-| IMG-19 | AI Portrait Bokeh | ML | P11 | 🟡 | ⬜ |
-| IMG-20 | AI Cartoonizer | ML/CL | P11 | 🟡 | ⬜ |
-| IMG-21 | AI Image Generator | CL | P11 | 🟢 | ⬜ |
-| IMG-22 | AI Image Denoiser | ML/LIB | P11 | 🟡 | ⬜ |
-| IMG-23 | Image Format Converter (JPG/PNG/HEIC/WebP/AVIF/SVG/RAW/TIFF/BMP/PSD/PDF) | NAT+LIB | P9 | 🔴 | ⬜ |
-| IMG-24 | Icon Generator | NAT | P9 | 🟢 | ⬜ |
-| IMG-25 | Base64 Encoder/Decoder | NAT | P9 | 🟢 | ⬜ |
-| IMG-26 | Smart Image Compressor | NAT | P9 | 🟢 | ⬜ |
-| IMG-27 | Web Image Optimizer | NAT+LIB | P9 | 🟡 | ⬜ |
-| IMG-28 | Color Palette Extractor (K-Means) | NAT | P9 | 🟢 | ⬜ |
-| IMG-29 | Image Metadata Stripper & EXIF Editor | NAT | P9 | 🟢 | ⬜ |
-| IMG-30 | Image File Size Analyzer | NAT | P9 | 🟢 | ⬜ |
-| IMG-31 | Watermark Inserter | NAT | P10 | 🟢 | ⬜ |
-| IMG-32 | Image Overlay / Blender | NAT | P10 | 🟢 | ⬜ |
-| IMG-33 | Advanced Filters (Grayscale/Sepia/Invert/Blur/Contrast) | GL/NAT | P10 | 🟡 | ⬜ |
-| IMG-34 | Border & Frame Generator | NAT | P10 | 🟢 | ⬜ |
-| IMG-35 | Text-to-Image Typography | NAT | P10 | 🟢 | ⬜ |
-| IMG-36 | Gradient Overlay Generator | NAT | P10 | 🟢 | ⬜ |
-| IMG-37 | Shadow & Glow Effects | NAT | P10 | 🟡 | ⬜ |
-| IMG-38 | Sticker / Emoji Overlay | NAT | P10 | 🟢 | ⬜ |
-| IMG-39 | LUT Color Filter Import (.cube/.png) | GL | P10 | 🟡 | ⬜ |
-| IMG-40 | Vintage / Film Simulation | GL/NAT | P10 | 🟢 | ⬜ |
-| IMG-41 | Lens Flare Generator | NAT | P10 | 🟡 | ⬜ |
-| IMG-42 | Reflection / Mirror Effects | NAT | P10 | 🟢 | ⬜ |
-| IMG-43 | Batch Processing | Job | P10 | 🟡 | ⬜ |
-| IMG-44 | Sprite Sheet Generator | NAT | P10 | 🟢 | ⬜ |
-| IMG-45 | Animated GIF Maker | FF/LIB | P10 | 🟡 | ⬜ |
-| IMG-46 | Video Frame Extractor | NAT | P10 | 🟢 | ⬜ | (alias VID-22) |
-| IMG-47 | Image Matrix AI (kanvas editor multifungsi) | NAT | P10 | 🔴 | ⬜ |
+| IMG-01 | Image Cropper Pro | NAT | P9 | 🟢 | ✅ |
+| IMG-02 | Smart Image Resizer | NAT | P9 | 🟢 | ✅ |
+| IMG-03 | Image Rotator | NAT | P9 | 🟢 | ✅ |
+| IMG-04 | Image Flipper | NAT | P9 | 🟢 | ✅ |
+| IMG-05 | Canvas Expander | NAT | P9 | 🟢 | ✅ |
+| IMG-06 | Perspective Corrector | NAT (Matrix.setPolyToPoly) | P9 | 🟡 | ✅ |
+| IMG-07 | Image Straightener | NAT | P9 | 🟢 | ✅ |
+| IMG-08 | Smart Auto-Crop | ML | P9 | 🟡 | ✅ |
+| IMG-09 | Image Alignment | NAT | P9 | 🟢 | ✅ |
+| IMG-10 | Multi-layer Crop | NAT | P9 | 🟡 | ✅ |
+| IMG-11 | AI Image Upscaler / Super Resolution | ML | P11 | 🔴 | ✅ (heuristik unsharp, bukan model) |
+| IMG-12 | AI Background Remover | ML | P11 | 🟡 | ✅ (heuristik flood fill, bukan U²-Net) |
+| IMG-13 | AI Object Remover | ML/CL | P11 | 🔴 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-14 | AI Photo Enhancer | ML/CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-15 | AI Face Restorer | ML/CL | P11 | 🔴 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-16 | AI Style Transfer | ML/CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-17 | AI Image Colorizer | ML/CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-18 | AI Sky Replacement | ML/CL | P11 | 🔴 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-19 | AI Portrait Bokeh | ML | P11 | 🟡 | ✅ (bokeh radial, bukan depth map) |
+| IMG-20 | AI Cartoonizer | ML/CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-21 | AI Image Generator | CL | P11 | 🟢 | ✅ (cloud, butuh gateway+kunci) |
+| IMG-22 | AI Image Denoiser | ML/LIB | P11 | 🟡 | ✅ (smart blur, bukan denoiser neural) |
+| IMG-23 | Image Format Converter (JPG/PNG/HEIC/WebP/AVIF/SVG/RAW/TIFF/BMP/PSD/PDF) | NAT+LIB | P9 | 🔴 | ✅ |
+| IMG-24 | Icon Generator | NAT | P9 | 🟢 | ✅ |
+| IMG-25 | Base64 Encoder/Decoder | NAT | P9 | 🟢 | ✅ |
+| IMG-26 | Smart Image Compressor | NAT | P9 | 🟢 | ✅ |
+| IMG-27 | Web Image Optimizer | NAT+LIB | P9 | 🟡 | ✅ |
+| IMG-28 | Color Palette Extractor (K-Means) | NAT | P9 | 🟢 | ✅ |
+| IMG-29 | Image Metadata Stripper & EXIF Editor | NAT | P9 | 🟢 | ✅ |
+| IMG-30 | Image File Size Analyzer | NAT | P9 | 🟢 | ✅ |
+| IMG-31 | Watermark Inserter | NAT | P10 | 🟢 | ✅ |
+| IMG-32 | Image Overlay / Blender | NAT | P10 | 🟢 | ✅ |
+| IMG-33 | Advanced Filters (Grayscale/Sepia/Invert/Blur/Contrast) | GL/NAT | P10 | 🟡 | ✅ |
+| IMG-34 | Border & Frame Generator | NAT | P10 | 🟢 | ✅ |
+| IMG-35 | Text-to-Image Typography | NAT | P10 | 🟢 | ✅ |
+| IMG-36 | Gradient Overlay Generator | NAT | P10 | 🟢 | ✅ |
+| IMG-37 | Shadow & Glow Effects | NAT | P10 | 🟡 | ✅ |
+| IMG-38 | Sticker / Emoji Overlay | NAT | P10 | 🟢 | ✅ |
+| IMG-39 | LUT Color Filter Import (.cube/.png) | NAT/LUT | P10 | 🟡 | ✅ |
+| IMG-40 | Vintage / Film Simulation | GL/NAT | P10 | 🟢 | ✅ |
+| IMG-41 | Lens Flare Generator | NAT | P10 | 🟡 | ✅ |
+| IMG-42 | Reflection / Mirror Effects | NAT | P10 | 🟢 | ✅ |
+| IMG-43 | Batch Processing | NAT/BATCH | P10 | 🟡 | ✅ |
+| IMG-44 | Sprite Sheet Generator | NAT | P10 | 🟢 | ✅ |
+| IMG-45 | Animated GIF Maker | NAT/GIF | P10 | 🟡 | ✅ |
+| IMG-46 | Video Frame Extractor | NAT | P10 | 🟢 | ✅ | (alias VID-22) |
+| IMG-47 | Image Matrix AI (kanvas editor multifungsi) | NAT | P10 | 🔴 | ✅ (AI di P11) |
 
 ## 5. PDF Vault
 
 | ID | Tool | Engine | Fase | Risiko | Status |
 |---|---|---|---|---|---|
-| PDF-01 | Merge PDF | LIB | P12 | 🟢 | ⬜ |
-| PDF-02 | Split PDF (.zip) | LIB | P12 | 🟢 | ⬜ |
-| PDF-03 | Rotate PDF | LIB | P12 | 🟢 | ⬜ |
-| PDF-04 | Reorder Pages | LIB | P12 | 🟢 | ⬜ |
-| PDF-05 | Extract Pages | LIB | P12 | 🟢 | ⬜ |
-| PDF-06 | PDF to Word/Excel/PowerPoint | CL / LIB terbatas | P12 | 🔴 | ⬜ |
-| PDF-07 | Word to PDF | CL | P12 | 🔴 | ⬜ |
-| PDF-08 | Image to PDF | LIB | P12 | 🟢 | ⬜ |
-| PDF-09 | Compress PDF | LIB | P12 | 🟡 | ⬜ |
-| PDF-10 | Encrypt PDF (AES-256/128, RC4-128) | LIB | P12 | 🟡 | ⬜ |
-| PDF-11 | Decrypt PDF | LIB | P12 | 🟢 | ⬜ |
-| PDF-12 | Add Watermark | LIB | P12 | 🟢 | ⬜ |
-| PDF-13 | Remove Watermark | LIB | P12 | 🔴 | ⬜ |
-| PDF-14 | Redact Content (permanen) | LIB | P12 | 🔴 | ⬜ |
-| PDF-15 | Scan PDF to Text (OCR) | ML/LIB | P12 | 🟡 | ⬜ |
-| PDF-16 | Image to Searchable PDF (OCR 8 bahasa) | LIB | P12 | 🟡 | ⬜ |
-| PDF-17 | AI Document Recognition | CL/ML | P12 | 🔴 | ⬜ |
-| PDF-18 | Page Numbering | LIB | P12 | 🟢 | ⬜ |
-| PDF-19 | Metadata Editor | LIB | P12 | 🟢 | ⬜ |
-| PDF-20 | Document Comparison | LIB+NAT | P12 | 🟡 | ⬜ |
-| PDF-21 | Form Filler (AcroForm) | LIB | P12 | 🟡 | ⬜ |
+| PDF-01 | Merge PDF | LIB | P12 | 🟢 | ✅ (objek asli via PDFBox, kualitas teks utuh) |
+| PDF-02 | Split PDF (.zip) | LIB | P12 | 🟢 | ✅ (ZIP per N halaman, objek asli) |
+| PDF-03 | Rotate PDF | LIB | P12 | 🟢 | ✅ (atribut rotasi halaman, rentang opsional) |
+| PDF-04 | Reorder Pages | LIB | P12 | 🟢 | ✅ (seret thumbnail di kartu pratinjau + kolom urutan) |
+| PDF-05 | Extract Pages | LIB | P12 | 🟢 | ✅ (rentang halaman, objek asli) |
+| PDF-06 | PDF to Word/Excel/PowerPoint | CL / LIB terbatas | P12 | 🔴 | ✅ Dasar (teks DOCX/XLSX; PPTX gambar/halaman; tata letak asli tidak dijaga; antarmuka siap cloud) |
+| PDF-07 | Word to PDF | CL | P12 | 🔴 | ✅ Dasar (paragraf .docx → PDF; gambar/tabel bergaya/header tidak ikut) |
+| PDF-08 | Image to PDF | LIB | P12 | 🟢 | ✅ (ukuran gambar, A4, Letter) |
+| PDF-09 | Compress PDF | LIB | P12 | 🟡 | ✅ (rasterisasi + kualitas JPEG; teks menjadi gambar; ukuran sebelum/sesudah ditampilkan) |
+| PDF-10 | Encrypt PDF (AES-256/128, RC4-128) | LIB | P12 | 🟡 | ✅ (AES-256/AES-128/RC4-128 via PDFBox; RC4-40 tidak ditawarkan) |
+| PDF-11 | Decrypt PDF | LIB | P12 | 🟢 | ✅ (password pengguna/pemilik) |
+| PDF-12 | Add Watermark | LIB | P12 | 🟢 | ✅ (teks & gambar; gambar dipilih di kolom kedua) |
+| PDF-13 | Remove Watermark | LIB | P12 | 🔴 | ✅ Dasar (hanya anotasi/OCG terpisah; watermark menyatu ke konten TIDAK bisa dihapus) |
+| PDF-14 | Redact Content (permanen) | LIB | P12 | 🔴 | ✅ (halaman diratakan + kotak hitam; verifikasi ekstraksi teks pada hasil) |
+| PDF-15 | Scan PDF to Text (OCR) | ML/LIB | P12 | 🟡 | ✅ (OCR on-device 8 bahasa; traineddata diunduh saat pertama dipakai) |
+| PDF-16 | Image to Searchable PDF (OCR 8 bahasa) | LIB | P12 | 🟡 | ✅ (lapisan teks tak terlihat; posisi baris perkiraan, bukan per kata) |
+| PDF-17 | AI Document Recognition | CL/ML | P12 | 🔴 | ✅ (via AI Gateway; tanpa kredensial gagal dengan pesan jelas; hasil mock ditandai) |
+| PDF-18 | Page Numbering | LIB | P12 | 🟢 | ✅ (pola {n}/{total}, 4 posisi) |
+| PDF-19 | Metadata Editor | LIB | P12 | 🟢 | ✅ (judul/penulis/subjek/kata kunci) |
+| PDF-20 | Document Comparison | LIB+NAT | P12 | 🟡 | ✅ (diff baris + gambar diff visual per halaman) |
+| PDF-21 | Form Filler (AcroForm) | LIB | P12 | 🟡 | ✅ (AcroForm teks; XFA tidak didukung) |
 
 ## 6. Universal Converter
 
