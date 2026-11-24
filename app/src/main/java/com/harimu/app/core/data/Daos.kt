@@ -47,6 +47,9 @@ interface VaultKeyDao {
     @Query("SELECT * FROM vault_keys ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<VaultKeyEntity>>
 
+    @Query("SELECT * FROM vault_keys ORDER BY createdAt DESC")
+    suspend fun getAllOnce(): List<VaultKeyEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: VaultKeyEntity): Long
 

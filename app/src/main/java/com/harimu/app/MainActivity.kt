@@ -1,6 +1,7 @@
 package com.harimu.app
 
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Bundle
@@ -59,6 +60,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.harimu.app.core.data.AppSettings
+import com.harimu.app.core.cloud.OAuthCallbackBus
 import com.harimu.app.core.design.HariMuTheme
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.Tool
@@ -73,6 +75,7 @@ import com.harimu.app.feature.studios.BackupScreen
 import com.harimu.app.feature.studios.EqualizerScreen
 import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
+import com.harimu.app.feature.studios.ScreenRecorderScreen
 import com.harimu.app.feature.studios.VideoEditorScreen
 import com.harimu.app.feature.studios.VoiceRecorderScreen
 import com.harimu.app.feature.toolscreen.ToolScreen
@@ -88,6 +91,7 @@ import java.util.Locale
 @Serializable data class CatalogRoute(val groupName: String? = null)
 @Serializable data class ToolRoute(val toolId: String)
 @Serializable data object VoiceRecorderRoute
+@Serializable data object ScreenRecorderRoute
 @Serializable data object VideoEditorRoute
 @Serializable data object ImageMatrixRoute
 @Serializable data object EqualizerRoute
@@ -110,6 +114,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val container = (application as HariMuApp).container
+        handleOAuthIntent(intent)
 
         setContent {
             val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
@@ -151,6 +156,18 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOAuthIntent(intent)
+    }
+
+    private fun handleOAuthIntent(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme == "harimu" && data.host == "oauth") {
+            OAuthCallbackBus.publish(data.toString())
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,6 +201,7 @@ private fun HariMuRoot(
         when (route) {
             DedicatedScreenRoute.VIDEO_EDITOR -> navController.navigate(VideoEditorRoute)
             DedicatedScreenRoute.VOICE_RECORDER -> navController.navigate(VoiceRecorderRoute)
+            DedicatedScreenRoute.SCREEN_RECORDER -> navController.navigate(ScreenRecorderRoute)
             DedicatedScreenRoute.IMAGE_MATRIX -> navController.navigate(ImageMatrixRoute)
             DedicatedScreenRoute.EQUALIZER -> navController.navigate(EqualizerRoute)
             DedicatedScreenRoute.AUDIO_STUDIO -> navController.navigate(AudioStudioRoute)
@@ -341,6 +359,9 @@ private fun HariMuRoot(
                     }
                     composable<VoiceRecorderRoute> {
                         VoiceRecorderScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<ScreenRecorderRoute> {
+                        ScreenRecorderScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<VideoEditorRoute> {
                         VideoEditorScreen(container, settings.isEnglish) { navController.popBackStack() }

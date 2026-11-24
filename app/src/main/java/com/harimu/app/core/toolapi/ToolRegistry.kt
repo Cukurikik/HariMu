@@ -10,7 +10,6 @@ import com.harimu.app.feature.tools.coreTools
 import com.harimu.app.feature.tools.imageTools
 import com.harimu.app.feature.tools.pdfVaultTools
 import com.harimu.app.feature.tools.stubAudioTools
-import com.harimu.app.feature.tools.stubCoreTools
 import com.harimu.app.feature.tools.stubImageTools
 import com.harimu.app.feature.tools.stubVideoTools
 import com.harimu.app.feature.tools.videoTools
@@ -18,7 +17,7 @@ import com.harimu.app.feature.tools.videoTools
 object ToolRegistry {
 
     val allTools: List<Tool> by lazy {
-        val combined = coreTools() + aiCloudTools() + stubCoreTools() +
+        val combined = coreTools() + aiCloudTools() +
             aiLocalTools() +
             videoTools() + stubVideoTools() +
             audioTools() + stubAudioTools() +

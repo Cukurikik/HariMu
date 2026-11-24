@@ -21,11 +21,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Key
@@ -40,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.data.AppSettings
-import com.harimu.app.core.design.EmptyState
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamSlider
 import com.harimu.app.core.design.ParamToggle
@@ -414,46 +410,7 @@ fun SettingsScreen(
             }
 
             item {
-                Card(
-                    modifier = Modifier.testTag("cloud_connections_card"),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.settings_cloud_title), style = MaterialTheme.typography.titleMedium)
-                        EmptyState(
-                            icon = Icons.Filled.CloudOff,
-                            title = stringResource(R.string.settings_cloud_empty_title),
-                            subtitle = stringResource(R.string.settings_cloud_empty_desc)
-                        )
-                        val providers = listOf(
-                            R.string.cloud_provider_r2,
-                            R.string.cloud_provider_drive,
-                            R.string.cloud_provider_dropbox,
-                            R.string.cloud_provider_rest
-                        )
-                        providers.forEach { providerRes ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(stringResource(providerRes), style = MaterialTheme.typography.bodyMedium)
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.cloud_status_phase14),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                CloudConnectionsCard(container = container, isEnglish = settings.isEnglish)
             }
         }
     }

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.harimu.app.core.ai.AiException
 import com.harimu.app.core.engines.AudioEngine
@@ -40,6 +41,17 @@ fun coreTools(): List<Tool> = listOf(
         titleEn = "Pro Video Editor",
         descId = "Editor timeline video: susun klip, trim, kecepatan, rotasi, dan gabung.",
         descEn = "Timeline video editor: arrange clips, trim, speed, rotate, and merge."
+    ),
+    DedicatedTool(
+        id = "CORE-05",
+        group = ToolGroup.CORE,
+        engineLabel = "MP",
+        icon = Icons.Filled.Videocam,
+        dedicatedRoute = DedicatedScreenRoute.SCREEN_RECORDER,
+        titleId = "Screen Recorder",
+        titleEn = "Screen Recorder",
+        descId = "Rekam layar via MediaProjection, audio mikrofon/internal, kontrol notifikasi & overlay.",
+        descEn = "Record screen via MediaProjection with mic/internal audio, notification controls & overlay."
     ),
     DedicatedTool(
         id = "CORE-06",

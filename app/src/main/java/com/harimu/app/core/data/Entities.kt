@@ -27,6 +27,7 @@ data class FavoriteEntity(
     val addedAt: Long = System.currentTimeMillis()
 )
 
+@Serializable
 @Entity(tableName = "vault_keys")
 data class VaultKeyEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

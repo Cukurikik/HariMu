@@ -7,6 +7,9 @@ import androidx.work.WorkManager
 import com.harimu.app.core.data.AppDatabase
 import com.harimu.app.core.data.SettingsRepository
 import com.harimu.app.core.data.WorkspaceRepository
+import com.harimu.app.core.cloud.CloudCredentialStore
+import com.harimu.app.core.cloud.CloudUploader
+import com.harimu.app.core.cloud.UploadQueue
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.ai.AiClient
 import com.harimu.app.core.files.ModelManager
@@ -22,6 +25,9 @@ class AppContainer(app: Application) {
     val modelManager = ModelManager(app)
     val settings = SettingsRepository(app)
     val workspace = WorkspaceRepository(database, settings, storage)
+    val cloudStore = CloudCredentialStore(app)
+    val cloudUploader = CloudUploader()
+    val uploadQueue = UploadQueue(app, cloudUploader)
     val aiClient: AiClient by lazy { AiClient(settings) }
     val jobManager: JobManager by lazy {
         JobManager(

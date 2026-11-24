@@ -1,7 +1,6 @@
 package com.harimu.app.feature.tools
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.ModelSpec
@@ -47,14 +46,3 @@ class StubTool(
         emit(ToolProgress.Done(ToolResult(summary = msg)))
     }
 }
-
-fun stubCoreTools(): List<Tool> = listOf(
-    StubTool(
-        id = "CORE-05", group = ToolGroup.CORE, engineLabel = "NAT", plannedPhase = "P14",
-        icon = Icons.Filled.Videocam, inputSpec = InputSpec.None,
-        params = listOf(ToolParam.DropdownParam("format", "Format Rekam", "Record Format", listOf("MP4", "WebM"), "MP4")),
-        titleId = "Screen Recorder", titleEn = "Screen Recorder",
-        descId = "Rekam layar penuh dengan MediaProjection dan audio internal opsional.",
-        descEn = "Record full screen via MediaProjection with optional internal audio."
-    )
-)

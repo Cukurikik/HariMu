@@ -15,11 +15,11 @@
 | CORE-02 | Prompt Video Gen | CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) | Job async, polling, biaya & kuota |
 | CORE-03 | Generate Speech (TTS) | CL | P11 | 🟢 | ✅ (perangkat + 5 suara cloud) | 5 suara, output WAV |
 | CORE-04 | Analyze Images | CL | P11 | 🟢 | ✅ (cloud, butuh gateway+kunci) | Gambar + pertanyaan → jawaban |
-| CORE-05 | Screen Recorder | NAT | P14 | 🟡 | ⬜ | MediaProjection; "jendela/tab" tidak berlaku di Android |
-| CORE-06 | Voice Recorder | NAT | P14 | 🟢 | ⬜ | Spektrum audio live |
-| CORE-07 | Key Vault | NAT/LIB | P14 | 🟡 | ⬜ | AES/RSA/ECDSA + Keystore |
-| CORE-08 | Workspace Backup (.omni) | NAT | P14 | 🟢 | ⬜ | ZIP + manifest, opsi enkripsi |
-| CORE-09 | Settings & Cloud Connections | LIB | P2 (UI) / P14 (cloud) | 🟡 | ⬜ | S3/R2, Drive, Dropbox, REST kustom |
+| CORE-05 | Screen Recorder | NAT | P14 | 🟡 | ✅ | MediaProjection + FGS `mediaProjection`; resolusi/fps/bitrate; MP4(H.264/AAC) default, WebM(VP8/Opus) API 29+; audio mic/internal(AudioPlaybackCapture)/keduanya; notifikasi jeda/stop + overlay opsional; persetujuan per sesi (Android 14+). Batas: tanpa multipart/fallback codec; audio internal tergantung izin aplikasi sumber |
+| CORE-06 | Voice Recorder | NAT | P14 | 🟢 | ✅ | AudioRecord 44,1/48 kHz + FFT 40 pita live; jeda/lanjut; WAV streaming, AAC(M4A), Opus(WebM API 29+); FGS `microphone`; fokus audio otomatis menjeda. Batas: deteksi panggilan lewat fokus audio (bukan READ_PHONE_STATE) |
+| CORE-07 | Key Vault | NAT | P14 | 🟡 | ✅ | AES 128/256 AndroidKeyStore non-ekspor; RSA 2048/3072/4096 & ECDSA P-256/384/521 dengan private key disegel kunci master Keystore; ekspor PEM digerbangi kredensial perangkat; enkripsi/dekripsi berkas AES-GCM; tanda tangan SHA256withRSA/ECDSA + verifikasi. Batas: gerbang di UI, bukan `setUserAuthenticationRequired` |
+| CORE-08 | Workspace Backup (.omni) | NAT | P14 | 🟢 | ✅ | ZIP + `manifest.json` skema 2; setelan/favorit/riwayat (+ metadata kunci); enkripsi `OMNIENC2` AES-GCM, PBKDF2-HMAC-SHA256 310k; impor menerima `OMNIENC1` & ZIP v1 lalu migrasi. Batas: private key tidak diekspor; maks 500 riwayat |
+| CORE-09 | Settings & Cloud Connections | LIB | P2 (UI) / P14 (cloud) | 🟡 | ✅ | S3/R2 SigV4 PUT (path-style), Drive OAuth PKCE scope `drive.file`, Dropbox OAuth PKCE, REST kustom; kredensial disegel SecretBox (AES-256-GCM Keystore); tes koneksi; antrean unggah persisten + retry 2s/8s/30s (3×); tombol “Unggah ke cloud” di ResultCard. Batas: tanpa multipart >5 GB, tanpa resumable Drive, token refresh manual-trigger |
 
 ## 2. Video Forge
 

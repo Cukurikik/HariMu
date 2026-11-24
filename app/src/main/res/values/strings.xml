@@ -230,4 +230,15 @@
     <string name="eq_export_button">Ekspor Audio EQ (FFmpeg)</string>
     <string name="eq_exporting_msg">Menerapkan 10-band EQ &amp; limiter via FFmpeg…</string>
     <string name="eq_export_done_summary">Ekspor EQ 10-Band selesai • %1$s (%2$s)</string>
+    <string name="recording_channel_name">Perekaman HariMu</string>
+    <string name="recording_channel_desc">Notifikasi saat merekam suara atau layar</string>
+    <string name="recording_voice_title">Merekam suara…</string>
+    <string name="recording_screen_title">Merekam layar…</string>
+    <string name="recording_active">Berjalan</string>
+    <string name="recording_paused">Dijeda</string>
+    <string name="action_pause">Jeda</string>
+    <string name="action_resume">Lanjut</string>
+    <string name="action_stop">Stop</string>
+    <string name="recording_projection_denied">Persetujuan rekam layar ditolak atau sesi berakhir</string>
+    <string name="action_upload_cloud">Unggah ke cloud</string>
 </resources>

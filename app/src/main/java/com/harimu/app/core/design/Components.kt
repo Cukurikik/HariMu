@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Download
@@ -539,6 +540,7 @@ fun ResultCard(
     onOpen: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
     onSave: (() -> Unit)? = null,
+    onUploadToCloud: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     previewContent: (@Composable ColumnScope.() -> Unit)? = null
 ) {
@@ -562,7 +564,7 @@ fun ResultCard(
                 )
             }
             previewContent?.invoke(this)
-            if (onOpen != null || onShare != null || onSave != null) {
+            if (onOpen != null || onShare != null || onSave != null || onUploadToCloud != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -604,6 +606,19 @@ fun ResultCard(
                             Text(stringResource(R.string.action_save), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
+                }
+            }
+            if (onUploadToCloud != null) {
+                OutlinedButton(
+                    onClick = onUploadToCloud,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .minimumInteractiveComponentSize()
+                        .testTag("upload_to_cloud_button")
+                ) {
+                    Icon(Icons.Filled.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.action_upload_cloud), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

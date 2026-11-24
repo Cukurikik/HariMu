@@ -1,5 +1,6 @@
 package com.harimu.app.core.data
 
+import com.harimu.app.core.backup.BackupEngine
 import com.harimu.app.core.files.FileStorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -8,19 +9,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FileOutputStream
-import java.security.SecureRandom
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
-import javax.crypto.Cipher
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 
 @Serializable
 data class OmniManifest(
@@ -143,100 +132,68 @@ class WorkspaceRepository(
         runCatching { json.decodeFromString<List<AudioTrackSpec>>(tracksJson) }.getOrDefault(emptyList())
 
 
+    /**
+     * Ekspor backup .omni lewat [BackupEngine] (FASE 14, CORE-08): ZIP + manifest skema 2, enkripsi
+     * AES-GCM/PBKDF2 310k bila kata sandi diisi, dan hanya **metadata** kunci vault (private key
+     * tidak pernah ikut karena disegel Keystore perangkat).
+     */
     suspend fun exportOmniBackup(password: String?): File = withContext(Dispatchers.IO) {
         val currentSettings = settings.current()
         val favorites = db.favoriteDao().getAllOnce()
         val history = db.historyDao().getAllOnce()
-        val useEncryption = !password.isNullOrBlank()
-
-        val innerZipBytes = ByteArrayOutputStream().use { bos ->
-            ZipOutputStream(bos).use { zos ->
-                writeZipEntry(zos, "manifest.json", json.encodeToString(OmniManifest(encrypted = useEncryption)))
-                writeZipEntry(zos, "settings.json", json.encodeToString(currentSettings))
-                writeZipEntry(zos, "favorites.json", json.encodeToString(favorites))
-                writeZipEntry(zos, "history.json", json.encodeToString(history))
-            }
-            bos.toByteArray()
+        val vaultKeys = db.vaultKeyDao().getAllOnce().map {
+            it.copy(privateKeyPem = "", publicKeyPem = if (it.keystoreBacked) it.publicKeyPem else "(tidak diekspor)")
         }
-
-        val outFile = storage.createOutputFile("BACKUP", if (useEncryption) "omni.enc" else "omni")
-        if (!useEncryption) {
-            outFile.writeBytes(innerZipBytes)
-        } else {
-            val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
-            val iv = ByteArray(12).also { SecureRandom().nextBytes(it) }
-            val key = deriveAesKey(password!!, salt)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
-                init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, iv))
-            }
-            val encrypted = cipher.doFinal(innerZipBytes)
-            FileOutputStream(outFile).use { fos ->
-                fos.write("OMNIENC1".toByteArray(Charsets.UTF_8))
-                fos.write(salt)
-                fos.write(iv)
-                fos.write(encrypted)
-            }
-        }
+        val bytes = BackupEngine.createArchive(
+            settingsJson = json.encodeToString(currentSettings),
+            favoritesJson = json.encodeToString(favorites),
+            historyJson = BackupEngine.trimHistoryJson(json.encodeToString(history)),
+            vaultKeysJson = json.encodeToString(vaultKeys),
+            password = password
+        )
+        val outFile = storage.createOutputFile("BACKUP", if (password.isNullOrBlank()) "omni" else "omni.enc")
+        outFile.writeBytes(bytes)
         outFile
     }
 
+    /** Impor .omni: validasi manifes, migrasi skema v1→v2, terapkan pengaturan/favorit/riwayat. */
     suspend fun importOmniBackup(rawBytes: ByteArray, password: String?): String = withContext(Dispatchers.IO) {
-        val header = "OMNIENC1".toByteArray(Charsets.UTF_8)
-        val zipBytes = if (rawBytes.size > 36 && rawBytes.sliceArray(0 until 8).contentEquals(header)) {
-            require(!password.isNullOrBlank()) { "Backup terenkripsi membutuhkan kata sandi" }
-            val salt = rawBytes.sliceArray(8 until 24)
-            val iv = rawBytes.sliceArray(24 until 36)
-            val cipherText = rawBytes.sliceArray(36 until rawBytes.size)
-            val key = deriveAesKey(password, salt)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
-                init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
-            }
-            cipher.doFinal(cipherText)
-        } else {
-            rawBytes
+        val payload = BackupEngine.readArchive(rawBytes, password)
+        var importedFavorites = 0
+        var importedHistory = 0
+
+        payload.settingsJson?.let { raw ->
+            runCatching { json.decodeFromString<AppSettings>(raw) }.getOrNull()?.let { settings.applyImported(it) }
         }
-
-        var manifest: OmniManifest? = null
-        var importedSettings: AppSettings? = null
-        var importedFavorites: List<FavoriteEntity> = emptyList()
-        var importedHistory: List<HistoryEntity> = emptyList()
-
-        ZipInputStream(ByteArrayInputStream(zipBytes)).use { zis ->
-            var entry: ZipEntry? = zis.nextEntry
-            while (entry != null) {
-                val content = zis.readBytes().toString(Charsets.UTF_8)
-                when (entry.name) {
-                    "manifest.json" -> manifest = json.decodeFromString<OmniManifest>(content)
-                    "settings.json" -> importedSettings = json.decodeFromString<AppSettings>(content)
-                    "favorites.json" -> importedFavorites = json.decodeFromString<List<FavoriteEntity>>(content)
-                    "history.json" -> importedHistory = json.decodeFromString<List<HistoryEntity>>(content)
+        payload.favoritesJson?.let { raw ->
+            runCatching { json.decodeFromString<List<FavoriteEntity>>(raw) }.getOrDefault(emptyList()).forEach {
+                db.favoriteDao().insert(it)
+                importedFavorites++
+            }
+        }
+        payload.historyJson?.let { raw ->
+            runCatching { json.decodeFromString<List<HistoryEntity>>(raw) }.getOrDefault(emptyList())
+                .take(MAX_RESTORED_HISTORY)
+                .forEach {
+                    db.historyDao().insert(it.copy(id = 0))
+                    importedHistory++
                 }
-                zis.closeEntry()
-                entry = zis.nextEntry
-            }
         }
+        val vaultMetadata = payload.vaultKeysJson?.let { raw ->
+            runCatching { json.decodeFromString<List<VaultKeyEntity>>(raw) }.getOrDefault(emptyList()).size
+        } ?: 0
 
-        require(manifest != null && manifest!!.schemaVersion <= 1) {
-            "File .omni tidak valid atau versi skema tidak didukung"
+        val migrationNote = payload.migratedFrom?.let {
+            if (settings.isEnglish) " (migrated from schema v$it)" else " (dimigrasikan dari skema v$it)"
+        } ?: ""
+        if (settings.isEnglish) {
+            "Restored: $importedFavorites favorites, $importedHistory history entries, $vaultMetadata key metadata (private keys stay device-bound)$migrationNote"
+        } else {
+            "Dipulihkan: $importedFavorites favorit, $importedHistory riwayat, $vaultMetadata metadata kunci (private key tetap terikat perangkat)$migrationNote"
         }
-
-        importedSettings?.let { settings.applyImported(it) }
-        importedFavorites.forEach { db.favoriteDao().insert(it) }
-        importedHistory.take(100).forEach { db.historyDao().insert(it.copy(id = 0)) }
-
-        "Dipulihkan: ${importedFavorites.size} favorit, ${importedHistory.size} riwayat"
     }
 
-    private fun writeZipEntry(zos: ZipOutputStream, name: String, content: String) {
-        zos.putNextEntry(ZipEntry(name))
-        zos.write(content.toByteArray(Charsets.UTF_8))
-        zos.closeEntry()
-    }
-
-    private fun deriveAesKey(password: String, salt: ByteArray): SecretKeySpec {
-        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec = PBEKeySpec(password.toCharArray(), salt, 65536, 256)
-        val tmp = factory.generateSecret(spec)
-        return SecretKeySpec(tmp.encoded, "AES")
+    private companion object {
+        const val MAX_RESTORED_HISTORY = 500
     }
 }

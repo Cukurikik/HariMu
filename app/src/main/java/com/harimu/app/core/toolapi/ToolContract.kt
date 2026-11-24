@@ -191,6 +191,7 @@ data class ModelSpec(
 enum class DedicatedScreenRoute {
     VIDEO_EDITOR,
     VOICE_RECORDER,
+    SCREEN_RECORDER,
     IMAGE_MATRIX,
     EQUALIZER,
     AUDIO_STUDIO,

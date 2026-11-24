@@ -849,6 +849,39 @@ fun ToolScreen(
                                     }
                                 }
                             }
+                            onUploadToCloud = firstOut?.let { out ->
+                                {
+                                    scope.launch(Dispatchers.IO) {
+                                        val config = container.cloudStore.load()
+                                        if (!config.isConfigured()) {
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(
+                                                    context,
+                                                    if (settings.isEnglish) "Configure a cloud connection in Settings first" else "Atur koneksi cloud di Pengaturan dulu",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        } else {
+                                            container.uploadQueue.enqueue(out.file, out.mimeType, config.provider)
+                                            val uploaded = container.uploadQueue.processPending(
+                                                configProvider = { container.cloudStore.load() },
+                                                persistConfig = { container.cloudStore.save(it) }
+                                            )
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(
+                                                    context,
+                                                    if (uploaded > 0) {
+                                                        if (settings.isEnglish) "Uploaded to cloud" else "Terunggah ke cloud"
+                                                    } else {
+                                                        if (settings.isEnglish) "Queued — will retry" else "Masuk antrean — akan dicoba ulang"
+                                                    },
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                         ) {
                             prog.result.outputs.forEach { out ->
                                 if (out.mimeType.startsWith("video/") && tool.id == "AUD-28") {
