@@ -228,4 +228,34 @@
     <string name="eq_export_button">Export EQ Audio (FFmpeg)</string>
     <string name="eq_exporting_msg">Applying 10-band EQ &amp; limiter via FFmpeg…</string>
     <string name="eq_export_done_summary">10-Band EQ exported • %1$s (%2$s)</string>
+    <string name="badge_needs_internet">Needs internet</string>
+    <string name="badge_needs_model">Needs %1$s model</string>
+    <string name="recording_channel_name">HariMu Recording</string>
+    <string name="recording_channel_desc">Notifications while recording voice or screen</string>
+    <string name="recording_voice_title">Recording voice…</string>
+    <string name="recording_screen_title">Recording screen…</string>
+    <string name="recording_active">Active</string>
+    <string name="recording_paused">Paused</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_stop">Stop</string>
+    <string name="recording_projection_denied">Screen capture consent denied or session ended</string>
+    <string name="action_upload_cloud">Upload to cloud</string>
+
+    <!-- Accessibility & Open Source Licenses (Phase K8) -->
+    <string name="cd_perspective_preview">Image preview for four-point perspective correction</string>
+    <string name="cd_video_trim_thumbnail">Video trim timeline frame thumbnail</string>
+    <string name="cd_image_matrix_canvas">Image Matrix composite canvas preview</string>
+    <string name="cd_filter_preview">Live color filter preview image</string>
+    <string name="cd_roi_preview_frame">Video preview frame showing logo blur target box</string>
+    <string name="cd_face_blur_preview_frame">Video preview frame showing detected face regions</string>
+    <string name="cd_switch_audio_project">Select or switch Audio Studio project</string>
+    <string name="cd_open_group">Open tool group catalog</string>
+
+    <string name="settings_licenses_title">About &amp; Open Source Licenses</string>
+    <string name="settings_licenses_desc">View all third-party libraries, permissive licenses, and no-GPL/AGPL policy.</string>
+    <string name="settings_licenses_btn">Open Source Licenses</string>
+    <string name="licenses_screen_title">Open Source Licenses</string>
+    <string name="licenses_intro">All libraries and assets bundled in HariMu use permissive licenses (no GPL/AGPL dependencies inside the APK).</string>
+    <string name="licenses_policy_title">License Policy Notes</string>
 </resources>

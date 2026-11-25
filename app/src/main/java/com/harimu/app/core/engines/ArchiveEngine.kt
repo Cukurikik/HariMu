@@ -11,13 +11,13 @@ import net.lingala.zip4j.model.enums.CompressionMethod
 import net.lingala.zip4j.model.enums.EncryptionMethod
 import org.apache.commons.compress.archivers.sevenz.SevenZFile
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.Locale
 import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
@@ -242,17 +242,18 @@ object ArchiveEngine {
         val budget = Budget()
         val input = context.contentResolver.openInputStream(uri) ?: error("Gagal membuka arsip ZIP")
         input.use { raw ->
-            ZipInputStream(raw, Charsets.UTF_8).use { zis ->
+            ZipArchiveInputStream(raw, "UTF-8", true, true).use { zis ->
                 ZipOutputStream(FileOutputStream(destZip).buffered()).use { zos ->
-                    var entry: ZipEntry? = zis.nextEntry
+                    var entry = zis.nextEntry
                     while (entry != null) {
                         val name = sanitizeEntryName(entry.name)
                         val isDirectory = entry.isDirectory
+                        val encrypted = entry.generalPurposeBit?.usesEncryption() == true
                         if (name == null) {
                             budget.skipped.add("${entry.name} (nama tidak aman)")
                         } else if (isDirectory) {
                             budget.register(Entry(name, 0, true), 0, 0)
-                        } else if (entry.isEncrypted) {
+                        } else if (encrypted) {
                             budget.skipped.add("$name (terenkripsi, perlu kata sandi)")
                         } else if (budget.register(Entry(name, entry.size, false), entry.size, entry.compressedSize)) {
                             zos.putNextEntry(ZipEntry(name))
@@ -260,9 +261,8 @@ object ArchiveEngine {
                             zos.closeEntry()
                             budget.extracted++
                         }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
                         if (budget.truncated) break
+                        entry = zis.nextEntry
                     }
                 }
             }
@@ -290,7 +290,6 @@ object ArchiveEngine {
                                 zos.closeEntry()
                                 budget.extracted++
                             }
-                            tar.closeEntry()
                             if (budget.truncated) break
                             entry = tar.nextEntry
                         }

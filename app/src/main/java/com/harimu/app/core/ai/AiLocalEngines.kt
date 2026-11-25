@@ -176,7 +176,48 @@ object AiLocalEngines {
 
         val alpha = IntArray(pixels.size) { index -> if (mask[index]) 0 else 255 }
         if (featherPx > 0) boxBlurAlpha(alpha, width, height, featherPx.coerceIn(1, 8))
+        return compositeAlphaMask(pixels, width, height, alpha, backgroundColorHex)
+    }
 
+    /**
+     * Mengonversi skor probabilitas mask (0.0..1.0) dari segmentasi ML menjadi array alfa 0..255
+     * dengan opsi pelembutan tepi [featherPx]. Murni array primitif agar mudah diuji di JVM.
+     */
+    fun confidenceMaskToAlpha(
+        confidences: FloatArray,
+        width: Int,
+        height: Int,
+        featherPx: Int
+    ): IntArray {
+        require(confidences.size == width * height) {
+            "Ukuran mask (${confidences.size}) tidak cocok dengan dimensi ${width}×${height}."
+        }
+        val alpha = IntArray(confidences.size) { index ->
+            (confidences[index].coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
+        }
+        if (featherPx > 0) boxBlurAlpha(alpha, width, height, featherPx.coerceIn(1, 8))
+        return alpha
+    }
+
+    internal fun compositeAlphaMask(
+        source: Bitmap,
+        alpha: IntArray,
+        backgroundColorHex: String
+    ): Bitmap {
+        val width = source.width
+        val height = source.height
+        val pixels = IntArray(width * height)
+        source.getPixels(pixels, 0, width, 0, 0, width, height)
+        return compositeAlphaMask(pixels, width, height, alpha, backgroundColorHex)
+    }
+
+    private fun compositeAlphaMask(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        alpha: IntArray,
+        backgroundColorHex: String
+    ): Bitmap {
         val fill = if (backgroundColorHex.isBlank() || backgroundColorHex.equals("transparan", true)) {
             null
         } else {
@@ -208,7 +249,7 @@ object AiLocalEngines {
         return out
     }
 
-    private fun boxBlurAlpha(alpha: IntArray, width: Int, height: Int, radius: Int) {
+    internal fun boxBlurAlpha(alpha: IntArray, width: Int, height: Int, radius: Int) {
         if (radius <= 0) return
         val temp = IntArray(alpha.size)
         for (y in 0 until height) {
@@ -426,7 +467,7 @@ object AiLocalEngines {
             instrumental[frame * 2] = side.toShort()
             instrumental[frame * 2 + 1] = side.toShort()
         }
-        val vocalsFile = File(destDir, if (instrumentalOnly) "instrumental.wav" else "vokal.wav")
+        val vocalsFile = File(destDir, "vokal.wav")
         val instrumentalFile = File(destDir, "instrumental.wav")
         if (!instrumentalOnly) {
             AudioEngine.writeWav(PcmAudio(vocals, pcm.sampleRate, 2), vocalsFile)

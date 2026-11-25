@@ -14,7 +14,7 @@ import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
-import com.tom_roush.pdfbox.pdmodel.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
 import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
@@ -207,7 +207,7 @@ object PdfVaultEngine {
     ): Int {
         require(text.isNotBlank()) { "Teks watermark kosong" }
         load(context, storage, uri).use { loaded ->
-            val font = PDType1Font(PDType1Font.HELVETICA_BOLD)
+            val font = PDType1Font.HELVETICA_BOLD
             val graphicsState = PDExtendedGraphicsState().apply {
                 nonStrokingAlphaConstant = (opacityPct.coerceIn(5, 100) / 100f)
             }
@@ -555,7 +555,7 @@ object PdfVaultEngine {
         fontSizePct: Int
     ): Int {
         load(context, storage, uri).use { loaded ->
-            val font = PDType1Font(PDType1Font.HELVETICA)
+            val font = PDType1Font.HELVETICA
             val total = loaded.doc.numberOfPages
             loaded.doc.pages.forEachIndexed { index, page ->
                 val w = page.mediaBox.width
@@ -684,7 +684,7 @@ object PdfVaultEngine {
                     stream.drawImage(image, drawX, drawY, drawW, drawH)
                     val text = texts.getOrNull(index).orEmpty()
                     if (text.isNotBlank()) {
-                        val font = PDType1Font(PDType1Font.HELVETICA)
+                        val font = PDType1Font.HELVETICA
                         val fontSize = max(6f, min(12f, heightPt / 70f))
                         stream.setRenderingMode(RenderingMode.NEITHER)
                         stream.beginText()
@@ -964,7 +964,7 @@ object PdfVaultEngine {
                     stream.drawImage(image, 0f, 0f, widthPt, heightPt)
                     val text = texts.getOrNull(index).orEmpty()
                     if (text.isNotBlank()) {
-                        val font = PDType1Font(PDType1Font.HELVETICA)
+                        val font = PDType1Font.HELVETICA
                         val fontSize = max(6f, min(11f, heightPt / 80f))
                         stream.setRenderingMode(RenderingMode.NEITHER)
                         stream.beginText()

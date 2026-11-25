@@ -139,7 +139,7 @@ fun RoiLogoPreviewCard(
                 if (bmp != null) {
                     Image(
                         bitmap = bmp.asImageBitmap(),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_roi_preview_frame),
                         contentScale = ContentScale.FillBounds,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -284,7 +284,7 @@ fun FaceBlurPreviewCard(
                     ) {
                         Image(
                             bitmap = bmp.asImageBitmap(),
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_face_blur_preview_frame),
                             contentScale = ContentScale.FillBounds,
                             modifier = Modifier.fillMaxSize()
                         )

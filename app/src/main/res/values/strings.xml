@@ -241,4 +241,21 @@
     <string name="action_stop">Stop</string>
     <string name="recording_projection_denied">Persetujuan rekam layar ditolak atau sesi berakhir</string>
     <string name="action_upload_cloud">Unggah ke cloud</string>
+
+    <!-- Aksesibilitas & Lisensi Open Source (Fase K8) -->
+    <string name="cd_perspective_preview">Pratinjau gambar untuk koreksi perspektif empat titik</string>
+    <string name="cd_video_trim_thumbnail">Thumbnail frame linimasa potong video</string>
+    <string name="cd_image_matrix_canvas">Pratinjau kanvas komposit Image Matrix</string>
+    <string name="cd_filter_preview">Pratinjau filter warna langsung pada gambar</string>
+    <string name="cd_roi_preview_frame">Frame pratinjau video dengan area target hapus logo</string>
+    <string name="cd_face_blur_preview_frame">Frame pratinjau deteksi wajah pada video</string>
+    <string name="cd_switch_audio_project">Pilih atau alihkan proyek Audio Studio</string>
+    <string name="cd_open_group">Buka daftar tool grup</string>
+
+    <string name="settings_licenses_title">Tentang &amp; Lisensi Open Source</string>
+    <string name="settings_licenses_desc">Lihat seluruh library pihak ketiga, lisensi permisif, dan kebijakan tanpa GPL/AGPL.</string>
+    <string name="settings_licenses_btn">Lisensi Open Source</string>
+    <string name="licenses_screen_title">Lisensi Open Source</string>
+    <string name="licenses_intro">Semua library dan aset pada HariMu memakai lisensi permisif (tanpa dependensi GPL/AGPL yang dibundel di APK).</string>
+    <string name="licenses_policy_title">Catatan Kebijakan Lisensi</string>
 </resources>

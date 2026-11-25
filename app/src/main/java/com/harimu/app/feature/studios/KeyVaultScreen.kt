@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Base64
 import android.widget.Toast
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -202,6 +203,7 @@ fun KeyVaultScreen(
         }
     }
 
+    val openDocumentHolder = remember { arrayOf<ManagedActivityResultLauncher<Array<String>, Uri?>?>(null) }
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val entity = pendingKey ?: return@rememberLauncherForActivityResult
@@ -255,7 +257,7 @@ fun KeyVaultScreen(
                     } else {
                         "Sekarang pilih berkas .sig yang dibuat saat menandatangani ${local.name}"
                     }
-                    openDocument.launch(arrayOf("*/*"))
+                    openDocumentHolder[0]?.launch(arrayOf("*/*"))
                 } else {
                     scope.launch(Dispatchers.IO) {
                         val ok = runCatching {
@@ -281,6 +283,7 @@ fun KeyVaultScreen(
             else -> Unit
         }
     }
+    openDocumentHolder[0] = openDocument
 
     Scaffold(
         topBar = {

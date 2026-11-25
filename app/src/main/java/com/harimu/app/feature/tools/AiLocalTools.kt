@@ -11,6 +11,9 @@ import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Portrait
 import com.harimu.app.core.ai.AiException
 import com.harimu.app.core.ai.AiLocalEngines
+import com.harimu.app.core.ai.BackgroundRemovalRequest
+import com.harimu.app.core.ai.BackgroundSegmenters
+import com.harimu.app.core.ai.SegmentationMode
 import com.harimu.app.core.engines.AudioEngine
 import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.engines.VideoEngine
@@ -111,11 +114,18 @@ private fun localUpscaleTool(): Tool = object : Tool {
 private fun localBackgroundRemoverTool(): Tool = object : Tool {
     override val id = "IMG-12"
     override val group = ToolGroup.IMAGE
-    override val engineLabel = "NAT/DSP"
+    override val engineLabel = "ML/NAT"
     override val icon = Icons.Filled.CleaningServices
     override val inputSpec = InputSpec.SingleImage
     override val params = listOf(
-        ToolParam.SliderParam("tolerance", "Toleransi Warna (%)", "Colour Tolerance (%)", 5f, 80f, 28f, 1f, "%"),
+        ToolParam.DropdownParam(
+            "mode",
+            "Mode Segmentasi",
+            "Segmentation Mode",
+            listOf(SegmentationMode.FULL.labelId, SegmentationMode.BASIC.labelId),
+            SegmentationMode.FULL.labelId
+        ),
+        ToolParam.SliderParam("tolerance", "Toleransi Warna Dasar (%)", "Basic Colour Tolerance (%)", 5f, 80f, 28f, 1f, "%"),
         ToolParam.SliderParam("feather", "Pelembutan Tepi (px)", "Edge Feather (px)", 0f, 8f, 2f, 1f, "px"),
         ToolParam.DropdownParam(
             "background",
@@ -128,39 +138,51 @@ private fun localBackgroundRemoverTool(): Tool = object : Tool {
 
     override fun title(isEnglish: Boolean) = if (isEnglish) "AI Background Remover" else "Penghapus Latar AI"
     override fun description(isEnglish: Boolean) = if (isEnglish) {
-        "Remove a connected background from the image edges. Heuristic segmentation, not U²-Net."
+        "Full subject segmentation (ML Kit) with automatic fallback to Basic edge flood-fill."
     } else {
-        "Hapus latar yang tersambung ke tepi gambar. Segmentasi heuristik, bukan U²-Net."
+        "Segmentasi subjek penuh (ML Kit) dengan fallback otomatis ke flood fill tepi (Dasar)."
     }
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
+        val mode = SegmentationMode.fromParam(input.getString("mode", SegmentationMode.FULL.labelId))
         emit(ToolProgress.Running(25, "Mendekode gambar…"))
         val source = ImageIO.decodePreview(ctx.appContext, uri, 2400)
-        emit(ToolProgress.Running(55, "Menghapus latar (flood fill dari tepi)…"))
+        emit(
+            ToolProgress.Running(
+                55,
+                if (mode == SegmentationMode.FULL) {
+                    "Menghapus latar (ML Kit Subject Segmentation)…"
+                } else {
+                    "Menghapus latar (Dasar: flood fill tepi)…"
+                }
+            )
+        )
         val bg = input.getString("background", "Transparan").let {
             if (it == "Transparan") "" else it
         }
-        val out = withContext(Dispatchers.Default) {
-            AiLocalEngines.removeBackground(
-                source = source,
+        val outcome = BackgroundSegmenters.default.removeBackground(
+            context = ctx.appContext,
+            source = source,
+            request = BackgroundRemovalRequest(
+                mode = mode,
                 tolerancePercent = input.getFloat("tolerance", 28f).toInt(),
                 featherPx = input.getFloat("feather", 2f).toInt(),
                 backgroundColorHex = bg
             )
-        }
+        )
         source.recycle()
         val dest = ctx.storage.createOutputFile("IMG_BGREMOVE", "png")
-        ImageIO.encode(out, dest, "PNG", 100)
-        val size = "${out.width}×${out.height}"
-        out.recycle()
+        ImageIO.encode(outcome.bitmap, dest, "PNG", 100)
+        val size = "${outcome.bitmap.width}×${outcome.bitmap.height}"
+        outcome.bitmap.recycle()
         emit(
             ToolProgress.Done(
                 ToolResult(
                     outputs = listOf(ToolOutputFile(dest, "image/png", dest.name)),
                     summary = "$size • latar ${if (bg.isBlank()) "transparan" else bg} • " +
                         "${ctx.storage.formatBytes(dest.length())}\n" +
-                        "Catatan: subjek yang menyentuh tepi bisa ikut terhapus (heuristik)."
+                        "Engine: ${outcome.engineSummary(ctx.isEnglish)}"
                 )
             )
         )
@@ -539,7 +561,7 @@ private fun speechToTextTool(): Tool = object : Tool {
         require(bytes.size <= 15 * 1024 * 1024) {
             "Ukuran audio ${ctx.storage.formatBytes(bytes.size.toLong())} melebihi 15 MB. Potong dulu."
         }
-        val mime = when (val ext = ctx.storage.getDisplayName(uri)?.substringAfterLast('.', "").lowercase()) {
+        val mime = when (val ext = ctx.storage.getDisplayName(uri)?.substringAfterLast('.', "").orEmpty().lowercase()) {
             "wav" -> "audio/wav"
             "mp3" -> "audio/mpeg"
             "m4a", "mp4" -> "audio/mp4"

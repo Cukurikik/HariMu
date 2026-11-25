@@ -525,9 +525,9 @@ object ImageIO {
         true
     }.getOrDefault(false)
 
-    private fun stripJpegApp1(file: File) {
+    private fun stripJpegApp1(file: File): Boolean {
         val bytes = file.readBytes()
-        if (bytes.size < 4) return
+        if (bytes.size < 4) return false
         val out = ByteArrayOutputStream(bytes.size)
         out.write(0xFF)
         out.write(0xD8)
@@ -552,6 +552,7 @@ object ImageIO {
             index += 2 + length
         }
         file.writeBytes(out.toByteArray())
+        return true
     }
 
     fun formatMp(megapixels: Double): String = when {

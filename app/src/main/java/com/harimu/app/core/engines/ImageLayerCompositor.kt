@@ -160,7 +160,7 @@ object ImageLayerCompositor {
 
     private fun basePaint(layer: MatrixLayer): Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         alpha = (layer.opacityPct.coerceIn(0, 100) / 100f * 255).roundToInt()
-        xfermode = PorterDuffXfermode(ImageBlendModes.porterDuff(layer.blend))
+        ImageBlendModes.applyTo(this, layer.blend)
     }
 
     private fun drawImageLayer(
@@ -230,7 +230,7 @@ object ImageLayerCompositor {
         MatrixLayer(
             id = id,
             kind = MatrixLayerKind.TEXT,
-            text = text.ifBlank { "Teks Baru" },
+            text = text,
             xPct = 50f,
             yPct = 82f,
             fontSizePct = 10f

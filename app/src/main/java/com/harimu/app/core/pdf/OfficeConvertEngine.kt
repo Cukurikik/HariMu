@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
-import com.tom_roush.pdfbox.pdmodel.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.util.Matrix
 import java.io.ByteArrayOutputStream
@@ -238,7 +238,7 @@ object OfficeConvertEngine {
     fun docxToPdf(file: File, dest: File): Int {
         val paragraphs = readDocxParagraphs(file)
         require(paragraphs.isNotEmpty()) { "Dokumen Word tidak berisi teks yang bisa dikonversi" }
-        val font = PDType1Font(PDType1Font.HELVETICA)
+        val font = PDType1Font.HELVETICA
         val fontSize = 11f
         val leading = 15f
         val margin = 56f

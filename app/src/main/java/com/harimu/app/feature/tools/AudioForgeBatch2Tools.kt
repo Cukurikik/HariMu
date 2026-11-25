@@ -16,8 +16,10 @@ import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolContext
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.core.toolapi.ToolResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll

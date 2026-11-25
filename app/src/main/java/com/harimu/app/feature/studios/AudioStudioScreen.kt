@@ -22,11 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.data.AudioTrackSpec
 import com.harimu.app.core.design.ErrorState
 import com.harimu.app.core.design.ProgressSheet
@@ -90,7 +92,11 @@ fun AudioStudioScreen(
                     Column(modifier = Modifier.clickable { showProjectsDialog = true }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(state.title, fontWeight = FontWeight.Bold, maxLines = 1)
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Filled.ArrowDropDown,
+                                contentDescription = stringResource(R.string.cd_switch_audio_project),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                         Text(
                             text = if (isEnglish) "${state.tracks.size} Tracks • Tap to switch" else "${state.tracks.size} Track • Ketuk untuk beralih",

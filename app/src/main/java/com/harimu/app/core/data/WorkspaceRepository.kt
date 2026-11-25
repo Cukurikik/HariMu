@@ -187,10 +187,11 @@ class WorkspaceRepository(
             runCatching { json.decodeFromString<List<VaultKeyEntity>>(raw) }.getOrDefault(emptyList()).size
         } ?: 0
 
+        val isEnglish = settings.current().isEnglish
         val migrationNote = payload.migratedFrom?.let {
-            if (settings.isEnglish) " (migrated from schema v$it)" else " (dimigrasikan dari skema v$it)"
+            if (isEnglish) " (migrated from schema v$it)" else " (dimigrasikan dari skema v$it)"
         } ?: ""
-        if (settings.isEnglish) {
+        if (isEnglish) {
             "Restored: $importedFavorites favorites, $importedHistory history entries, $vaultMetadata key metadata (private keys stay device-bound)$migrationNote"
         } else {
             "Dipulihkan: $importedFavorites favorit, $importedHistory riwayat, $vaultMetadata metadata kunci (private key tetap terikat perangkat)$migrationNote"

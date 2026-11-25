@@ -64,9 +64,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
+import com.harimu.app.R
+import com.harimu.app.core.ai.SegmentationMode
 import com.harimu.app.core.engines.MatrixLayerKind
 
 /**
@@ -150,7 +153,7 @@ fun ImageMatrixScreen(
                         state.preview?.let { bitmap ->
                             Image(
                                 bitmap = bitmap.asImageBitmap(),
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.cd_image_matrix_canvas),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
@@ -318,14 +321,28 @@ fun ImageMatrixScreen(
                             style = MaterialTheme.typography.titleSmall
                         )
                         if (layer.kind == MatrixLayerKind.IMAGE) {
-                            OutlinedButton(
-                                onClick = { vm.removeBackgroundOfLayer(layer.id) },
-                                enabled = !state.isRendering,
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    if (isEnglish) "Remove background (local heuristic)" else "Hapus latar (heuristik lokal)"
-                                )
+                                OutlinedButton(
+                                    onClick = { vm.removeBackgroundOfLayer(layer.id, SegmentationMode.FULL) },
+                                    enabled = !state.isRendering,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp)
+                                ) {
+                                    Text(
+                                        if (isEnglish) "Remove bg (ML Kit)" else "Hapus latar (ML Kit)"
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = { vm.removeBackgroundOfLayer(layer.id, SegmentationMode.BASIC) },
+                                    enabled = !state.isRendering,
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) {
+                                    Text(if (isEnglish) "Basic" else "Dasar")
+                                }
                             }
                         }
                         if (layer.kind != MatrixLayerKind.IMAGE) {

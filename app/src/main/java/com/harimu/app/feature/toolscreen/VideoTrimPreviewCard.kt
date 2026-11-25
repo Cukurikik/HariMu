@@ -279,7 +279,7 @@ fun VideoTrimPreviewCard(
                             thumbnails.forEach { bmp ->
                                 Image(
                                     bitmap = bmp.asImageBitmap(),
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.cd_video_trim_thumbnail),
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .weight(1f)

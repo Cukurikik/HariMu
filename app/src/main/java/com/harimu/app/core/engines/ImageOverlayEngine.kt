@@ -1,6 +1,7 @@
 package com.harimu.app.core.engines
 
 import android.graphics.Bitmap
+import android.graphics.BlendMode
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -10,6 +11,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
+import android.os.Build
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -28,9 +30,26 @@ object ImageBlendModes {
         "darken" -> PorterDuff.Mode.DARKEN
         "lighten" -> PorterDuff.Mode.LIGHTEN
         "add", "linear dodge" -> PorterDuff.Mode.ADD
-        "difference" -> PorterDuff.Mode.DIFFERENCE
-        "exclusion" -> PorterDuff.Mode.EXCLUSION
+        "difference", "exclusion" -> PorterDuff.Mode.XOR
         else -> PorterDuff.Mode.SRC_OVER
+    }
+
+    fun applyTo(paint: Paint, label: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            paint.blendMode = when (label.trim().lowercase()) {
+                "multiply" -> BlendMode.MULTIPLY
+                "screen" -> BlendMode.SCREEN
+                "overlay" -> BlendMode.OVERLAY
+                "darken" -> BlendMode.DARKEN
+                "lighten" -> BlendMode.LIGHTEN
+                "add", "linear dodge" -> BlendMode.PLUS
+                "difference" -> BlendMode.DIFFERENCE
+                "exclusion" -> BlendMode.EXCLUSION
+                else -> BlendMode.SRC_OVER
+            }
+        } else {
+            paint.xfermode = PorterDuffXfermode(porterDuff(label))
+        }
     }
 }
 
@@ -60,7 +79,7 @@ object ImageOverlayEngine {
         val topY = (out.height - targetHeight) / 2f + offsetYPct.coerceIn(-200f, 200f) / 100f * out.height / 2f
         val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
             alpha = (opacityPct.coerceIn(0, 100) / 100f * 255).roundToInt()
-            xfermode = PorterDuffXfermode(ImageBlendModes.porterDuff(blendMode))
+            ImageBlendModes.applyTo(this, blendMode)
         }
         canvas.drawBitmap(scaled, left, topY, paint)
         if (scaled !== top) scaled.recycle()

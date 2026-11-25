@@ -30,8 +30,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.harimu.app.R
 import kotlin.math.sqrt
 
 /**
@@ -76,7 +78,7 @@ fun PerspectivePointsCard(
             ) {
                 AsyncImage(
                     model = imageUri,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_perspective_preview),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),
                     onState = { state ->

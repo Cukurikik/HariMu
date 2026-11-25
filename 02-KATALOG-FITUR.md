@@ -104,7 +104,7 @@
 | IMG-09 | Image Alignment | NAT | P9 | 🟢 | ✅ |
 | IMG-10 | Multi-layer Crop | NAT | P9 | 🟡 | ✅ |
 | IMG-11 | AI Image Upscaler / Super Resolution | ML | P11 | 🔴 | ✅ (heuristik unsharp, bukan model) |
-| IMG-12 | AI Background Remover | ML | P11 | 🟡 | ✅ (heuristik flood fill, bukan U²-Net) |
+| IMG-12 | AI Background Remover | ML/NAT | P11/K7a | 🟡 | ✅ Penuh (ML Kit Subject Segmentation) + Dasar (flood fill tepi, fallback otomatis); terhubung ke IMG-43 & IMG-47 — terkompilasi & unit-test fallback lulus; ML Kit BELUM dijalankan di perangkat |
 | IMG-13 | AI Object Remover | ML/CL | P11 | 🔴 | ✅ (cloud, butuh gateway+kunci) |
 | IMG-14 | AI Photo Enhancer | ML/CL | P11 | 🟡 | ✅ (cloud, butuh gateway+kunci) |
 | IMG-15 | AI Face Restorer | ML/CL | P11 | 🔴 | ✅ (cloud, butuh gateway+kunci) |
@@ -135,11 +135,11 @@
 | IMG-40 | Vintage / Film Simulation | GL/NAT | P10 | 🟢 | ✅ |
 | IMG-41 | Lens Flare Generator | NAT | P10 | 🟡 | ✅ |
 | IMG-42 | Reflection / Mirror Effects | NAT | P10 | 🟢 | ✅ |
-| IMG-43 | Batch Processing | NAT/BATCH | P10 | 🟡 | ✅ |
+| IMG-43 | Batch Processing | NAT/BATCH | P10/K7a | 🟡 | ✅ (Hapus Latar memakai IMG-12 Penuh + fallback Dasar) |
 | IMG-44 | Sprite Sheet Generator | NAT | P10 | 🟢 | ✅ |
 | IMG-45 | Animated GIF Maker | NAT/GIF | P10 | 🟡 | ✅ |
 | IMG-46 | Video Frame Extractor | NAT | P10 | 🟢 | ✅ | (alias VID-22) |
-| IMG-47 | Image Matrix AI (kanvas editor multifungsi) | NAT | P10 | 🔴 | ✅ (AI di P11) |
+| IMG-47 | Image Matrix AI (kanvas editor multifungsi) | NAT/ML | P10/K7a | 🔴 | ✅ (Hapus latar layer memakai IMG-12 Penuh + tombol Dasar; fitur AI lain di P11) |
 
 ## 5. PDF Vault
 

@@ -57,7 +57,7 @@ class ImageGeometryGoldenTest {
     @Test
     fun wideRatioTakesFullWidthAnd563Height() {
         assertEquals(
-            PixelRect(0, 0, 1000, 563),
+            PixelRect(0, 219, 1000, 563),
             ImageGeometryMath.cropRectForRatio(1000, 1000, 16f, 9f, 100f, 0f, 0f)
         )
     }

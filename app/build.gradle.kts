@@ -139,6 +139,8 @@ dependencies {
     implementation(libs.androidx.media3.ui.compose)
     implementation(libs.ffmpeg.kit.full)
     implementation(libs.mlkit.face.detection)
+    // belum diverifikasi, bergantung hasil CI
+    implementation(libs.mlkit.subject.segmentation)
     implementation(libs.androidx.exifinterface)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)

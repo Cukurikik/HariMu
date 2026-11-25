@@ -10,7 +10,7 @@ import com.harimu.app.core.pdf.PdfVaultEngine
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
-import com.tom_roush.pdfbox.pdmodel.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.util.Matrix
@@ -209,7 +209,7 @@ object EbookEngine {
     /** EPUB → PDF teks (Helvetica). Tata letak asli tidak dipertahankan. */
     fun epubToPdf(context: Context, epub: Epub, dest: File): Int {
         PdfVaultEngine.ensureInit(context)
-        val font = PDType1Font(PDType1Font.HELVETICA)
+        val font = PDType1Font.HELVETICA
         val size = 11f
         val leading = 15.5f
         val margin = 56f

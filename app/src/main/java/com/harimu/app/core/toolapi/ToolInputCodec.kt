@@ -74,6 +74,8 @@ object ToolInputCodec {
 /** Output yang dikembalikan worker; cukup JSON karena `Data` dibatasi 10 KB. */
 object ToolOutputCodec {
 
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
     data class Entry(val path: String, val mimeType: String, val displayName: String)
 
     fun encode(entries: List<Entry>): String = buildJsonObject {

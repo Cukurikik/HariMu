@@ -394,7 +394,7 @@ private fun GroupGridCard(
                 )
                 Icon(
                     imageVector = Icons.Filled.ChevronRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_open_group),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )

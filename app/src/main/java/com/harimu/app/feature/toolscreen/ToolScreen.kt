@@ -848,7 +848,7 @@ fun ToolScreen(
                                         safSaveLauncher.launch(out.displayName)
                                     }
                                 }
-                            }
+                            },
                             onUploadToCloud = firstOut?.let { out ->
                                 {
                                     scope.launch(Dispatchers.IO) {

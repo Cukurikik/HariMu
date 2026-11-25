@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -214,7 +215,7 @@ class ScreenRecorderEngine(private val context: Context) {
 
             var eosSent = false
             var videoEos = false
-            while (isActive && !videoEos) {
+            while (currentCoroutineContext().isActive && !videoEos) {
                 if (stopRequested.get() && !eosSent) {
                     codec.signalEndOfInputStream()
                     eosSent = true

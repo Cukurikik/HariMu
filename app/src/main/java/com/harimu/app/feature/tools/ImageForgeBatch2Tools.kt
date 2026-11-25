@@ -13,6 +13,9 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Tune
+import com.harimu.app.core.ai.BackgroundRemovalRequest
+import com.harimu.app.core.ai.BackgroundSegmenters
+import com.harimu.app.core.ai.SegmentationMode
 import com.harimu.app.core.engines.GifEncoder
 import com.harimu.app.core.engines.ImageBlendModes
 import com.harimu.app.core.engines.ImageEngine
@@ -488,7 +491,8 @@ private val batchOperations = listOf(
     "Metadata (hapus EXIF)",
     "Thumbnail",
     "Rename",
-    "Hapus Latar (heuristik)"
+    "Hapus Latar (Penuh)",
+    "Hapus Latar (Dasar)"
 )
 
 private fun batchTool(): Tool = object : Tool {
@@ -571,13 +575,28 @@ private fun batchTool(): Tool = object : Tool {
                             val bitmap = when (operation) {
                                 "Thumbnail" -> ImageIO.decodePreview(ctx.appContext, uri, min(maxEdge, 512))
                                 "Resize", "Kompres", "Konversi Format" -> ImageIO.decodePreview(ctx.appContext, uri, maxEdge)
-                                "Hapus Latar (heuristik)" -> ImageIO.decodePreview(ctx.appContext, uri, min(maxEdge, 2000))
+                                "Hapus Latar (Penuh)", "Hapus Latar (Dasar)", "Hapus Latar (heuristik)" ->
+                                    ImageIO.decodePreview(ctx.appContext, uri, min(maxEdge, 2000))
                                 else -> ImageIO.decodeFullGuarded(ctx.appContext, uri, 24_000_000L)
                             }
-                            val processed = when (operation) {
-                                "Watermark" -> ImageEngine.addWatermark(bitmap, watermark, 45, "Kanan Bawah", false)
-                                "Hapus Latar (heuristik)" ->
-                                    com.harimu.app.core.ai.AiLocalEngines.removeBackground(bitmap, 28, 2, "")
+                            var bgDetail: String? = null
+                            val processed = when {
+                                operation == "Watermark" ->
+                                    ImageEngine.addWatermark(bitmap, watermark, 45, "Kanan Bawah", false)
+                                operation.startsWith("Hapus Latar") -> {
+                                    val mode = if (operation.contains("Dasar") || operation.contains("heuristik")) {
+                                        SegmentationMode.BASIC
+                                    } else {
+                                        SegmentationMode.FULL
+                                    }
+                                    val outcome = BackgroundSegmenters.default.removeBackground(
+                                        context = ctx.appContext,
+                                        source = bitmap,
+                                        request = BackgroundRemovalRequest(mode = mode)
+                                    )
+                                    bgDetail = outcome.engineSummary(ctx.isEnglish)
+                                    outcome.bitmap
+                                }
                                 else -> bitmap
                             }
                             // Hapus latar butuh alpha ⇒ selalu PNG, apa pun format pilihan pengguna.
@@ -587,9 +606,10 @@ private fun batchTool(): Tool = object : Tool {
                             bitmap.recycle()
                             val outputExt = ImageFormatMatrix.extensionFor(outputLabel)
                             B2.addZipEntry(zip, "$renderedName.$outputExt", bytes)
+                            val detail = listOfNotNull("${outputExt.uppercase()} ${bytes.size} byte", bgDetail)
+                                .joinToString(" • ")
                             report.append(
-                                "${B2.csv(displayName)},${B2.csv(operation)},SUKSES,${bytes.size}," +
-                                    "${outputExt.uppercase()} ${bytes.size} byte\n"
+                                "${B2.csv(displayName)},${B2.csv(operation)},SUKSES,${bytes.size},${B2.csv(detail)}\n"
                             )
                             success++
                         }

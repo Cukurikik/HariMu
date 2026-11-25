@@ -69,6 +69,7 @@ import com.harimu.app.feature.catalog.CatalogScreen
 import com.harimu.app.feature.favorites.FavoritesScreen
 import com.harimu.app.feature.history.HistoryScreen
 import com.harimu.app.feature.home.HomeScreen
+import com.harimu.app.feature.settings.OpenSourceLicensesScreen
 import com.harimu.app.feature.settings.SettingsScreen
 import com.harimu.app.feature.studios.AudioStudioScreen
 import com.harimu.app.feature.studios.BackupScreen
@@ -98,6 +99,7 @@ import java.util.Locale
 @Serializable data object AudioStudioRoute
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
+@Serializable data object OpenSourceLicensesRoute
 
 
 private data class TopLevelNav(
@@ -325,7 +327,8 @@ private fun HariMuRoot(
                             container = container,
                             settings = settings,
                             onOpenStudio = ::navigateToStudio,
-                            onOpenInternalTool = { id -> navController.navigate(ToolRoute(id)) }
+                            onOpenInternalTool = { id -> navController.navigate(ToolRoute(id)) },
+                            onOpenLicenses = { navController.navigate(OpenSourceLicensesRoute) }
                         )
                     }
                     composable<CatalogRoute> { entry ->
@@ -380,6 +383,12 @@ private fun HariMuRoot(
                     }
                     composable<BackupRoute> {
                         BackupScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<OpenSourceLicensesRoute> {
+                        OpenSourceLicensesScreen(
+                            isEnglish = settings.isEnglish,
+                            onBack = { navController.popBackStack() }
+                        )
                     }
                 }
             }

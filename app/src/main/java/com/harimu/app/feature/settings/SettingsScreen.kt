@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.Button
@@ -72,7 +73,8 @@ fun SettingsScreen(
     container: AppContainer,
     settings: AppSettings,
     onOpenStudio: (DedicatedScreenRoute) -> Unit,
-    onOpenInternalTool: (String) -> Unit = {}
+    onOpenInternalTool: (String) -> Unit = {},
+    onOpenLicenses: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -411,6 +413,32 @@ fun SettingsScreen(
 
             item {
                 CloudConnectionsCard(container = container, isEnglish = settings.isEnglish)
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(stringResource(R.string.settings_licenses_title), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = stringResource(R.string.settings_licenses_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = onOpenLicenses,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("open_source_licenses_button")
+                        ) {
+                            Icon(Icons.Filled.Gavel, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.settings_licenses_btn))
+                        }
+                    }
+                }
             }
         }
     }

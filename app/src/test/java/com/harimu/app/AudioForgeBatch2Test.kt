@@ -226,7 +226,7 @@ class AudioForgeBatch2Test {
 
             // Even if model file exists, inference remains honestly deferred to P11
             val modelFile = ModelManager(context).modelFile(ModelRegistry.demucsLite.id)
-            modelFile.writeBytes(byteArrayOf(1, 2, 3, 4))
+            java.io.RandomAccessFile(modelFile, "rw").use { it.setLength(ModelRegistry.demucsLite.sizeBytes) }
             val deferred = DeferredStemSplitterEngine.checkReadiness(context, StemExecutionMode.ON_DEVICE_MODEL)
             assertTrue(deferred is StemReadiness.InferenceDeferred)
             assertEquals("P11", (deferred as StemReadiness.InferenceDeferred).plannedPhase)

@@ -42,3 +42,7 @@
 # Media3 / ExoPlayer
 -keep class androidx.media3.** { *; }
 -dontwarn androidx.media3.**
+
+# SLF4J 1.x optional binder probed by runtime dependencies (e.g. junrar)
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+

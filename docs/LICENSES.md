@@ -16,6 +16,7 @@ Semua library dan aset di proyek ini diverifikasi memakai lisensi permisif (tanp
 | `com.tom-roush:pdfbox-android:2.0.27.0` | Apache-2.0 | Operasi PDF pada objek asli: gabung, pisah, putar, susun ulang, ekstrak, watermark teks/gambar, metadata, enkripsi AES-256/AES-128/RC4-128, AcroForm, dan ekstraksi teks |
 | `com.github.adaptech-cz.Tesseract4Android:tesseract4android-openmp:4.8.0` (JitPack) | Apache-2.0 | OCR on-device (Tesseract 5 + OpenMP). Data bahasa `tessdata_fast` resmi (Apache-2.0) diunduh saat runtime ke `filesDir/tessdata`, **tidak** dibundel di APK. Artefak hanya tersedia via repositori JitPack (`settings.gradle.kts`) |
 | Google ML Kit Face Detection (`com.google.mlkit:face-detection:16.1.7`) | Apache-2.0 / Google APIs ToS | Deteksi & pelacakan wajah on-device untuk `VID-25` (dukungan 16 KB page size) |
+| Google ML Kit Subject Segmentation (`com.google.android.gms:play-services-mlkit-subject-segmentation`, versi belum diverifikasi — bergantung hasil CI) | Apache-2.0 / Google APIs ToS | Segmentasi latar penuh on-device via Google Play Services untuk `IMG-12`, `IMG-43`, dan `IMG-47` (modul diunduh Play Services, tidak dibundel di APK; fallback otomatis ke flood-fill Dasar) |
 | `com.caverock:androidsvg:1.4` | Apache-2.0 | Rasterisasi SVG (CNV-10). Filter efek, teks berfont sistem, dan animasi tidak dirender |
 | `org.apache.commons:commons-compress:1.27.1` | Apache-2.0 | Baca 7Z dan TAR.GZ (CNV-17). Hanya baca; penulisan selalu ZIP |
 | `org.tukaani:xz:1.10` | Public Domain | Dekoder LZMA2 untuk 7Z (dibutuhkan commons-compress) |

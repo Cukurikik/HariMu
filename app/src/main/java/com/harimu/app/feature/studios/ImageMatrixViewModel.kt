@@ -7,7 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.harimu.app.AppContainer
-import com.harimu.app.core.ai.AiLocalEngines
+import com.harimu.app.core.ai.BackgroundRemovalRequest
+import com.harimu.app.core.ai.BackgroundSegmenters
+import com.harimu.app.core.ai.SegmentationMode
 import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.engines.ImageLayerCompositor
 import com.harimu.app.core.engines.LayerHistory
@@ -136,28 +138,32 @@ class ImageMatrixViewModel(
     }
 
     /**
-     * IMG-12 di dalam Image Matrix: menghapus latar layer gambar terpilih dengan algoritma lokal
-     * (flood fill dari tepi). Hasil disimpan di cache dengan kunci baru agar undo/redo tetap bisa
-     * kembali ke gambar asli.
+     * IMG-12 di dalam Image Matrix: menghapus latar layer gambar terpilih melalui
+     * [BackgroundSegmenters.default] (default Penuh ML Kit, otomatis fallback ke Dasar bila gagal).
+     * Hasil disimpan di cache dengan kunci baru agar undo/redo tetap bisa kembali ke gambar asli.
      */
-    fun removeBackgroundOfLayer(id: String) {
+    fun removeBackgroundOfLayer(id: String, mode: SegmentationMode = SegmentationMode.FULL) {
         val layer = history.current.firstOrNull { it.id == id } ?: return
         if (layer.kind != MatrixLayerKind.IMAGE) return
         val source = bitmaps[layer.uri] ?: return
         viewModelScope.launch {
             _state.update { it.copy(isRendering = true) }
-            val cut = withContext(Dispatchers.Default) {
-                runCatching { AiLocalEngines.removeBackground(source, 28, 2, "") }.getOrNull()
-            }
+            val outcome = runCatching {
+                BackgroundSegmenters.default.removeBackground(
+                    context = appContext,
+                    source = source,
+                    request = BackgroundRemovalRequest(mode = mode)
+                )
+            }.getOrNull()
             _state.update { it.copy(isRendering = false) }
-            if (cut == null) {
-                _state.update { it.copy(lastMessage = "Hapus latar gagal (gambar terlalu besar?) ") }
+            if (outcome == null) {
+                _state.update { it.copy(lastMessage = "Hapus latar gagal (gambar terlalu besar?)") }
                 return@launch
             }
             val key = "${layer.uri}#nobg-${System.currentTimeMillis()}"
-            bitmaps[key] = cut
+            bitmaps[key] = outcome.bitmap
             updateLayer(id) { it.copy(uri = key) }
-            _state.update { it.copy(lastMessage = "Latar layer dihapus (heuristik lokal)") }
+            _state.update { it.copy(lastMessage = "Latar layer dihapus (${outcome.engineSummary(false)})") }
         }
     }
 

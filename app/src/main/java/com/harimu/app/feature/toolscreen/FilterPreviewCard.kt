@@ -21,8 +21,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.harimu.app.R
 import com.harimu.app.core.engines.ImageFilterPipeline
 import com.harimu.app.core.engines.ImageFilterSpec
 
@@ -77,7 +79,7 @@ fun FilterPreviewCard(
             ) {
                 AsyncImage(
                     model = imageUri,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_filter_preview),
                     contentScale = ContentScale.Fit,
                     colorFilter = colorFilter,
                     modifier = Modifier.fillMaxWidth().height(220.dp)

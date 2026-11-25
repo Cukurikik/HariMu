@@ -100,10 +100,11 @@ class CloudUploader(
                     .header("Accept", "application/json")
                     .get()
                     .build()
-                client.newCall(request).execute().use { response ->
+                val statusCode = client.newCall(request).execute().use { response ->
                     if (response.code >= 500) throw CloudException("Server REST galat ${response.code}", retryable = true)
+                    response.code
                 }
-                "REST kustom menjawab (kode ${response.code})"
+                "REST kustom menjawab (kode $statusCode)"
             }
         }
     }

@@ -206,7 +206,7 @@ object ConverterEngine {
         }
 
     fun escapeDelimitedCell(cell: String, delimiter: Char): String {
-        val needsQuote = cell.contains(delimiter) || cell.contains('"') ||
+        val needsQuote = cell.contains(delimiter) || cell.contains('\t') || cell.contains('"') ||
             cell.contains('\n') || cell.contains('\r') || cell.trim() != cell
         return if (needsQuote) "\"${cell.replace("\"", "\"\"")}\"" else cell
     }

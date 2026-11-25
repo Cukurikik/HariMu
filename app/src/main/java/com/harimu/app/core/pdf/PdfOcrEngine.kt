@@ -107,12 +107,20 @@ object PdfOcrEngine {
             )
             check(ok) { "Mesin OCR gagal diinisialisasi untuk ${resolved.joinToString("+")}" }
             api.setPageSegMode(TessBaseAPI.PageSegMode.PSM_AUTO)
-            // Overload IntArray lebih luas dukungannya daripada setImage(Bitmap).
             val width = bitmap.width
             val height = bitmap.height
             val pixels = IntArray(width * height)
             bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-            api.setImage(pixels, width, height, 4, width * 4)
+            val rgba = ByteArray(width * height * 4)
+            for (i in pixels.indices) {
+                val p = pixels[i]
+                val off = i * 4
+                rgba[off] = ((p shr 16) and 0xFF).toByte()
+                rgba[off + 1] = ((p shr 8) and 0xFF).toByte()
+                rgba[off + 2] = (p and 0xFF).toByte()
+                rgba[off + 3] = ((p shr 24) and 0xFF).toByte()
+            }
+            api.setImage(rgba, width, height, 4, width * 4)
             val text = api.getUTF8Text() ?: ""
             Log.d("PdfOcrEngine", "OCR ${resolved.joinToString("+")} conf=${api.meanConfidence()}")
             return text.trim()
