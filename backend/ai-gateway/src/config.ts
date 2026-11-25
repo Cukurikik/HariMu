@@ -20,6 +20,68 @@ export interface Env {
   REPLICATE_VIDEO_VERSION?: string;
   REPLICATE_BASE_URL?: string;
 
+  // Provider eksternal OpenAI-compatible (dari atas ke bawah).
+  // Base URL dan model default bisa di [vars]; API key wajib lewat `wrangler secret put`.
+  AION_BASE_URL?: string;
+  AION_API_KEY?: string;
+  AION_MODEL?: string;
+
+  GONKA_BASE_URL?: string;
+  GONKA_API_KEY?: string;
+  GONKA_MODEL?: string;
+
+  GROQ_BASE_URL?: string;
+  GROQ_API_KEY?: string;
+  GROQ_MODEL?: string;
+
+  NVIDIA_BASE_URL?: string;
+  NVIDIA_API_KEY?: string;
+  NVIDIA_MODEL?: string;
+
+  RUNCRATE_BASE_URL?: string;
+  RUNCRATE_API_KEY?: string;
+  RUNCRATE_MODEL?: string;
+
+  OPENCODE_BASE_URL?: string;
+  OPENCODE_API_KEY?: string;
+  OPENCODE_MODEL?: string;
+
+  AGNES_BASE_URL?: string;
+  AGNES_API_KEY?: string;
+  AGNES_MODEL?: string;
+
+  REQUESTY_BASE_URL?: string;
+  REQUESTY_API_KEY?: string;
+  REQUESTY_MODEL?: string;
+
+  AMD_BASE_URL?: string;
+  AMD_API_KEY?: string;
+  AMD_MODEL?: string;
+
+  COARENA_BASE_URL?: string;
+  COARENA_API_KEY?: string;
+  COARENA_MODEL?: string;
+
+  BAI_BASE_URL?: string;
+  BAI_API_KEY?: string;
+  BAI_MODEL?: string;
+
+  INFERX_BASE_URL?: string;
+  INFERX_API_KEY?: string;
+  INFERX_MODEL?: string;
+
+  XKIRO_BASE_URL?: string;
+  XKIRO_API_KEY?: string;
+  XKIRO_MODEL?: string;
+
+  BLUEMINDS_BASE_URL?: string;
+  BLUEMINDS_API_KEY?: string;
+  BLUEMINDS_MODEL?: string;
+
+  SERVERSUSA_BASE_URL?: string;
+  SERVERSUSA_API_KEY?: string;
+  SERVERSUSA_MODEL?: string;
+
   RATE_LIMIT_PER_MIN?: string;
   DAILY_QUOTA?: string;
   MAX_UPLOAD_BYTES?: string;

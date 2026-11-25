@@ -35,6 +35,18 @@ export interface VideoRequest {
   aspect: string;
 }
 
+/** Permintaan chat teks (OpenAI-compatible /v1/chat/completions). */
+export interface ChatRequest {
+  messages: Array<{ role: string; content: string }>;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+/** Hasil chat teks. */
+export interface ChatResponse {
+  text: string;
+}
+
 export interface ProviderResult {
   bytes: Uint8Array;
   mime: string;
@@ -59,7 +71,8 @@ export type Capability =
   | "imageEdit"
   | "imageAnalyze"
   | "speechToText"
-  | "video";
+  | "video"
+  | "chat";
 
 export interface Provider {
   readonly id: string;
@@ -71,6 +84,7 @@ export interface Provider {
   speechToText?(request: AsrRequest): Promise<{ text: string; mock?: boolean }>;
   startVideo?(request: VideoRequest): Promise<VideoStart>;
   pollVideo?(providerJobId: string): Promise<VideoPoll>;
+  chat?(request: ChatRequest): Promise<ChatResponse>;
 }
 
 /** Adapter yang dipakai bersama beberapa provider untuk menandai capability yang tak didukung. */
