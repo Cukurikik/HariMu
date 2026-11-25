@@ -1,0 +1,858 @@
+{
+  "metadata": {
+    "generated_at": "2026-11-25",
+    "sources": [
+      "https://publicapis.dev/",
+      "https://publicapi.dev/"
+    ],
+    "total_apis": 3542,
+    "publicapis_dev_count": 1703,
+    "publicapi_dev_count": 1839,
+    "publicapi_dev_no_auth": 775,
+    "publicapis_dev_auth_unknown": 1703,
+    "note": "publicapis.dev listing pages do not display auth/https/cors info; visit individual resource pages for those details"
+  },
+  "apis": [
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/sniffcat/rcqqewls",
+      "name": "SniffCat",
+      "category": "Anti-Malware",
+      "description": "IP abuse lookup, reporting and threat intelligence.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/brandfetch-logo-api/tqsogzpw",
+      "name": "Brandfetch Logo API",
+      "category": "Development",
+      "description": "Brand logo api for designed for developers supports over 5 million brands.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/trafficeye-ai/h9s9ukeg",
+      "name": "TrafficEye.AI",
+      "category": "Vehicle",
+      "description": "ANPR/ALPR and vehicle recognition API for license plate OCR, country, make, model, generation, color and vehicle attributes from images.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/madeonsol/djcc11ww",
+      "name": "MadeOnSol",
+      "category": "Cryptocurrency",
+      "description": "Real-time Solana and Robinhood Chain data - KOL trades, deployer reputation, token risk, DEX streams.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/racing-alpha/ryowjgbg",
+      "name": "Racing Alpha",
+      "category": "Sports &amp; Fitness",
+      "description": "AI win-probability scores, fair prices and draw-bias stats for UK &amp; Irish horse racing.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/nozu-api/dxopva6g",
+      "name": "Nozu API",
+      "category": "Anime",
+      "description": "A public REST API for Turkish anime and manga catalog data. - Türkçe Anime ve manga katalog verileri için public REST API.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/pexafy-stock-photos/bnnpcd0c",
+      "name": "Pexafy Stock Photos",
+      "category": "Photography",
+      "description": "Semantic image search across free stock photo sources (Unsplash, Pexels, Pixabay &amp; more), one unified JSON schema, plain-language and reverse image search.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/hyperserve/pnsk4n7g",
+      "name": "Hyperserve",
+      "category": "Video",
+      "description": "Video backend API to upload any format, transcode to MP4, and deliver via CDN.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/brazil-cnpj/o9nsb6xk",
+      "name": "Brazil CNPJ",
+      "category": "Government",
+      "description": "Query Brazilian companies by CNPJ with full Receita Federal registry data, no key required.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/akta-pro/f79ymw13",
+      "name": "akta.pro",
+      "category": "Business",
+      "description": "Private company data, news signals and alternative data on 20M+ companies via one API.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/filingrail/rp7xj2wd",
+      "name": "Filingrail",
+      "category": "Finance",
+      "description": "SEC EDGAR filings, XBRL financials, Form 4 insider trades, 8-K events and 13F holdings, each record linked to its source filing.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/krakenkeys-api-free-steam-game-price-comparison-api/em6fay9j",
+      "name": "KrakenKeys API - Free Steam game price comparison API",
+      "category": "Games &amp; Comics",
+      "description": "Free Steam game price comparison API, comparing prices from over 25 stores.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/blacktop-motorsport-api/q5mm2dyk",
+      "name": "Blacktop Motorsport API",
+      "category": "Sports &amp; Fitness",
+      "description": "Motorsport results, standings and schedules, with live timing for F1, NASCAR, IndyCar and WRC.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/coinlobster/dip4c7jz",
+      "name": "CoinLobster",
+      "category": "Cryptocurrency",
+      "description": "Live executed whale trades across 15 exchanges and on-chain DEX with an unusualness radar.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/orbitalwiki/yz9valjv",
+      "name": "OrbitalWiki",
+      "category": "Science &amp; Math",
+      "description": "Catalog of 16,000+ satellites with the source cited for every field: orbital elements, operators, NORAD/COSPAR IDs.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/ollastack/1xl2yys6",
+      "name": "OllaStack",
+      "category": "AI",
+      "description": "Discover AI tools, SaaS products, and digital resources in one place. Find useful tools for productivity, business, development, and more.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/gandr/lr0c6pn6",
+      "name": "Gandr",
+      "category": "AI",
+      "description": "Text to speech API for voice agents. One voice in 23 languages, every render watermarked.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/unorouter/94xrp7wk",
+      "name": "UnoRouter",
+      "category": "AI",
+      "description": "OpenAI compatible gateway with one key for every major model provider, automatic failover and a free tier.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/nookipedia/35f1932f",
+      "name": "Nookipedia",
+      "category": "Games &amp; Comics",
+      "description": "Animal Crossing game data including villagers, items, and events.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/atomic-mail/qbk9olxj",
+      "name": "Atomic Mail",
+      "category": "Email",
+      "description": "Email for AI agents with programmatic inbox creation and send/receive over the open JMAP standard.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/courtmesh/usi3rzul",
+      "name": "CourtMesh",
+      "category": "Government",
+      "description": "Search 315M+ Indian court cases from the Supreme Court, High Courts and District Courts. REST API with official Python, Node and MCP SDKs.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/harnessrouter/5uzsqsxn",
+      "name": "HarnessRouter",
+      "category": "AI",
+      "description": "Run coding agent harnesses (Codex, Claude Code, Hermes) behind your product through one API.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/olladns/ttsx2anj",
+      "name": "OllaDNS",
+      "category": "Development",
+      "description": "API-first DNS security platform for developers to manage DNS filtering, policies, devices, threats, analytics, and audit events.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/moonlora/fthnr2yt",
+      "name": "Moonlora",
+      "category": "Science &amp; Math",
+      "description": "Moon phases, illumination, moon signs, full/new moon dates (1900–2100), moonrise/moonset by coordinates.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/bykaranteli/q3ojty4e",
+      "name": "ByKaranteli",
+      "category": "Cryptocurrency",
+      "description": "Cross-exchange crypto derivatives data: funding rates, open interest, liquidation maps, options flow, ETF flows and Fear &amp; Greed. JSON and CSV, free key with a verified account.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/socialscrape/um349xxh",
+      "name": "SocialScrape",
+      "category": "Development",
+      "description": "Scrape profiles, posts, comments and transcripts from 29 platforms through one API. 100 free credits, no card.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/car-list-api/m4j245cf",
+      "name": "Car List API",
+      "category": "Vehicle",
+      "description": "Vehicle data API for year, make, model, trim, engine specs, powersports, make logos and VIN decoding, built for developers and automotive apps.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/bulkpublish/vl8ob623",
+      "name": "BulkPublish",
+      "category": "Social",
+      "description": "Schedule and publish posts to 15 social networks.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/carbonsutra-carbon-footprint-estimation-for-organizations/aqsf3ozg",
+      "name": "CarbonSutra - Carbon Footprint Estimation for Organizations",
+      "category": "Business",
+      "description": "Carbon footprint for business travel, hotel stays, vehicles, freight, shipments, fuel and electricity with supplementary APIs on airports and locations.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/bet-better/yt1oyfd0",
+      "name": "Bet Better",
+      "category": "Sports &amp; Fitness",
+      "description": "Free open JSON API for sports model win probabilities and fair odds across 13 leagues. No key required, CC BY 4.0.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/odds-api-io/tttmza7d",
+      "name": "Odds-API.io",
+      "category": "Sports &amp; Fitness",
+      "description": "Pre-match and live betting odds from 450+ bookmakers across 34 sports over REST and WebSocket.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/utilorax/02mjatbb",
+      "name": "Utilorax",
+      "category": "Development",
+      "description": "203 JSON endpoints: hashing, encoding, unit conversion, text, dates and file conversion.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/nutrient-data-extraction-api/lo4mdkyj",
+      "name": "Nutrient Data Extraction API",
+      "category": "Documents &amp; Productivity",
+      "description": "Extract AI-ready JSON or Markdown from PDFs, scans, images, and Office files with OCR, schemas, source citations, confidence scores, and layout data.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/statistics-of-the-world/hw1b5aid",
+      "name": "Statistics of the World",
+      "category": "Finance",
+      "description": "GDP, population, inflation &amp; 440+ indicators for 218 countries.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/vaultvision/2v3vbkqx",
+      "name": "VaultVision",
+      "category": "Cryptocurrency",
+      "description": "Read-only Hyperliquid vault data, risk rankings, and research signals.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/sportsdataio/5zmzn2ib",
+      "name": "SportsDataIO",
+      "category": "Sports &amp; Fitness",
+      "description": "Get sports data from all over the world.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/solematica/avfbnlp1",
+      "name": "Solematica",
+      "category": "Environment",
+      "description": "Compare Italian solar installer offers, energy prices (PUN/ARERA) and satellite roof data.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/socialclaw/vndcsiy1",
+      "name": "SocialClaw",
+      "category": "Social",
+      "description": "Unified API to schedule and publish posts across X, LinkedIn, Instagram, Facebook Pages, TikTok, YouTube, Reddit, Pinterest, Discord, Telegram, and WordPress.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/slot-report/c80av85k",
+      "name": "slot.report",
+      "category": "Games &amp; Comics",
+      "description": "Online slot machine data: RTP, volatility, max win and features for 6,000+ games.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/skipodds/p1h07oyl",
+      "name": "SkipOdds",
+      "category": "Sports &amp; Fitness",
+      "description": "De-vigged fair win probabilities across 13 sports, averaged from 69+ bookmakers.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/shopsavvy/strgk6xs",
+      "name": "ShopSavvy",
+      "category": "Shopping",
+      "description": "Product lookups by barcode/UPC/EAN/ASIN with real-time pricing and price history.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/searxng/l9u2q3i3",
+      "name": "SearXNG",
+      "category": "Development",
+      "description": "Open-source meta-search engine aggregating results from multiple sources.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev"
+,
+      "link": "https://publicapis.dev/resource/scholar-sidekick/00d80mkw",
+      "name": "Scholar Sidekick",
+      "category": "Books",
+      "description": "Resolve scholarly IDs (DOI, PMID, ISBN, arXiv) and format citations in multiple styles.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/realmarketapi/0agawmq7",
+      "name": "RealMarketAPI",
+      "category": "Currency Exchange",
+      "description": "Access real-time gold, forex, crypto, and stock market data with ultra-low latency and simple REST endpoints.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/psychologie-et-serenite/77ztljc2",
+      "name": "Psychologie et Sérénité",
+      "category": "Health",
+      "description": "French psychology articles metadata and validated psychological tests catalog.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/postalcodes/0aldw9rq",
+      "name": "PostalCodes",
+      "category": "Geocoding",
+      "description": "Global postal code search, country exports and address validation data.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/polymarket/kdiy0cnu",
+      "name": "Polymarket",
+      "category": "Finance",
+      "description": "Prediction market data including markets, prices, and order book.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/apillow/s6pw952q",
+      "name": "APIllow",
+      "category": "Finance",
+      "description": "Zillow property data with 50+ fields per listing.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/jobvetta/r05e2xns",
+      "name": "Jobvetta",
+      "category": "Jobs",
+      "description": "Live, vetted job listings from official employer sources across India.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/german-tax-calculator/ski6bhrh",
+      "name": "German Tax Calculator",
+      "category": "Finance",
+      "description": "Tax calculations for Germany: income tax, crypto, commuter allowance, and more.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/opsis/mnmus1zx",
+      "name": "Opsis",
+      "category": "Security",
+      "description": "Check which of 1,000+ sites an email address or username is registered on, with profile details and the source for each result.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/cogdepot/i0pqjmrm",
+      "name": "cogDepot",
+      "category": "AI",
+      "description": "Marketplace API for AI agents to post service listings, negotiate terms, and finalize deals, with an A2A Agent Card and JSON-RPC endpoint.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/brainiall-text-to-speech/9utw3mpn",
+      "name": "Brainiall Text-to-Speech",
+      "category": "Text Analysis",
+      "description": "Pay-as-you-go multilingual text-to-speech with Portuguese voices and WAV, MP3, and Opus output.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/docspring/bvog50v7",
+      "name": "DocSpring",
+      "category": "Documents &amp; Productivity",
+      "description": "Fill PDF forms, generate PDFs and Word documents, and collect e-signatures with one API. Free plan, no credit card.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/ilovevideoeditor/r5mol3js",
+      "name": "iLoveVideoEditor",
+      "category": "Video",
+      "description": "Render videos from JSON: motion templates, effects, transitions, batch rendering.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/mydentify/3jkxgtak",
+      "name": "Mydentify",
+      "category": "Business",
+      "description": "Startup-directory research and weekly product leaderboard data.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/dexpaprika/giz13ir0",
+      "name": "DexPaprika",
+      "category": "Cryptocurrency",
+      "description": "DEX pools, tokens, prices and OHLCV across 36 blockchain networks.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/screenshotapi/27o61881",
+      "name": "ScreenshotAPI",
+      "category": "Development",
+      "description": "Website screenshots, PDFs, HTML rendering, caching, and webhooks.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/mailchannels/vxgpt103",
+      "name": "MailChannels",
+      "category": "Email",
+      "description": "Send transactional email over HTTPS with official JavaScript, Python and PHP SDKs.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/sportscore/an9aew69",
+      "name": "SportScore",
+      "category": "Sports &amp; Fitness",
+      "description": "Live scores, fixtures, standings, and top scorers for football, basketball, cricket, and tennis.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/atmospore-pollen-forecasts/mnbeote6",
+      "name": "Atmospore Pollen forecasts",
+      "category": "Health",
+      "description": "The Atmospore API provides real-time and forecast pollen data for locations worldwide. Data is updated daily and include forecasts up to 7 days into the future.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/stayingapi/z2dl2ola",
+      "name": "StayingAPI",
+      "category": "Transportation",
+      "description": "One REST API + native MCP server for live search, availability, price, cross-OTA price comparison and reviews across Airbnb, Booking.com, Vrbo &amp; Google Hotels.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/openregistry/vs5w2gw4",
+      "name": "OpenRegistry",
+      "category": "Government",
+      "description": "Real-time queries to 27 national company registries (UK, FR, DE, IT, ES, KR + 21 more).",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/wordle-hints-today-api/5q16618f",
+      "name": "Wordle Hints Today Api",
+      "category": "Games &amp; Comics",
+      "description": "Returns the most recent NYT Wordle answer in a single clean JSON object. Ideal for daily widgets and status bots.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/alqanaas-gold-data/djrucgp1",
+      "name": "AlQANAAS Gold Data",
+      "category": "Finance",
+      "description": "Live XAUUSD, country gold prices, and weekly gold research in JSON and CSV.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/mailtester-ninja/a7fjvevz",
+      "name": "MailTester Ninja",
+      "category": "Email",
+      "description": "Real-time email verification checked live against the mail server: valid, invalid or catch-all, disposable detection, free tier without signup.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/fantastic-forms-api/makcg2cd",
+      "name": "Fantastic Forms API",
+      "category": "Business",
+      "description": "REST API for Fantastic Forms — a modern form builder SaaS. Programmatically create forms, list submissions, export data, and manage workspaces / team members.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/xquik-api/30zjufuk",
+      "name": "Xquik API",
+      "category": "Social",
+      "description": "Search X posts, profiles, followers, trends, and communities through 128 REST operations, MCP, webhooks, SDKs, and exports. Not affiliated with X Corp.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/receiptedit-sales-tax-api/wqcrziih",
+      "name": "ReceiptEdit Sales Tax API",
+      "category": "Finance",
+      "description": "Free sales-tax lookup API covering all US states + zip-level city/county rates. No signup, no rate limit. Also supports Canadian GST/HST/PST and Indian GST slabs. Ideal for building expense-reimbursement flows, invoicing SaaS demos, receipt OCR pipelines, or seeding accounting tools. Full docs at https://receiptedit.com/developers.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/codex-data/kc92z7jy",
+      "name": "Codex Data",
+      "category": "Cryptocurrency",
+      "description": "Real-time and historical token prices, charts and wallet data across 80+ blockchain networks.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/transcriptapi/0m2j0iws",
+      "name": "TranscriptAPI",
+      "category": "Video",
+      "description": "YouTube video transcripts as JSON with timestamps, search and playlist endpoints.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/plateapi/qirddtqc",
+      "name": "PlateAPI",
+      "category": "Transportation",
+      "description": "Australian vehicle registration plate lookup API. Send a plate and state, get year, make, model, body, and engine back as JSON. All 8 states and territories.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/adanos/l4rfqjn9",
+      "name": "Adanos",
+      "category": "Finance",
+      "description": "Stock and crypto sentiment from Reddit, X, financial news, and Polymarket.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/cleartrace/meh4zrty",
+      "name": "ClearTrace",
+      "category": "Blockchain",
+      "description": "Cross-frontend DEX attribution and execution quality data across Ethereum and L2s.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/downstatus/d5zlxb6i",
+      "name": "DownStatus",
+      "category": "Development",
+      "description": "Real-time status for GitHub, AWS, Discord and 90+ services.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/reqkey/0oxg155t",
+      "name": "ReqKey",
+      "category": "Authentication &amp; Authorization",
+      "description": "ReqKey validates API keys, meters credits, enforces rate limits, and logs every request — from a single SDK call inside your own middleware.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/cabalspy/wg9vnpqa",
+      "name": "CabalSpy",
+      "category": "Cryptocurrency",
+      "description": "Real-time KOL, smart money and whale wallet tracking across Solana, Ethereum, BNB Chain, Base and Robinhood Chain. 2,000+ labeled wallets, REST and WebSocket.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/social-media-management-api/g1er43ni",
+      "name": "Social Media Management API",
+      "category": "Social",
+      "description": "Schedule and publish posts, upload media, and fetch analytics across 11 social platforms like Instagram, TikTok, LinkedIn, and X, from one REST API.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/routerbase-api/yoaplyxk",
+      "name": "RouterBase API",
+      "category": "AI",
+      "description": "One OpenAI-compatible API for accessing 200+ AI models from OpenAI, Anthropic, Google, Meta, xAI, DeepSeek, and more.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/tenrai/xv5koeig",
+      "name": "Tenrai",
+      "category": "Anime",
+      "description": "Tenrai is a free Unofficial public REST API for the full MyAnimeList public catalogue. Anime, manga, characters, people, producers, seasons, and more.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/firedash-fire-hydrant-public-api/8l4g1vr5",
+      "name": "FireDash Fire Hydrant Public API",
+      "category": "Development",
+      "description": "Live fire hydrant data: location, flow rate in GPM, and whether each hydrant is in or out of service. Sourced from the fire departments that maintain them.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/domscan/g2llv7qc",
+      "name": "DomScan",
+      "category": "Security",
+      "description": "Domain, DNS, WHOIS/RDAP, TLS, email, brand and web intelligence.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/peptide-library/fxs9neo7",
+      "name": "Peptide Library",
+      "category": "Health",
+      "description": "Peptide research profiles, cited studies and regulatory status, plus a vendor directory and current prices (free key).",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/live-tennis-api/t08g9k5b",
+      "name": "Live Tennis API",
+      "category": "Sports &amp; Fitness",
+      "description": "Live tennis scores, historical results, market odds and AI win-probability for ATP, WTA, Challenger and ITF.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    }
+  ]
+}
