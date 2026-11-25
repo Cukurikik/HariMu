@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Produksi: hanya https:// diperbolehkan. Cleartext dinonaktifkan agar
+      AI Gateway (https://harimu-ai-gateway.njirlah.workers.dev) dan semua
+      sambungan cloud lain selalu terenkripsi.
+    -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">harimu-ai-gateway.njirlah.workers.dev</domain>
+        <domain includeSubdomains="true">workers.dev</domain>
+    </domain-config>
+
+    <!-- Debug / emulator: izinkan http://10.0.2.2 untuk AI Gateway lokal (workerd dev). -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+        <domain-config cleartextTrafficPermitted="true">
+            <domain includeSubdomains="true">10.0.2.2</domain>
+            <domain includeSubdomains="true">localhost</domain>
+        </domain-config>
+    </debug-overrides>
+</network-security-config>

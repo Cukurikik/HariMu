@@ -34,5 +34,8 @@ keystore.properties
 # Google Services (e.g. APIs or Firebase)
 google-services.json
 
+# Cloudflare Wrangler dev vars (bukan secret, tetapi environment-specific)
+backend/ai-gateway/.dev.vars
+
 # Android Profiling
 *.hprof

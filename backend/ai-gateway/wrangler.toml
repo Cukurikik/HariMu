@@ -1,23 +1,29 @@
 name = "harimu-ai-gateway"
 main = "src/index.ts"
-compatibility_date = "2025-01-15"
+# Account ID Cloudflare (produksi). Digunakan wrangler untuk menentukan akasi target deploy.
+account_id = "f42c984dced6af826814bc3cf0dd42da"
+compatibility_date = "2026-11-25"
 compatibility_flags = ["nodejs_compat"]
 
 # =============================================================================
 # PRODUKSI — `wrangler deploy` (tanpa --env)
 # =============================================================================
-# Secret TIDAK pernah ada di repo; isi lewat `wrangler secret put <NAMA>` (lihat README):
+# Secret TIDAK pernah ada di repo; isi lewat `wrangler secret put <NAMA>`:
 #   WAJIB    : INSTALL_TOKEN_SECRET, DOWNLOAD_SIGNING_SECRET
 #   OPSIONAL : INSTALL_REGISTRATION_KEY (gerbang /v1/install)
-#   TIDAK PERLU untuk fitur AI: model berjalan di Workers AI lewat binding `AI` (tanpa kunci).
-#   OPSIONAL : REPLICATE_API_TOKEN + REPLICATE_VIDEO_VERSION (satu-satunya cara video live)
+#   TIDAK PERLU untuk fitur AI: model berjalan di Workers AI lewat binding `AI` (gratis, tanpa kunci).
+#   OPSIONAL : REPLICATE_API_TOKEN + REPLICATE_VIDEO_VERSION (hanya untuk video live)
 #
-# Keputusan K6: TTS, gambar (generate/edit), vision, dan STT memakai Cloudflare Workers AI.
-# Video generation tidak punya provider live Cloudflare; selama REPLICATE_* kosong,
-# /v1/video-generate menjawab 501 provider_not_configured (bukan hasil palsu).
+# Model gratis yang dipakai (binding `AI`, tanpa kunci pihak ketiga):
+#   TTS        @cf/deepgram/aura-1
+#   Gambar     @cf/black-forest-labs/flux-1-schnell
+#   Edit gambar @cf/runwayml/stable-diffusion-v1-5-img2img
+#   Vision     @cf/meta/llama-3.2-11b-vision-instruct (butuh persetujuan lisensi Meta sekali)
+#   STT        @cf/openai/whisper
+# Video generation = 501 provider_not_configured selama REPLICATE_* kosong (sengaja, bukan palsu).
 
 [vars]
-# Default aman: "mock". Ubah ke "live" HANYA setelah secret terpasang (README langkah 6).
+# Default aman: "live" untuk produksi (harus setelah secret terpasang).
 PROVIDER_MODE = "live"
 RATE_LIMIT_PER_MIN = "30"
 DAILY_QUOTA = "20"
@@ -26,8 +32,13 @@ TOKEN_TTL_SEC = "2592000"
 INSTALL_RATE_PER_MIN = "10"
 INSTALL_DAILY_PER_IP = "40"
 VIDEO_JOB_TTL_SEC = "86400"
-# WAJIB diisi sebelum produksi dibuka untuk pemanggil browser (bukan aplikasi Android, yang
-# tidak mengirim Origin). Nilai "*" hanya boleh untuk pengembangan.
+# Override model Workers AI gratis (kosongkan = pakai default di src/providers/cloudflare.ts).
+CF_TTS_MODEL = "@cf/deepgram/aura-1"
+CF_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
+CF_IMAGE_EDIT_MODEL = "@cf/runwayml/stable-diffusion-v1-5-img2img"
+CF_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
+CF_ASR_MODEL = "@cf/openai/whisper"
+# Batasi origin bila ada pemanggil browser (aplikasi Android tidak mengirim Origin).
 # ALLOWED_ORIGIN = "https://harimu.example"
 
 [ai]
@@ -35,7 +46,8 @@ binding = "AI"
 
 [[kv_namespaces]]
 binding = "JOBS"
-id = "4c27dc4fc22a4ea09bc6c857c273d6b6"
+# ID namespace hasil: `npx wrangler kv namespace create JOBS`
+id = "f3d2d0a78789476ca53369d920759bf4"
 
 [[r2_buckets]]
 binding = "ARTIFACTS"
@@ -45,7 +57,7 @@ bucket_name = "harimu-ai-artifacts"
 enabled = true
 
 # =============================================================================
-# DEV — `wrangler deploy --env dev` / `wrangler dev --env dev`
+# DEV — `wrangler dev --env dev` / `wrangler deploy --env dev`
 # Worker, KV, dan bucket terpisah supaya uji coba tidak mencampuri produksi.
 # =============================================================================
 [env.dev]
@@ -55,13 +67,18 @@ name = "harimu-ai-gateway-dev"
 PROVIDER_MODE = "mock"
 RATE_LIMIT_PER_MIN = "60"
 DAILY_QUOTA = "50"
+MAX_UPLOAD_BYTES = "10485760"
+TOKEN_TTL_SEC = "2592000"
+INSTALL_RATE_PER_MIN = "10"
+INSTALL_DAILY_PER_IP = "40"
+VIDEO_JOB_TTL_SEC = "86400"
 
 [env.dev.ai]
 binding = "AI"
 
 [[env.dev.kv_namespaces]]
 binding = "JOBS"
-id = "ab7d351195b54914beca9a1a0dcfeaee"
+id = "3257e5ffbb1f43b387e9276bd53a5d8c"
 
 [[env.dev.r2_buckets]]
 binding = "ARTIFACTS"
