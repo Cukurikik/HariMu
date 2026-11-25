@@ -242,3 +242,5 @@ File ini adalah **referensi tunggal** untuk setiap fitur baru yang berhubungan d
 - Menjaga konsistensi penamaan dan kategori.
 
 Tidak ada kode runtime yang membaca file ini; ini murni dokumentasi/referensi.
+
+**File patokan (API lokal Indonesia, tanpa autentikasi/NONE):** `docs/DATA_PUBLIC_API_INDONESIA_NONE.json` — hasil koleksi dari https://farizdotid.github.io/DAFTAR-API-LOKAL-INDONESIA/#/ (102 entri, filter `authentication == false`). Gunakan sebagai referensi untuk fitur yang memanfaatkan API lokal Indonesia tanpa kunci.

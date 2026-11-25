@@ -1,0 +1,1231 @@
+{
+  "source": "https://farizdotid.github.io/DAFTAR-API-LOKAL-INDONESIA/#/",
+  "filter": "authentication == false (NONE)",
+  "count": 102,
+  "apis": [
+    {
+      "apiName": "Buku Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/khrlanamm/buku-indonesia#api",
+      "developer": {
+        "name": "khrlanamm",
+        "profileUrl": "https://github.com/khrlanamm"
+      },
+      "description": "Data terbuka buku Indonesia: cari berdasarkan ISBN, penulis, atau kategori. API statis tanpa API key.",
+      "authentication": false,
+      "_category": "Buku"
+    },
+    {
+      "apiName": "Bukuacak",
+      "status": true,
+      "documentationUrl": "https://bukuacak.vercel.app/api",
+      "developer": {
+        "name": "Shabri A.",
+        "profileUrl": null
+      },
+      "description": "Bukuacak adalah API yang menyediakan data buku dengan berbagai filter, pengurutan, dan opsi pencarian acak.",
+      "authentication": false,
+      "_category": "Buku"
+    },
+    {
+      "apiName": "Masak Apa",
+      "status": true,
+      "documentationUrl": "https://github.com/tomorisakura/unofficial-masakapahariini-api",
+      "developer": {
+        "name": "Reski",
+        "profileUrl": null
+      },
+      "description": "Buku resep makanan Indonesia.",
+      "authentication": false,
+      "_category": "Buku"
+    },
+    {
+      "apiName": "Indodax",
+      "status": true,
+      "documentationUrl": "https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md",
+      "developer": {
+        "name": "btcid",
+        "profileUrl": null
+      },
+      "description": "Dokumentasi Public Api Indodax Exchange.",
+      "authentication": false,
+      "_category": "Kripto"
+    },
+    {
+      "apiName": "Rekeningku",
+      "status": false,
+      "documentationUrl": "https://api.rekeningku.com/#introduction",
+      "developer": {
+        "name": "rekeningku",
+        "profileUrl": null
+      },
+      "description": "Anda dapat menggunakan API kami untuk mengakses titik akhir API Rekeningku, yang dapat memperoleh informasi seperti Pesanan, Pasar, dll.",
+      "authentication": false,
+      "_category": "Kripto"
+    },
+    {
+      "apiName": "API Data Sekolah Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/wanrabbae/api-sekolah-indonesia",
+      "developer": {
+        "name": "Alwan",
+        "profileUrl": null
+      },
+      "description": "Data Data Sekolah di Indonesia Lengkap.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "API Data Sekolah Seluruh Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/ikhsan-rfl/api-sekolah",
+      "developer": {
+        "name": "Ikhsan",
+        "profileUrl": "https://github.com/ikhsan-rfl"
+      },
+      "description": "Data lengkap sekolah di seluruh Indonesia yang mencakup jenjang pendidikan formal dan nonformal.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "API KBBI Daring",
+      "status": true,
+      "documentationUrl": "https://github.com/dyazincahya/API-KBBI-PHP-Codeigniter-4",
+      "developer": {
+        "name": "Kang Cahya",
+        "profileUrl": "https://github.com/dyazincahya"
+      },
+      "description": "API untuk mendapatkan informasi Kata & Peribahasa berdasarkan Kamus Besar Bahasa Indonesia, data berasal dari https://kbbi.kemdikbud.go.id di ambil dengan metode HTML Parsing menggunakan PHP.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "API KBBI Luring",
+      "status": true,
+      "documentationUrl": "https://github.com/dyazincahya/KBBI-SQL-database",
+      "developer": {
+        "name": "Kang Cahya",
+        "profileUrl": "https://github.com/dyazincahya"
+      },
+      "description": "Basis data lokal KBBI, Terdapat 115.978 data Kata, tersedia untuk MySQL, SQLite dan PostgreSQL. Juga tersedia untuk format data CSV, JSON, Markdown, PHP Array, XML, DbUnit, HTML.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "Data Sekolah API",
+      "status": true,
+      "documentationUrl": "https://github.com/semogaBermanfaat-AhmadRamadhan/dataSekolahNegeriIndonesia",
+      "developer": {
+        "name": "Ahmad Ramadhan",
+        "profileUrl": null
+      },
+      "description": "Data Sekolah Negeri di Indonesia.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "Hibersunda Undak Usuk Basa Sunda",
+      "status": true,
+      "documentationUrl": "https://github.com/hiberin/hibersunda",
+      "developer": {
+        "name": "Hiberin Digital",
+        "profileUrl": null
+      },
+      "description": "API Pencarian Kosa Kata dalam Undak Usuk Basa Sunda.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "KBBI API",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/kbbi-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Rest Api KBBI.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "KBBI Complete REST API",
+      "status": true,
+      "documentationUrl": "https://kbbi.raf555.dev/swagger/index.html",
+      "developer": {
+        "name": "raf555",
+        "profileUrl": "http://github.com/raf555"
+      },
+      "description": "Alternatif API KBBI - hasil mirror aplikasi Android (tanpa web scraping). Informasi dan dokumentasi lengkap, low latency, serta fitur bawaan aplikasi seperti \"Kata hari ini\".",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "Kotonogi API",
+      "status": true,
+      "documentationUrl": "https://github.com/soudayonee/kotonogi-api",
+      "developer": {
+        "name": "Naufal AY",
+        "profileUrl": "https://github.com/soudayonee"
+      },
+      "description": "API JSON statis yang menyediakan huruf Jepang seperti Hiragana, Katakana. Termasuk variasi dakuten, handakuten, dan yoon.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "Maganghub API",
+      "status": true,
+      "documentationUrl": "https://maganghub.ndav.my.id",
+      "developer": {
+        "name": "Ndav",
+        "profileUrl": "https://ndav.my.id"
+      },
+      "description": "API untuk mengambil informasi program magang Kementerian Ketenagakerjaan Republik Indonesia.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "New KBBI API",
+      "status": true,
+      "documentationUrl": "https://github.com/btrianurdin/new-kbbi-api",
+      "developer": {
+        "name": "btrianurdin",
+        "profileUrl": null
+      },
+      "description": "KBBI API yang dilengkapi dengan lema, kelas kata dan arti secara lengkap.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "Python 3 API wrapper PDDIKTI",
+      "status": true,
+      "documentationUrl": "https://github.com/IlhamriSKY/PDDIKTI-kemdikbud-API",
+      "developer": {
+        "name": "IlhamRisky",
+        "profileUrl": null
+      },
+      "description": "Python API wrapper, yang mengambil data dari web PDDIKTI, terdiri dari data Universitas, Program Studi, Dosen, Mahasiswa/Alumni, Berita, Laporan, Dll.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "Wikipedia API",
+      "status": true,
+      "documentationUrl": "https://www.mediawiki.org/wiki/API:Tutorial",
+      "developer": {
+        "name": "Mediawiki",
+        "profileUrl": null
+      },
+      "description": "API untuk mendapatkan informasi yang digunakan dari Wikipedia.",
+      "authentication": false,
+      "_category": "Pendidikan"
+    },
+    {
+      "apiName": "1Cak API",
+      "status": true,
+      "documentationUrl": "https://github.com/dickymuliafiqri/onecak",
+      "developer": {
+        "name": "dickymuliafiqri",
+        "profileUrl": null
+      },
+      "description": "API unofficial dari situs meme kesayangan kita.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "AnimeAPI",
+      "status": true,
+      "documentationUrl": "https://animeapi.my.id",
+      "developer": {
+        "name": "nattadasu",
+        "profileUrl": null
+      },
+      "description": "REST API untuk pemetaan relasi ID antara 15 situs database anime lokal dan luar negeri.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Anitop API / Anitrendz API (Un-official)",
+      "status": true,
+      "documentationUrl": "https://github.com/satyawikananda/anitop",
+      "developer": {
+        "name": "Satya Wikananda",
+        "profileUrl": null
+      },
+      "description": "Sebuah API yang menampilkan data-data anime, musik anime, karakter, dll yang sedang trending pada musim ini.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Epic Free Games API",
+      "status": true,
+      "documentationUrl": "https://github.com/woicip/epic-free-games",
+      "developer": {
+        "name": "woicip",
+        "profileUrl": null
+      },
+      "description": "Menyediakan daftar game - game gratis yang tersedia di Epic Games",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "FILMAPIK API (Un-official)",
+      "status": true,
+      "documentationUrl": "https://github.com/devnazir/api-filmapik",
+      "developer": {
+        "name": "devnazir",
+        "profileUrl": null
+      },
+      "description": "Menampilkan data movie beserta link video google drive.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "JagoKata Unofficial REST API",
+      "status": true,
+      "documentationUrl": "https://github.com/abdipr/jagokata-api",
+      "developer": {
+        "name": "abdipr",
+        "profileUrl": "https://github.com/abdipr"
+      },
+      "description": "Unofficial API JagoKata untuk mendapatkan list quotes populer, search quotes, quotes random, dan lainnya.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Katanime",
+      "status": true,
+      "documentationUrl": "https://github.com/ricko-v/katanime",
+      "developer": {
+        "name": "ricko-v",
+        "profileUrl": null
+      },
+      "description": "Quotes anime bahasa Indonesia dan Inggris.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Klasemen Sepak Bola",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/football-standings-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Realtime klasemen sepak bola e.g EPL, La Liga dll.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Kunci Jawaban TTS API",
+      "status": true,
+      "documentationUrl": "https://github.com/nasrul21/kunci-tts-api",
+      "developer": {
+        "name": "nasrul21",
+        "profileUrl": null
+      },
+      "description": "API untuk mendapatkan kunci jawaban TTS (Teka Teki Silang) Indonesia.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "LK21 & NontonDrama (Unofficial)",
+      "status": true,
+      "documentationUrl": "https://github.com/febriadj/lk21-api",
+      "developer": {
+        "name": "Febriadji",
+        "profileUrl": "http://github.com/febriadj"
+      },
+      "description": "Menyajikan movie, animasi, dan series dari berbagai negara dengan dukungan fitur streaming ber-subtitle Indonesia.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "LK21 API (Un-official)",
+      "status": true,
+      "documentationUrl": "https://github.com/devnazir/api-lk21",
+      "developer": {
+        "name": "devnazir",
+        "profileUrl": null
+      },
+      "description": "Menampilkan data movie dari situs LK21.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Manga/Komik Bahasa Indonesia (Un-official)",
+      "status": true,
+      "documentationUrl": "https://github.com/febryardiansyah/manga-api",
+      "developer": {
+        "name": "Febry Ardiansyah",
+        "profileUrl": null
+      },
+      "description": "Menyediakan Manga atau Komik bahasa Indonesia.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "MyInstants Unofficial REST API",
+      "status": true,
+      "documentationUrl": "https://github.com/abdipr/myinstants-api",
+      "developer": {
+        "name": "abdipr",
+        "profileUrl": "https://github.com/abdipr"
+      },
+      "description": "Unofficial API MyInstants untuk mendapatkan list trending soundboard, search soundboard, dan soundboard terbaru.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Otakudesu API (Un-official)",
+      "status": true,
+      "documentationUrl": "https://github.com/Kaede-No-Ki/otakudesu-rest-api",
+      "developer": {
+        "name": "KaedeNoKi Team",
+        "profileUrl": null
+      },
+      "description": "Menyediakan anime dengan subtitle Bahasa Indonesia.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Quotes Generator API",
+      "status": true,
+      "documentationUrl": "https://github.com/Irfanakbari/quote-generator-api",
+      "developer": {
+        "name": "Irfan Akbari Habibi",
+        "profileUrl": null
+      },
+      "description": "API untuk Dapatkan Random Quotes Harian.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Spesifikasi HP",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/phone-specs-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Spesifikasi HP data dari gsm arena.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Strygwyr Dota 2 API",
+      "status": true,
+      "documentationUrl": "https://github.com/sinkaroid/strygwyr",
+      "developer": {
+        "name": "sinkaroid",
+        "profileUrl": null
+      },
+      "description": "Menampilkan data hero status untuk game Dota 2.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Student Blue Archive",
+      "status": true,
+      "documentationUrl": "https://github.com/arufars/api-blue-archive",
+      "developer": {
+        "name": "arufars",
+        "profileUrl": null
+      },
+      "description": "API (unofficial) berisi informasi data character dari game Blue Archive.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Tanggal Lahiran Pasaran Zodiak",
+      "status": true,
+      "documentationUrl": "https://github.com/bachors/apiapi#tanggal-lahiran-pasaran-zodiak",
+      "developer": {
+        "name": "iBachor",
+        "profileUrl": null
+      },
+      "description": "Mengecek zodiak berdasarkan tanggal lahir serta dapat memberitahukan detail tanggal lahir, detail usia, serta detail rentang ulang tahun terdekat.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Unofficial Liga Indonesia",
+      "status": true,
+      "documentationUrl": "https://ligaindonesia-api.vercel.app/docs",
+      "developer": {
+        "name": "Agis R Herdiana",
+        "profileUrl": null
+      },
+      "description": "Unofficial API liga Indonesia tentang info pertandingan, statistik, klasemen, tim, dan lain-lain.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "Yet Another API for Anime and Stuff",
+      "status": true,
+      "documentationUrl": "https://github.com/Aerysh/yaaas",
+      "developer": {
+        "name": "Aerysh",
+        "profileUrl": "https://github.com/Aerysh"
+      },
+      "description": "Menyediakan kumpulan API yang dapat digunakan untuk mengakses informasi tentang hiburan seperti Anime, Manga, dll.",
+      "authentication": false,
+      "_category": "Hiburan"
+    },
+    {
+      "apiName": "API Harga Emas/Logam Mulia",
+      "status": true,
+      "documentationUrl": "https://github.com/cacing69/logam-mulia-api/blob/main/README.md",
+      "developer": {
+        "name": "cacing69",
+        "profileUrl": "https://github.com/cacing69"
+      },
+      "description": "API untuk mengecek harga emas/logam mulia dari berbagai website yang menampilkan info harga beli/jual.",
+      "authentication": false,
+      "_category": "Finansial"
+    },
+    {
+      "apiName": "Currency Exchange",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/currency-exchange-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Currency Exchange.",
+      "authentication": false,
+      "_category": "Finansial"
+    },
+    {
+      "apiName": "Harga Emas",
+      "status": true,
+      "documentationUrl": "https://codeberg.org/bramaudi/gold-price",
+      "developer": {
+        "name": "bramaudi",
+        "profileUrl": null
+      },
+      "description": "API untuk melihat update harga emas.",
+      "authentication": false,
+      "_category": "Finansial"
+    },
+    {
+      "apiName": "OJK Investasi API",
+      "status": true,
+      "documentationUrl": "https://github.com/Namchee/ojk-invest-api",
+      "developer": {
+        "name": "Cristopher",
+        "profileUrl": null
+      },
+      "description": "Sebuah API yang menampilkan daftar investasi legal dan ilegal di Indonesia. Bersumber dari data Otoritas Jasa Keuangan.",
+      "authentication": false,
+      "_category": "Finansial"
+    },
+    {
+      "apiName": "Dayoff API",
+      "status": true,
+      "documentationUrl": "https://dayoffapi.vercel.app",
+      "developer": {
+        "name": "Gerinsp",
+        "profileUrl": null
+      },
+      "description": "Api untuk mendapatkan data hari libur nasional dan cuti bersama di Indonesia.",
+      "authentication": false,
+      "_category": "Umum"
+    },
+    {
+      "apiName": "Bahasa Daerah",
+      "status": true,
+      "documentationUrl": "https://github.com/Mahes2/bahasa-daerah-indonesia",
+      "developer": {
+        "name": "Mahes2",
+        "profileUrl": null
+      },
+      "description": "Data bahasa daerah di Indonesia.",
+      "authentication": false,
+      "_category": "Pemerintahan"
+    },
+    {
+      "apiName": "Batik Indonesia",
+      "status": true,
+      "documentationUrl": "https://batikita.docs.apiary.io/#reference/0/all-batik-collections",
+      "developer": {
+        "name": "BatiKita",
+        "profileUrl": null
+      },
+      "description": "BatiKita merupakan sebuah aplikasi yang dapat memberikan informasi mengenai motif batik, dengan memberikan kata kunci atau mengunggah citra sehingga user tidak perlu melakukan pencarian informasi secara manual.",
+      "authentication": false,
+      "_category": "Pemerintahan"
+    },
+    {
+      "apiName": "Data BMKG",
+      "status": true,
+      "documentationUrl": "http://data.bmkg.go.id/tentang",
+      "developer": {
+        "name": "Badan Meteorologi dan Geofisika",
+        "profileUrl": null
+      },
+      "description": "Data terkini cuaca dan kejadian bencana di Indonesia.",
+      "authentication": false,
+      "_category": "Pemerintahan"
+    },
+    {
+      "apiName": "Pahlawan Nasional Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/yogski/indonesia-public-static-api#api-pahlawan-nasional-indonesia-apiheroes",
+      "developer": {
+        "name": "Yogi Saputro",
+        "profileUrl": null
+      },
+      "description": "API daftar pahlawan Indonesia. Lihat dokumentasi untuk detail penggunaan.",
+      "authentication": false,
+      "_category": "Pemerintahan"
+    },
+    {
+      "apiName": "API ketersediaan kamar rumah sakit COVID / Non COVID di Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/bayungrh/rs-bed-availability-api",
+      "developer": {
+        "name": "Bayu",
+        "profileUrl": null
+      },
+      "description": "Data ketersediaan kamar rumah sakit COVID / Non COVID di Indonesia.",
+      "authentication": false,
+      "_category": "Kesehatan"
+    },
+    {
+      "apiName": "Data COVID-19 di Indonesia",
+      "status": true,
+      "documentationUrl": "https://apicovid19indonesia-v2.vercel.app/api",
+      "developer": {
+        "name": "Reynadi",
+        "profileUrl": null
+      },
+      "description": "API untuk melihat data COIVD-19 di Indonesia.",
+      "authentication": false,
+      "_category": "Kesehatan"
+    },
+    {
+      "apiName": "Data ketersediaan tempat tidur rumah sakit di Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/satyawikananda/rs-bed-covid-indo-api",
+      "developer": {
+        "name": "Satya Wikananda",
+        "profileUrl": null
+      },
+      "description": "API ketersediaan rumah sakit dan tempat tidur rumah sakit untuk pasien covid-19 ataupun non-covid yang berada di Indonesia.",
+      "authentication": false,
+      "_category": "Kesehatan"
+    },
+    {
+      "apiName": "Data rumah sakit rujukan covid-19 di Indonesia",
+      "status": true,
+      "documentationUrl": "https://dekontaminasi.com/api/id/covid19/hospitals",
+      "developer": {
+        "name": "Ariya Hidayat",
+        "profileUrl": null
+      },
+      "description": "API rumah sakit rujukan covid-19 di Indonesia.",
+      "authentication": false,
+      "_category": "Kesehatan"
+    },
+    {
+      "apiName": "Al-Qur'an Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/wanrabbae/al-quran-indonesia-api",
+      "developer": {
+        "name": "Alwan",
+        "profileUrl": null
+      },
+      "description": "API gratis untuk Al-Qur'an Bahasa Indonesia beserta Audionya.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Alquran ID",
+      "status": true,
+      "documentationUrl": "https://github.com/bachors/Al-Quran-ID-API",
+      "developer": {
+        "name": "bachors",
+        "profileUrl": null
+      },
+      "description": "Alquran bahasa indonesia.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Doa Doa API",
+      "status": true,
+      "documentationUrl": "https://doa-doa-api-ahmadramadhan.fly.dev",
+      "developer": {
+        "name": "Ahmad Ramadhan",
+        "profileUrl": null
+      },
+      "description": "Doa - Doa Sehari - hari dan lain lain dalam agama Islam.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Dua & Dhikr",
+      "status": true,
+      "documentationUrl": "https://github.com/fitrahive/dua-dhikr",
+      "developer": {
+        "name": "Fitrahive",
+        "profileUrl": "https://github.com/fitrahive"
+      },
+      "description": "RESTful API Doa & Dzikir Sesuai Sunnah.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Hadith API",
+      "status": true,
+      "documentationUrl": "https://github.com/kyyril/hadith-api",
+      "developer": {
+        "name": "Khairil Rahman",
+        "profileUrl": "https://github.com/kyyril"
+      },
+      "description": "Hadith API menyajikan hadis terjemahan dari 9 perawi. Mendukung pencarian berdasarkan perawi, nomor hadis, serta fitur pagination dan search.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Holy Quran API",
+      "status": true,
+      "documentationUrl": "https://github.com/dyazincahya/quran-api-with-php-codeigniter",
+      "developer": {
+        "name": "Kang Cahya",
+        "profileUrl": null
+      },
+      "description": "Holy Quran API - 6236 verses, 114 surah, 30 Juz.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Jadwal Sholat",
+      "status": true,
+      "documentationUrl": "https://github.com/lakuapik/jadwalsholatorg",
+      "developer": {
+        "name": "lakuapik",
+        "profileUrl": null
+      },
+      "description": "Jadwal sholat berdasarkan kota/kabupaten di Indonesia.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Puasa Sunnah API",
+      "status": true,
+      "documentationUrl": "https://api.puasa-sunnah.granitebps.com/swagger/index.html",
+      "developer": {
+        "name": "Granite Bagas",
+        "profileUrl": null
+      },
+      "description": "API untuk melihat jadwal Puasa Sunnah di Indonesia. Start dari tahun 2022.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Quran API",
+      "status": true,
+      "documentationUrl": "https://github.com/rzkytmgr/quran-api",
+      "developer": {
+        "name": "rzkytmgr",
+        "profileUrl": null
+      },
+      "description": "quran api dengan custom imam recitation/murottal.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Quran API ID",
+      "status": true,
+      "documentationUrl": "https://github.com/renomureza/quran-api-id",
+      "developer": {
+        "name": "R.M. Reza",
+        "profileUrl": null
+      },
+      "description": "REST API Al-Quran Indonesia dengan terjemahan, tafsir (Kemenag, Quraish Shihab, Al-Jalalain), audio murottal (per surah dan ayat dari 6 qori), random ayat, dll.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Quran JSON",
+      "status": true,
+      "documentationUrl": "https://github.com/penggguna/QuranJSON",
+      "developer": {
+        "name": "penggguna",
+        "profileUrl": null
+      },
+      "description": "Quran JSON (Terjemahan Indonesia, Tafsir, dan Audio).",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "Waktu Sholat API",
+      "status": true,
+      "documentationUrl": "https://github.com/maftuh23/waktu-sholat",
+      "developer": {
+        "name": "Maftuh Ichsan",
+        "profileUrl": "https://github.com/maftuh23"
+      },
+      "description": "API Waktu Sholat Indonesia, bersumber dari Kemenag RI, menyajikan data berdasarkan koordinat (latitude & longitude), lengkap dengan informasi provinsi dan kota.",
+      "authentication": false,
+      "_category": "Agama Islam"
+    },
+    {
+      "apiName": "API alamat Desa Kelurahan, kecamatan, kabkota, dan kodepos",
+      "status": true,
+      "documentationUrl": "https://alamat.thecloudalert.com",
+      "developer": {
+        "name": "cenahcoid",
+        "profileUrl": "https://www.cenah.co.id/"
+      },
+      "description": "API Bebas untuk list alamat di Indonesia (desa kelurahan, kecamatan, kabkota, kodepos)",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Daftar Stasiun Kereta Api di Indonesia",
+      "status": true,
+      "documentationUrl": "https://booking.kai.id/api/stations2",
+      "developer": {
+        "name": "PT Kereta Api Indonesia (Persero)",
+        "profileUrl": null
+      },
+      "description": "API Daftar Stasiun Kereta Api.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Data GeoJSON Provinsi, Kota atau Kabupaten Seluruh Wilayah Indonesia",
+      "status": true,
+      "documentationUrl": "https://z4nr.github.io/WhatGeo/",
+      "developer": {
+        "name": "Zulham Nur",
+        "profileUrl": "https://github.com/Z4nR"
+      },
+      "description": "API statis berisi data wilayah Indonesia dalam bentuk GeoJSON yang sudah disimplify tanpa merubah bentuk map secara signifikan.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Gunung Berapi di Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/yogski/indonesia-public-static-api#api-gunung-berapi-indonesia-apivolcanoes",
+      "developer": {
+        "name": "Yogi Saputro",
+        "profileUrl": null
+      },
+      "description": "API daftar gunung berapi di Indonesia. Lihat dokumentasi untuk detail penggunaan.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "idn-area",
+      "status": true,
+      "documentationUrl": "https://github.com/fityannugroho/idn-area",
+      "developer": {
+        "name": "fityannugroho",
+        "profileUrl": "https://github.com/fityannugroho"
+      },
+      "description": "API Terbuka data wilayah Indonesia terbaru: Provinsi, Kabupaten/Kota, Kecamatan, Desa/Kelurahan, dan Pulau.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Kode Pos",
+      "status": true,
+      "documentationUrl": "https://github.com/bachors/apiapi#kode-pos-api",
+      "developer": {
+        "name": "iBachor",
+        "profileUrl": null
+      },
+      "description": "Daftar Kode Pos di Indonesia.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Kode Pos",
+      "status": true,
+      "documentationUrl": "https://nbc.vanmason.web.id/service/kodepos/42173",
+      "developer": {
+        "name": "Cain van Mason",
+        "profileUrl": null
+      },
+      "description": "Daftar Kode Pos di Indonesia.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Kode Pos",
+      "status": true,
+      "documentationUrl": "https://github.com/sooluh/kodepos",
+      "developer": {
+        "name": "sooluh",
+        "profileUrl": "https://github.com/sooluh"
+      },
+      "description": "Pencarian Kode Pos Indonesia Berdasarkan Nama Tempat, Desa atau Kota.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Lambang Daerah Seluruh Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/feri-irawan/lambang-daerah-seluruh-indonesia",
+      "developer": {
+        "name": "Feri Irawan",
+        "profileUrl": "https://github.com/feri-irawan"
+      },
+      "description": "Lambang Provinsi dan Kabupaten Seluruh Indonesia (38 Provinsi dan 514 Kabupaten / Kota).",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Nama Provinsi, Kota, Kabupaten Seluruh Wilayah Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/emsifa/api-wilayah-indonesia",
+      "developer": {
+        "name": "Muhammad Syifa",
+        "profileUrl": null
+      },
+      "description": "API statis berisi data wilayah Indonesia serta perintah untuk mendeploynya ke static hosting.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Nusantara API",
+      "status": true,
+      "documentationUrl": "https://nusantara.clowdlab.com/docs",
+      "developer": {
+        "name": "I Gede Widiantara",
+        "profileUrl": "https://github.com/wawanwidiantara"
+      },
+      "description": "API data wilayah Indonesia dengan parsing NIK, kode pos, pencarian spasial, emblem daerah, dan dukungan MCP untuk integrasi LLM.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Pesantren se Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/nasrul21/data-pesantren-indonesia",
+      "developer": {
+        "name": "nasrul21",
+        "profileUrl": null
+      },
+      "description": "API Data Pesantren se Indonesia.",
+      "authentication": false,
+      "_category": "Lokasi"
+    },
+    {
+      "apiName": "Akuari Api",
+      "status": true,
+      "documentationUrl": "https://api.akuari.my.id/",
+      "developer": {
+        "name": "akuari",
+        "profileUrl": null
+      },
+      "description": "Kumpulan api kebutuhan bot, dan beberapa api:  Visitor api, Cek ip api, Cek Website Hidup atau tidak, File api, dan lain-lain dengan respon JSON.",
+      "authentication": false,
+      "_category": "Serba Guna"
+    },
+    {
+      "apiName": "KyioAPI",
+      "status": true,
+      "documentationUrl": "https://api.kyio.web.id/docs",
+      "developer": {
+        "name": "Har",
+        "profileUrl": "https://github.com/kyiov"
+      },
+      "description": "API infrastruktur berkinerja tinggi untuk developer modern, dengan lebih dari 209 endpoint untuk generasi AI, pengunduhan media, dan alat developer. Latensi sangat rendah tanpa perlu pengaturan rumit.",
+      "authentication": false,
+      "_category": "Serba Guna"
+    },
+    {
+      "apiName": "Ryzumi API",
+      "status": true,
+      "documentationUrl": "https://api.ryzumi.net",
+      "developer": {
+        "name": "ShirokamiRyzen",
+        "profileUrl": "https://github.com/ShirokamiRyzen"
+      },
+      "description": "Menyediakan API gratis untuk pengembangan aplikasi maupun bot, disertai dengan dokumentasi lengkap dan uptime hingga 99%. Akses berbagai API seperti AI, Downloader, Internet, dan lainnya",
+      "authentication": false,
+      "_category": "Serba Guna"
+    },
+    {
+      "apiName": "Lirik lagu",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/song-lyrics-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Rest Api lirik lagu.",
+      "authentication": false,
+      "_category": "Musik"
+    },
+    {
+      "apiName": "API Berita Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/renomureza/api-berita-indonesia",
+      "developer": {
+        "name": "R.M. Reza",
+        "profileUrl": null
+      },
+      "description": "API untuk menampilkan artikel terkini dari RSS Feed portal berita Indonesia.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "Berita Indo API",
+      "status": true,
+      "documentationUrl": "https://github.com/satyawikananda/berita-indo-api",
+      "developer": {
+        "name": "Satya Wikananda",
+        "profileUrl": null
+      },
+      "description": "Api yang bertujuan untuk menampilkan data data terkini dari beberapa portal berita di Indonesia.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "CNN Indonesia",
+      "status": true,
+      "documentationUrl": "https://github.com/rizki4106/cnnindonesia-news-api",
+      "developer": {
+        "name": "developeridn.com",
+        "profileUrl": null
+      },
+      "description": "API kumpulan berita dari cnn Indonesia.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "Detik News API",
+      "status": true,
+      "documentationUrl": "https://github.com/Ucok23/detiknews_api",
+      "developer": {
+        "name": "Ucok Isa Lubis",
+        "profileUrl": null
+      },
+      "description": "API berita detik news. Search, dapatkan list berita, dapatkan detail berita.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "Indo News API",
+      "status": true,
+      "documentationUrl": "https://indo-news-api.vercel.app/api-berita-indonesia",
+      "developer": {
+        "name": "kaminariouji",
+        "profileUrl": "https://github.com/kaminariouji"
+      },
+      "description": "API berita Indonesia untuk agent: headline per kanal, pencarian kata kunci, briefing terperingkat, indeks sentimen 0-100, dan pemantauan coverage dengan entitas per artikel. Preview 3 headline gratis; data penuh dibayar per call dengan USDC lewat x402, tanpa API key atau akun. Tersedia juga sebagai server MCP.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "Jakarta Post API",
+      "status": true,
+      "documentationUrl": "https://github.com/faruqmaulana/JAKARTA-POST-API",
+      "developer": {
+        "name": "Faruq Maulana",
+        "profileUrl": null
+      },
+      "description": "API yang menyajikan berita dan data podcast dari media berita Jakarta Post.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "The Lazy Media API",
+      "status": true,
+      "documentationUrl": "https://github.com/NicolaDonoastro/The-Lazy-Media-api",
+      "developer": {
+        "name": "Nicola Deastra",
+        "profileUrl": null
+      },
+      "description": "API kumpulan berita game dan teknologi dari The Lazy Media.",
+      "authentication": false,
+      "_category": "Berita"
+    },
+    {
+      "apiName": "Facebook Video Downloader",
+      "status": true,
+      "documentationUrl": "https://codeberg.org/bramaudi/fbdown",
+      "developer": {
+        "name": "bramaudi",
+        "profileUrl": null
+      },
+      "description": "Unofficial API Facebook untuk Scraping Video Facebook.",
+      "authentication": false,
+      "_category": "Sosial Media"
+    },
+    {
+      "apiName": "Twitter Trends",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/twitter-trends-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Unofficial API Twitter trends data.",
+      "authentication": false,
+      "_category": "Sosial Media"
+    },
+    {
+      "apiName": "Unofficial Youtube Api",
+      "status": true,
+      "documentationUrl": "https://github.com/FatihArridho/Unofficial-YoutubeApi",
+      "developer": {
+        "name": "FatihArridho",
+        "profileUrl": null
+      },
+      "description": "Unofficial Youtube Api sederhana untuk mencari video, channel, playlist.",
+      "authentication": false,
+      "_category": "Sosial Media"
+    },
+    {
+      "apiName": "Whatsapp Cloud API Wrapper",
+      "status": true,
+      "documentationUrl": "https://github.com/fdciabdul/WhatsApp-Cloud-API-Wrapper",
+      "developer": {
+        "name": "fdciabdul",
+        "profileUrl": null
+      },
+      "description": "Unofiicial Wrapper untuk Whatsapp Cloud API.",
+      "authentication": false,
+      "_category": "Sosial Media"
+    },
+    {
+      "apiName": "Whatsapp Official API ",
+      "status": true,
+      "documentationUrl": "https://developers.facebook.com/docs/whatsapp",
+      "developer": {
+        "name": "Facebook",
+        "profileUrl": null
+      },
+      "description": "Official API untuk Whatsapp Cloud API.",
+      "authentication": false,
+      "_category": "Sosial Media"
+    },
+    {
+      "apiName": "Daftar nama Bank di Indonesia",
+      "status": true,
+      "documentationUrl": "https://bank.thecloudalert.com",
+      "developer": {
+        "name": "cenahcoid",
+        "profileUrl": "https://www.cenah.co.id/"
+      },
+      "description": "Daftar Bank yang ada di Indonesia (Gratis)",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "Distrowatch API (unofficial)",
+      "status": true,
+      "documentationUrl": "https://github.com/Zzzul/diwa",
+      "developer": {
+        "name": "Zulfahmi",
+        "profileUrl": null
+      },
+      "description": "API untuk mendapatkan informasi seputar Linux.",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "Google Playstore",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/google-play-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Google playstore API.",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "Google Trends",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/google-trends-api",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "Realtime Google Trends API.",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "Indiwtf API",
+      "status": true,
+      "documentationUrl": "https://indiwtf.com/api/",
+      "developer": {
+        "name": "Frans Allen",
+        "profileUrl": null
+      },
+      "description": "Sebuah API sederhana untuk mengecek apakah sebuah website diblokir di Indonesia atau tidak.",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "Screenshot API",
+      "status": true,
+      "documentationUrl": "https://statically.io",
+      "developer": {
+        "name": "statically.io",
+        "profileUrl": null
+      },
+      "description": "Sebuah API screenshot gratis untuk mengonversi web ke gambar atau PDF. Mendukung tampilan desktop dan seluler.",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "Translasi",
+      "status": true,
+      "documentationUrl": "https://github.com/azharimm/api-translate",
+      "developer": {
+        "name": "azharimm",
+        "profileUrl": null
+      },
+      "description": "API translasi dengan google translate/baidu translate engine.",
+      "authentication": false,
+      "_category": "Utilitas"
+    },
+    {
+      "apiName": "API & Graphql Cuaca BMKG",
+      "status": true,
+      "documentationUrl": "https://github.com/pace11/weather-api",
+      "developer": {
+        "name": "pace11",
+        "profileUrl": "https://github.com/pace11"
+      },
+      "description": "Ramalan Cuaca konversi dari format XML ke JSON sumber dari API BMKG. Sudah tersedia dalam versi Graphql.",
+      "authentication": false,
+      "_category": "Cuaca"
+    },
+    {
+      "apiName": "BMKG Json API",
+      "status": true,
+      "documentationUrl": "https://ibnux.github.io/BMKG-importer/#pakai-langsung",
+      "developer": {
+        "name": "ibnux",
+        "profileUrl": "https://github.com/ibnux"
+      },
+      "description": "Ramalan cuaca Indonesia sampai 3 hari kedepan Import dari BMKG dalam bentuk JSON.",
+      "authentication": false,
+      "_category": "Cuaca"
+    },
+    {
+      "apiName": "Info Gempa & Cuaca API",
+      "status": true,
+      "documentationUrl": "https://github.com/renomureza/cuaca-gempa-rest-api",
+      "developer": {
+        "name": "R.M. Reza",
+        "profileUrl": null
+      },
+      "description": "REST API informasi gempa terkini dan cuaca kota besar di 35 provinsi dalam 3 harian, sumber data BMKG.",
+      "authentication": false,
+      "_category": "Cuaca"
+    }
+  ]
+}
