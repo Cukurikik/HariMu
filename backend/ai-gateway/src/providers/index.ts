@@ -3,7 +3,6 @@ import { isMockMode } from "../config";
 import { ApiError } from "../errors";
 import { cloudflareProvider } from "./cloudflare";
 import { mockProvider } from "./mock";
-import { openaiProvider } from "./openai";
 import { replicateVideoProvider } from "./replicate";
 import type { Capability, Provider } from "./types";
 
@@ -21,22 +20,16 @@ export function resolveProvider(env: Env, capability: Capability): Provider {
     );
   }
 
-  // Provider live utama: Cloudflare Workers AI (binding AI, tanpa kunci pihak ketiga).
-  if (env.AI) return cloudflareProvider(env);
-
-  // Fallback lama, hanya bila OPENAI_API_KEY di-set dan binding AI tidak ada.
-  const provider = openaiProvider(env);
-  const supported: Record<Exclude<Capability, "video">, boolean> = {
-    tts: typeof provider.tts === "function",
-    imageGenerate: typeof provider.imageGenerate === "function",
-    imageEdit: typeof provider.imageEdit === "function",
-    imageAnalyze: typeof provider.imageAnalyze === "function",
-    speechToText: typeof provider.speechToText === "function",
-  };
-  if (!supported[capability]) {
-    throw new ApiError(501, "provider_not_configured", `Provider aktif tidak mendukung '${capability}'`);
+  // Provider live utama (satu-satunya): Cloudflare Workers AI (binding AI, tanpa kunci pihak ketiga).
+  // Tidak ada fallback OpenAI: bila binding AI tidak ada, fitur non-video (selain video) tidak tersedia.
+  if (!env.AI) {
+    throw new ApiError(
+      501,
+      "provider_not_configured",
+      "Binding Workers AI belum tersedia. Tambahkan [ai] binding = \"AI\" di wrangler.toml lalu deploy.",
+    );
   }
-  return provider;
+  return cloudflareProvider(env);
 }
 
 export * from "./types";

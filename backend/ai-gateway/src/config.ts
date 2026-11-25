@@ -16,14 +16,6 @@ export interface Env {
   CF_VISION_MODEL?: string;
   CF_ASR_MODEL?: string;
 
-  /** Fallback opsional bila binding AI tidak tersedia. */
-  OPENAI_API_KEY?: string;
-  OPENAI_BASE_URL?: string;
-  OPENAI_IMAGE_MODEL?: string;
-  OPENAI_TTS_MODEL?: string;
-  OPENAI_ASR_MODEL?: string;
-  OPENAI_VISION_MODEL?: string;
-
   REPLICATE_API_TOKEN?: string;
   REPLICATE_VIDEO_VERSION?: string;
   REPLICATE_BASE_URL?: string;

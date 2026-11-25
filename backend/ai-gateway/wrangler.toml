@@ -18,7 +18,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 # Default aman: "mock". Ubah ke "live" HANYA setelah secret terpasang (README langkah 6).
-PROVIDER_MODE = "mock"
+PROVIDER_MODE = "live"
 RATE_LIMIT_PER_MIN = "30"
 DAILY_QUOTA = "20"
 MAX_UPLOAD_BYTES = "10485760"
@@ -35,7 +35,7 @@ binding = "AI"
 
 [[kv_namespaces]]
 binding = "JOBS"
-id = "REPLACE_WITH_PRODUCTION_JOBS_KV_ID"
+id = "4c27dc4fc22a4ea09bc6c857c273d6b6"
 
 [[r2_buckets]]
 binding = "ARTIFACTS"
@@ -61,7 +61,7 @@ binding = "AI"
 
 [[env.dev.kv_namespaces]]
 binding = "JOBS"
-id = "REPLACE_WITH_DEV_JOBS_KV_ID"
+id = "ab7d351195b54914beca9a1a0dcfeaee"
 
 [[env.dev.r2_buckets]]
 binding = "ARTIFACTS"

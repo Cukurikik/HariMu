@@ -128,7 +128,19 @@ fun coreTools(): List<Tool> = listOf(
                     )
                 }
                 val voice = input.getString("voice", "1 · Alloy").substringBefore(' ').toIntOrNull() ?: 1
-                val language = if (input.getString("lang", "Indonesia") == "Indonesia") "id" else "en"
+                // Cloudflare Workers AI TTS (aura-1) hanya mendukung bahasa Inggris.
+                // Tolak lebih awal supaya pengguna tidak menunggu gagal setelah kuota terpakai;
+                // gunakan engine perangkat (offline) untuk bahasa Indonesia.
+                if (input.getString("lang", "Indonesia") == "Indonesia") {
+                    throw IllegalArgumentException(
+                        if (ctx.isEnglish) {
+                            "The cloud gateway TTS (Deepgram aura-1) supports English only. Switch the voice language to English (US) or use the offline device engine for Indonesian."
+                        } else {
+                            "TTS cloud gateway (Deepgram aura-1) hanya mendukung bahasa Inggris. Ganti bahasa suara ke English (US) atau gunakan engine perangkat (offline) untuk bahasa Indonesia."
+                        }
+                    )
+                }
+                val language = "en"
                 emit(ToolProgress.Running(25, "Meminta suara ke gateway (voice $voice)…"))
                 val audio = client.textToSpeech(text, voice, language)
                 val cloudDest = ctx.storage.createOutputFile("TTS_CLOUD", "wav")

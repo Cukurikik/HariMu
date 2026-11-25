@@ -4,6 +4,10 @@ export default defineWorkersConfig({
   test: {
     poolOptions: {
       workers: {
+        // Audit K6: hindari remote proxy Workers AI saat tes (tidak ada kredensial Cloudflare di CI).
+        // Binding AI tetap dideklarasikan di wrangler.toml untuk produksi; di tes, env.AI tidak
+        // tersedia dan kode memperlakukannya sebagai provider_not_configured (mode live tidak dipakai).
+        remoteBindings: false,
         wrangler: { configPath: "./wrangler.toml" },
         miniflare: {
           compatibilityFlags: ["nodejs_compat"],
