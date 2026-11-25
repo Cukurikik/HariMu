@@ -76,6 +76,9 @@ data class AiTextResult(
     val quotaRemaining: Int?
 )
 
+/** Pesan chat dengan peran (system/user/assistant) dan isi konten. */
+data class AiMessage(val role: String, val content: String)
+
 data class AiQuota(val used: Int, val limit: Int, val resetsInSec: Long)
 
 data class AiVideoJob(val jobId: String, val mock: Boolean, val pollAfterSec: Int)
@@ -95,6 +98,15 @@ data class AiVideoStatus(
 data class AiBinary(
     val bytes: ByteArray,
     val mime: String,
+    val mock: Boolean,
+    val quotaRemaining: Int?
+)
+
+/** Hasil cuaca dari gateway. */
+data class AiWeatherResult(
+    val temperature: Double,
+    val condition: String,
+    val location: String,
     val mock: Boolean,
     val quotaRemaining: Int?
 )
@@ -387,6 +399,70 @@ class AiClient(
             mock = payload.boolean("mock") ?: false,
             quotaRemaining = payload.int("quotaRemaining")
         )
+    }
+
+    suspend fun chat(
+        messages: List<AiMessage>,
+        maxTokens: Int? = null,
+        temperature: Double? = null
+    ): AiTextResult {
+        val body = buildString {
+            append("{\"messages\":[")
+            messages.joinToString(separator = ",") { m ->
+                "{\"role\":${jsonString(m.role)},\"content\":${jsonString(m.content)}}"
+            }
+            append("]")
+            maxTokens?.let { append(",\"maxTokens\":$it") }
+            temperature?.let { append(",\"temperature\":$it") }
+            append("}")
+        }
+        val requestBody = body.toRequestBody(JSON_MEDIA)
+        val response = authed("/v1/chat", "POST") { requestBody }
+        return response.use {
+            val payload = readJsonObject(it, "chat")
+            AiTextResult(
+                text = payload.string("text").orEmpty(),
+                mock = payload.boolean("mock") ?: false,
+                quotaRemaining = payload.int("quotaRemaining")
+            )
+        }
+    }
+
+    suspend fun translate(
+        text: String,
+        targetLang: String = "id",
+        sourceLang: String? = null
+    ): AiTextResult {
+        val body = buildString {
+            append("{\"text\":").append(jsonString(text))
+            append(",\"targetLang\":").append(jsonString(targetLang))
+            if (!sourceLang.isNullOrBlank()) append(",\"sourceLang\":").append(jsonString(sourceLang))
+            append("}")
+        }
+        val requestBody = body.toRequestBody(JSON_MEDIA)
+        val response = authed("/v1/translate", "POST") { requestBody }
+        return response.use {
+            val payload = readJsonObject(it, "translate")
+            AiTextResult(
+                text = payload.string("text").orEmpty(),
+                mock = payload.boolean("mock") ?: false,
+                quotaRemaining = payload.int("quotaRemaining")
+            )
+        }
+    }
+
+    suspend fun weather(latitude: Double, longitude: Double): AiWeatherResult {
+        val response = authed("/v1/weather?lat=$latitude&lon=$longitude", "GET")
+        return response.use {
+            val payload = readJsonObject(it, "weather")
+            AiWeatherResult(
+                temperature = payload.long("temperature")?.toDouble() ?: 0.0,
+                condition = payload.string("condition").orEmpty(),
+                location = payload.string("location").orEmpty(),
+                mock = payload.boolean("mock") ?: false,
+                quotaRemaining = payload.int("quotaRemaining")
+            )
+        }
     }
 
     suspend fun startVideoJob(

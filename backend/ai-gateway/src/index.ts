@@ -3,9 +3,9 @@ import { isMockMode, num } from "./config";
 import { signDownload, verifyDownload } from "./downloads";
 import { ApiError, asApiError, binaryResponse, errorResponse, jsonResponse } from "./errors";
 import { issueInstallToken, requireInstallToken } from "./auth";
-import { enforceInstallRateLimit, enforceQuota, enforceRateLimit, quotaStatus } from "./limits";
+import { enforceInstallRateLimit, enforceQuota, enforceRateLimit, quotaStatus, QUOTA_COST } from "./limits";
 import { createVideoJob, refreshJob } from "./jobs";
-import { resolveProvider } from "./providers";
+import { resolveProvider, resolveTranslateProvider, resolveWeatherProvider } from "./providers";
 import {
   optionalFile,
   optionalString,
@@ -22,17 +22,6 @@ function constantTimeStringEquals(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
-
-/** Kuota berbobot per operasi (lihat limits.ts). */
-const QUOTA_COST = {
-  tts: 1,
-  chat: 1,
-  imageAnalyze: 1,
-  imageGenerate: 2,
-  imageEdit: 2,
-  speechToText: 2,
-  video: 5,
-} as const;
 
 function corsHeaders(env: Env): Record<string, string> {
   // Origin dapat dibatasi lewat ALLOWED_ORIGIN; default "*" aman karena semua endpoint data
@@ -289,6 +278,57 @@ async function route(request: Request, env: Env, requestId: string): Promise<Res
     return jsonResponse(
       {
         text: result.text,
+        mock: provider.mock,
+        quotaRemaining: Math.max(0, quota.limit - quota.used),
+      },
+      200,
+      requestId,
+    );
+  }
+
+  if (path === "/v1/translate" && method === "POST") {
+    const body = await readJson<{ text?: string; targetLang?: string; sourceLang?: string }>(request, 65536);
+    const text = requireString(body.text, "text", 4000);
+    const quota = await enforceQuota(env, auth.installId, QUOTA_COST.translate);
+    const provider = resolveTranslateProvider(env);
+    if (!provider.translate) throw new ApiError(501, "provider_not_configured", "Provider translate tidak tersedia");
+    const result = await provider.translate({
+      text,
+      targetLang: body.targetLang ?? "id",
+      sourceLang: body.sourceLang,
+    });
+    return jsonResponse(
+      {
+        text: result.text,
+        sourceLang: result.sourceLang,
+        mock: provider.mock,
+        quotaRemaining: Math.max(0, quota.limit - quota.used),
+      },
+      200,
+      requestId,
+    );
+  }
+
+  if (path === "/v1/weather" && method === "GET") {
+    const latStr = url.searchParams.get("lat");
+    const lonStr = url.searchParams.get("lon");
+    if (!latStr || !lonStr) {
+      throw new ApiError(400, "bad_request", "Parameter 'lat' dan 'lon' wajib diisi");
+    }
+    const latitude = Number(latStr);
+    const longitude = Number(lonStr);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new ApiError(400, "bad_request", "Parameter 'lat' dan 'lon' harus berupa angka");
+    }
+    const quota = await enforceQuota(env, auth.installId, QUOTA_COST.weather);
+    const provider = resolveWeatherProvider(env);
+    if (!provider.weather) throw new ApiError(501, "provider_not_configured", "Provider weather tidak tersedia");
+    const result = await provider.weather({ latitude, longitude });
+    return jsonResponse(
+      {
+        temperature: result.temperature,
+        condition: result.condition,
+        location: result.location,
         mock: provider.mock,
         quotaRemaining: Math.max(0, quota.limit - quota.used),
       },

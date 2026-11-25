@@ -5,6 +5,8 @@ import { cloudflareProvider } from "./cloudflare";
 import { mockProvider } from "./mock";
 import { replicateVideoProvider } from "./replicate";
 import { openaiCompatibleProvider } from "./openai-compatible";
+import { translationProvider } from "./translation";
+import { weatherProvider } from "./weather";
 import { chainProvider } from "./chain";
 import type { Capability, Provider } from "./types";
 
@@ -51,14 +53,59 @@ const EXTERNAL_PROVIDERS: Array<{
   { id: "servernusa", baseUrlKey: "SERVERSUSA_BASE_URL", apiKeyKey: "SERVERSUSA_API_KEY", modelKey: "SERVERSUSA_MODEL", defaultModel: "nusa/deepseek-v4.1-flash-free" },
 ];
 
+/** Daftar provider Translation API dari atas ke bawah. */
+const EXTERNAL_TRANSLATION: Array<{
+  id: string;
+  baseUrlKey: string;
+  apiKeyKey?: string;
+}> = [
+  { id: "libretranslate", baseUrlKey: "TRANSLATE_BASE_URL", apiKeyKey: "TRANSLATE_API_KEY" },
+];
+
+/** Daftar provider Weather API dari atas ke bawah. */
+const EXTERNAL_WEATHER: Array<{
+  id: string;
+  baseUrlKey: string;
+  apiKeyKey?: string;
+}> = [
+  { id: "openmeteo", baseUrlKey: "WEATHER_BASE_URL", apiKeyKey: "WEATHER_API_KEY" },
+];
+
 function buildExternalProviders(env: Env): Provider[] {
   const providers: Provider[] = [];
+  const envRecord = env as unknown as Record<string, string | undefined>;
   for (const p of EXTERNAL_PROVIDERS) {
-    // Hanya tambahkan provider jika base URL dan API key tersedia
-    const envRecord = env as unknown as Record<string, string | undefined>;
     if (!envRecord[p.baseUrlKey] || !envRecord[p.apiKeyKey]) continue;
     try {
       providers.push(openaiCompatibleProvider(env, p.id, p.baseUrlKey, p.apiKeyKey, p.modelKey, p.defaultModel));
+    } catch {
+      // Provider tidak dikonfigurasi dengan lengkap, lewati
+    }
+  }
+  return providers;
+}
+
+function buildExternalTranslation(env: Env): Provider[] {
+  const providers: Provider[] = [];
+  const envRecord = env as unknown as Record<string, string | undefined>;
+  for (const p of EXTERNAL_TRANSLATION) {
+    if (!envRecord[p.baseUrlKey]) continue;
+    try {
+      providers.push(translationProvider(env, p.id, p.baseUrlKey, p.apiKeyKey, envRecord["TRANSLATE_DEFAULT_TARGET"] ?? "id"));
+    } catch {
+      // Provider tidak dikonfigurasi dengan lengkap, lewati
+    }
+  }
+  return providers;
+}
+
+function buildExternalWeather(env: Env): Provider[] {
+  const providers: Provider[] = [];
+  const envRecord = env as unknown as Record<string, string | undefined>;
+  for (const p of EXTERNAL_WEATHER) {
+    if (!envRecord[p.baseUrlKey]) continue;
+    try {
+      providers.push(weatherProvider(env, p.id, p.baseUrlKey, p.apiKeyKey));
     } catch {
       // Provider tidak dikonfigurasi dengan lengkap, lewati
     }
@@ -101,8 +148,38 @@ export function resolveProvider(env: Env, capability: Capability): Provider {
   return chainProvider(providers);
 }
 
+export function resolveTranslateProvider(env: Env): Provider {
+  if (isMockMode(env)) return mockProvider;
+
+  const external = buildExternalTranslation(env);
+  if (external.length === 0) {
+    throw new ApiError(
+      501,
+      "provider_not_configured",
+      "Tidak ada provider Translation yang tersedia. Isi TRANSLATE_BASE_URL di wrangler.toml dan TRANSLATE_API_KEY lewat wrangler secret put."
+    );
+  }
+  return chainProvider(external);
+}
+
+export function resolveWeatherProvider(env: Env): Provider {
+  if (isMockMode(env)) return mockProvider;
+
+  const external = buildExternalWeather(env);
+  if (external.length === 0) {
+    throw new ApiError(
+      501,
+      "provider_not_configured",
+      "Tidak ada provider Weather yang tersedia. Isi WEATHER_BASE_URL di wrangler.toml dan WEATHER_API_KEY lewat wrangler secret put (opsional untuk Open-Meteo)."
+    );
+  }
+  return chainProvider(external);
+}
+
 export * from "./types";
 export { cloudflareProvider } from "./cloudflare";
 export { mockProvider } from "./mock";
 export { openaiCompatibleProvider } from "./openai-compatible";
 export { chainProvider } from "./chain";
+export { translationProvider } from "./translation";
+export { weatherProvider } from "./weather";

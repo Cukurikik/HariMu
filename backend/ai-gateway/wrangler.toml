@@ -39,72 +39,12 @@ CF_IMAGE_EDIT_MODEL = "@cf/runwayml/stable-diffusion-v1-5-img2img"
 CF_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 CF_ASR_MODEL = "@cf/openai/whisper"
 
-# =============================================================================
-# Provider eksternal OpenAI-compatible (fallback bila Cloudflare free tier habis).
-# Base URL dan model default di [vars]; API key TIDAK ada di repo — isi lewat:
-#   npx wrangler secret put <PROVIDER>_API_KEY
-# Urutan di daftar ini menentukan prioritas fallback (dari atas ke bawah).
-# =============================================================================
+# Translation API (LibreTranslate / Google Translate compatible)
+TRANSLATE_BASE_URL = "https://libretranslate.de"
+TRANSLATE_DEFAULT_TARGET = "id"
 
-# 1. AION LABS
-AION_BASE_URL = "https://api.aionlabs.ai/v1"
-AION_MODEL = "aion-labs/aion-2.0"
-
-# 2. Gonka Broker
-GONKA_BASE_URL = "https://proxy.gonkabroker.com/v1"
-GONKA_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
-
-# 3. Groq
-GROQ_BASE_URL = "https://api.groq.com/openai/v1"
-GROQ_MODEL = "openai/gpt-oss-120b"
-
-# 4. NVIDIA Models AI
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = "deepseek-ai/deepseek-v4.1-flash"
-
-# 5. RunCreate
-RUNCRATE_BASE_URL = "https://api.runcrate.ai/v1"
-RUNCRATE_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
-
-# 6. Opencode
-OPENCODE_BASE_URL = "https://opencode.ai/inference/openai/v1/chat/completions"
-OPENCODE_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash Free"
-
-# 7. Agnes AI
-AGNES_BASE_URL = "https://apihub.agnes-ai.com/v1"
-AGNES_MODEL = "agnes-2.5-flash"
-
-# 8. Requesty AI
-REQUESTY_BASE_URL = "https://router.requesty.ai/v1"
-REQUESTY_MODEL = "nemotron-3.5-lightning-30b-a3b"
-
-# 9. AMD AI Models
-AMD_BASE_URL = "https://api.tokenlab.amd.com/v1"
-AMD_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
-
-# 10. Coarena
-COARENA_BASE_URL = "https://coarena.ai/api/v1"
-COARENA_MODEL = "deepseek-ai/deepseek-v4-flash-0731"
-
-# 11. B.AI
-BAI_BASE_URL = "https://api.b.ai/v1"
-BAI_MODEL = "deepseek-v4-flash"
-
-# 12. Inferx AI
-INFERX_BASE_URL = "https://model.inferx.net/endpoints/v1"
-INFERX_MODEL = "deepseek-v4-flash-0731"
-
-# 13. Xkiro AI
-XKIRO_BASE_URL = "https://api.xkiro.com/v1"
-XKIRO_MODEL = "deepseek-v4-flash-0731"
-
-# 14. Blueminds AI
-BLUEMINDS_BASE_URL = "https://api.bluesminds.com/v1"
-BLUEMINDS_MODEL = "deepseek-v4-flash-0731"
-
-# 15. Servernusa
-SERVERSUSA_BASE_URL = "https://ai.servernusa.com"
-SERVERSUSA_MODEL = "nusa/deepseek-v4.1-flash-free"
+# Weather API (Open-Meteo / WeatherAPI.com compatible)
+WEATHER_BASE_URL = "https://api.open-meteo.com"
 
 # Batasi origin bila ada pemanggil browser (aplikasi Android tidak mengirim Origin).
 # ALLOWED_ORIGIN = "https://harimu.example"

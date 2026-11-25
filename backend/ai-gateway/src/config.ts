@@ -82,6 +82,15 @@ export interface Env {
   SERVERSUSA_API_KEY?: string;
   SERVERSUSA_MODEL?: string;
 
+  // Translation API (LibreTranslate / Google Translate compatible)
+  TRANSLATE_BASE_URL?: string;
+  TRANSLATE_API_KEY?: string;
+  TRANSLATE_DEFAULT_TARGET?: string;
+
+  // Weather API (Open-Meteo / WeatherAPI.com compatible)
+  WEATHER_BASE_URL?: string;
+  WEATHER_API_KEY?: string;
+
   RATE_LIMIT_PER_MIN?: string;
   DAILY_QUOTA?: string;
   MAX_UPLOAD_BYTES?: string;

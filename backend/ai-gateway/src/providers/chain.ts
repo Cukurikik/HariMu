@@ -5,8 +5,12 @@
  */
 
 import type { Provider } from "./types";
-import type { TtsRequest, ImageRequest, ImageEditRequest, AnalyzeRequest, AsrRequest, VideoRequest, ChatRequest, ChatResponse, ProviderResult } from "./types";
-import type { VideoStart, VideoPoll } from "./types";
+import type {
+  TtsRequest, ImageRequest, ImageEditRequest, AnalyzeRequest, AsrRequest,
+  VideoRequest, ChatRequest, ChatResponse, ProviderResult,
+  TranslateRequest, TranslateResponse, WeatherRequest, WeatherResponse,
+  VideoStart, VideoPoll,
+} from "./types";
 
 function firstAvailable<T>(providers: Provider[], fn: (p: Provider) => Promise<T>): Promise<T> {
   return (async () => {
@@ -58,6 +62,14 @@ export function chainProvider(providers: Provider[]): Provider {
 
     async chat(request: ChatRequest): Promise<ChatResponse> {
       return firstAvailable(providers, (p) => p.chat?.(request) ?? Promise.reject(new Error(`Provider ${p.id} tidak mendukung chat`)));
+    },
+
+    async translate(request: TranslateRequest): Promise<TranslateResponse> {
+      return firstAvailable(providers, (p) => p.translate?.(request) ?? Promise.reject(new Error(`Provider ${p.id} tidak mendukung translate`)));
+    },
+
+    async weather(request: WeatherRequest): Promise<WeatherResponse> {
+      return firstAvailable(providers, (p) => p.weather?.(request) ?? Promise.reject(new Error(`Provider ${p.id} tidak mendukung weather`)));
     },
   };
 }
