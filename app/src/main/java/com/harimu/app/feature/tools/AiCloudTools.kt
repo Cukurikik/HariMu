@@ -6,9 +6,11 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Colorize
+import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.FaceRetouchingNatural
 import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Landscape
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -399,10 +401,12 @@ private fun imageGeneratorTool(): Tool = object : Tool {
     }.flowOn(Dispatchers.IO)
 }
 
-// ---------------------------------------------------------------- CORE-05 (AI Chat)
+// ---------------------------------------------------------------- CORE-10 (AI Chat)
+// Catatan Fase 15: ID lama CORE-05 bertabrakan dengan Screen Recorder sehingga tool ini
+// dibuang diam-diam oleh `distinctBy` di ToolRegistry. ID baru wajib unik.
 
 private fun chatTool(): Tool = object : Tool {
-    override val id = "CORE-05"
+    override val id = "CORE-10"
     override val group = ToolGroup.CORE
     override val engineLabel = "CL"
     override val icon = Icons.Filled.AutoAwesome
@@ -454,10 +458,10 @@ private fun chatTool(): Tool = object : Tool {
     }.flowOn(Dispatchers.IO)
 }
 
-// ---------------------------------------------------------------- CORE-06 (AI Translate)
+// ---------------------------------------------------------------- CORE-11 (AI Translate)
 
 private fun translateTool(): Tool = object : Tool {
-    override val id = "CORE-06"
+    override val id = "CORE-11"
     override val group = ToolGroup.CORE
     override val engineLabel = "CL"
     override val icon = Icons.Filled.Colorize
@@ -511,47 +515,56 @@ private fun translateTool(): Tool = object : Tool {
     }.flowOn(Dispatchers.IO)
 }
 
-// ---------------------------------------------------------------- CORE-07 (AI Weather)
+// ---------------------------------------------------------------- CORE-12 (AI Weather)
+
+private val COORDINATE_INPUT = Regex("^\\s*(-?\\d+(?:\\.\\d+)?)\\s*,\\s*(-?\\d+(?:\\.\\d+)?)\\s*$")
 
 private fun weatherTool(): Tool = object : Tool {
-    override val id = "CORE-07"
+    override val id = "CORE-12"
     override val group = ToolGroup.CORE
     override val engineLabel = "CL"
     override val icon = Icons.Filled.Landscape
     override val inputSpec = InputSpec.TextInput(
-        hintId = "Contoh: -6.2,106.8 (latitude,longitude)",
-        hintEn = "Example: -6.2,106.8 (latitude,longitude)",
-        sample = "-6.2,106.8"
+        hintId = "Nama kota atau koordinat, contoh: Jakarta",
+        hintEn = "City name or coordinates, e.g. Jakarta",
+        sample = "Jakarta"
     )
     override val requiresNetwork = true
     override val params = emptyList()
 
     override fun title(isEnglish: Boolean) = if (isEnglish) "AI Weather" else "Cuaca AI"
     override fun description(isEnglish: Boolean) = if (isEnglish) {
-        "Current weather through the gateway (Open-Meteo). Masukkan latitude dan longitude."
+        "Current weather through the gateway (Open-Meteo). Enter a city name or latitude,longitude; the gateway geocodes the name."
     } else {
-        "Cuaca terkini lewat gateway (Open-Meteo). Masukkan latitude dan longitude."
+        "Cuaca terkini lewat gateway (Open-Meteo). Masukkan nama kota atau latitude,longitude; gateway yang melakukan geocoding."
     }
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val client = ctx.aiOrFail()
         val raw = input.textInput.trim()
-        require(raw.isNotEmpty()) { "Masukkan latitude dan longitude (contoh: -6.2,106.8)" }
-        val parts = raw.split(",").map { it.trim() }
-        require(parts.size == 2) { "Format harus latitude,longitude (contoh: -6.2,106.8)" }
-        val lat = parts[0].toDoubleOrNull()
-            ?: throw IllegalArgumentException("Latitude tidak valid: ${parts[0]}")
-        val lon = parts[1].toDoubleOrNull()
-            ?: throw IllegalArgumentException("Longitude tidak valid: ${parts[1]}")
-        emit(ToolProgress.Running(20, "Mengambil data cuaca ke gateway…"))
-        val result = client.weather(lat, lon)
+        require(raw.isNotEmpty()) {
+            if (ctx.isEnglish) "Enter a city name or latitude,longitude" else "Masukkan nama kota atau latitude,longitude"
+        }
+        val coordinates = COORDINATE_INPUT.find(raw)
+        val result = if (coordinates != null) {
+            val lat = coordinates.groupValues[1].toDoubleOrNull()
+                ?: throw IllegalArgumentException("Latitude tidak valid")
+            val lon = coordinates.groupValues[2].toDoubleOrNull()
+                ?: throw IllegalArgumentException("Longitude tidak valid")
+            emit(ToolProgress.Running(20, "Mengambil data cuaca ke gateway…"))
+            client.weather(lat, lon)
+        } else {
+            emit(ToolProgress.Running(20, "Mencari lokasi \"$raw\" lalu mengambil cuaca…"))
+            client.weatherAtPlace(raw)
+        }
+        val text = """Cuaca di ${result.location}: ${result.temperature}°C, ${result.condition}""".trimIndent()
         val dest = ctx.storage.createOutputFile("AI_WEATHER", "txt")
-        dest.writeText("""Cuaca di ${result.location}: ${result.temperature}°C, ${result.condition}""".trimIndent())
+        dest.writeText(text)
         emit(
             ToolProgress.Done(
                 ToolResult(
                     outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
-                    textOutput = "Cuaca di ${result.location}: ${result.temperature}°C, ${result.condition}",
+                    textOutput = text,
                     summary = if (result.mock) {
                         "Cuaca MOCK (tanpa model sungguhan)"
                     } else {
@@ -562,6 +575,157 @@ private fun weatherTool(): Tool = object : Tool {
         )
     }.flowOn(Dispatchers.IO)
 }
+
+// ------------------------------------------- CORE-13 & CORE-14 (utilitas data publik)
+
+/** Mata uang yang didukung dropdown. Frankfurter memakai kode ISO-4217. */
+private val CURRENCY_CODES = listOf("IDR", "USD", "EUR", "SGD", "MYR", "JPY", "GBP", "AUD", "CNY", "SAR")
+
+private fun formatRate(rate: Double): String = when {
+    rate >= 100 -> String.format(Locale.US, "%.2f", rate)
+    rate >= 1 -> String.format(Locale.US, "%.4f", rate)
+    else -> String.format(Locale.US, "%.6f", rate)
+}
+
+private fun exchangeRateTool(): Tool = object : Tool {
+    override val id = "CORE-13"
+    override val group = ToolGroup.CORE
+    override val engineLabel = "CL"
+    override val icon = Icons.Filled.CurrencyExchange
+    override val inputSpec = InputSpec.TextInput(
+        hintId = "Jumlah, contoh: 100",
+        hintEn = "Amount, e.g. 100",
+        sample = "100"
+    )
+    override val requiresNetwork = true
+    override val params = listOf(
+        ToolParam.DropdownParam("base", "Dari", "From", CURRENCY_CODES, "IDR"),
+        ToolParam.DropdownParam("target", "Ke", "To", CURRENCY_CODES, "USD")
+    )
+
+    override fun title(isEnglish: Boolean) = if (isEnglish) "Currency Converter" else "Konversi Mata Uang"
+    override fun description(isEnglish: Boolean) = if (isEnglish) {
+        "Reference exchange rates (Frankfurter / central banks) through the gateway. Daily reference rates, not live quotes."
+    } else {
+        "Kurs referensi (Frankfurter / bank sentral) lewat gateway. Kurs harian, bukan kuotasi langsung."
+    }
+
+    override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+        val client = ctx.aiOrFail()
+        val amount = input.textInput.trim().ifBlank { "1" }.replace(",", ".").toDoubleOrNull()
+            ?: throw IllegalArgumentException(
+                if (ctx.isEnglish) "Amount must be a number, e.g. 100" else "Jumlah harus berupa angka, contoh: 100"
+            )
+        require(amount > 0) {
+            if (ctx.isEnglish) "Amount must be greater than zero" else "Jumlah harus lebih dari nol"
+        }
+        val base = input.getString("base", "IDR")
+        val target = input.getString("target", "USD")
+        require(base != target) {
+            if (ctx.isEnglish) "Pick a target currency different from the source" else "Pilih mata uang tujuan yang berbeda dari sumber"
+        }
+        emit(ToolProgress.Running(20, "Mengambil kurs $base → $target…"))
+        val result = client.exchangeRates(base, listOf(target))
+        val rate = result.rates[target]
+            ?: throw IllegalStateException(
+                if (ctx.isEnglish) "The gateway returned no rate for $target" else "Gateway tidak mengembalikan kurs untuk $target"
+            )
+        val converted = amount * rate
+        val text = buildString {
+            appendLine(String.format(Locale.US, "%,.2f %s = %,.2f %s", amount, base, converted, target))
+            appendLine("1 $base = ${formatRate(rate)} $target")
+            appendLine(
+                if (result.mock) {
+                    if (ctx.isEnglish) "MOCK rate — not real data" else "Kurs MOCK — bukan data nyata"
+                } else {
+                    "Kurs referensi ${result.date} • ${result.source}"
+                }
+            )
+        }.trim()
+        val dest = ctx.storage.createOutputFile("AI_RATES", "txt")
+        dest.writeText(text)
+        emit(
+            ToolProgress.Done(
+                ToolResult(
+                    outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
+                    textOutput = text,
+                    summary = if (result.mock) {
+                        "Kurs MOCK — bukan data nyata"
+                    } else {
+                        "Kurs ${result.date} • sisa kuota: ${result.quotaRemaining ?: 0}"
+                    }
+                )
+            )
+        )
+    }.flowOn(Dispatchers.IO)
+}
+
+private fun dictionaryTool(): Tool = object : Tool {
+    override val id = "CORE-14"
+    override val group = ToolGroup.CORE
+    override val engineLabel = "CL"
+    override val icon = Icons.Filled.MenuBook
+    override val inputSpec = InputSpec.TextInput(
+        hintId = "Kata, contoh: hello",
+        hintEn = "Word, e.g. hello",
+        sample = "hello"
+    )
+    override val requiresNetwork = true
+    override val params = listOf(
+        ToolParam.DropdownParam(
+            "lang", "Bahasa", "Language",
+            listOf("en", "hi", "es", "fr", "ja", "ru", "de", "it", "ko", "pt", "ar", "tr"), "en"
+        )
+    )
+
+    override fun title(isEnglish: Boolean) = if (isEnglish) "Dictionary" else "Kamus"
+    override fun description(isEnglish: Boolean) = if (isEnglish) {
+        "Definitions from Wiktionary through the gateway (dictionaryapi.dev). Not every word or language has an entry."
+    } else {
+        "Definisi dari Wiktionary lewat gateway (dictionaryapi.dev). Tidak semua kata/bahasa punya entri."
+    }
+
+    override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+        val client = ctx.aiOrFail()
+        val word = input.textInput.trim()
+        require(word.isNotEmpty()) {
+            if (ctx.isEnglish) "Type the word to look up" else "Tulis kata yang ingin dicari"
+        }
+        val language = input.getString("lang", "en")
+        emit(ToolProgress.Running(20, "Mencari \"$word\" di kamus $language…"))
+        val result = client.dictionary(word, language)
+        val text = buildString {
+            appendLine(listOf(result.word, result.phonetic.orEmpty()).filter { it.isNotBlank() }.joinToString(" "))
+            result.meanings.forEach { meaning ->
+                appendLine()
+                if (meaning.partOfSpeech.isNotBlank()) appendLine(meaning.partOfSpeech)
+                meaning.definitions.forEachIndexed { index, definition ->
+                    appendLine("${index + 1}. $definition")
+                }
+            }
+            appendLine()
+            append(result.source)
+        }.trim()
+        val dest = ctx.storage.createOutputFile("AI_DICTIONARY", "txt")
+        dest.writeText(text)
+        emit(
+            ToolProgress.Done(
+                ToolResult(
+                    outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
+                    textOutput = text,
+                    summary = if (result.mock) {
+                        "Kamus MOCK — bukan data Wiktionary"
+                    } else {
+                        "${result.word} • ${result.meanings.size} makna • sisa kuota: ${result.quotaRemaining ?: 0}"
+                    }
+                )
+            )
+        )
+    }.flowOn(Dispatchers.IO)
+}
+
+/** Utilitas data publik yang tidak butuh kunci API di APK (lewat gateway). */
+fun utilityApiTools(): List<Tool> = listOf(exchangeRateTool(), dictionaryTool())
 
 // ------------------------------------------------------- IMG-13..18, 20
 

@@ -6,6 +6,9 @@ import { issueInstallToken, requireInstallToken } from "./auth";
 import { enforceInstallRateLimit, enforceQuota, enforceRateLimit, quotaStatus, QUOTA_COST } from "./limits";
 import { createVideoJob, refreshJob } from "./jobs";
 import { resolveProvider, resolveTranslateProvider, resolveWeatherProvider } from "./providers";
+import { geocodePlace } from "./providers/geocoding";
+import { exchangeRates } from "./providers/rates";
+import { lookupWord } from "./providers/dictionary";
 import {
   optionalFile,
   optionalString,
@@ -309,17 +312,105 @@ async function route(request: Request, env: Env, requestId: string): Promise<Res
     );
   }
 
+  if (path === "/v1/geocode" && method === "GET") {
+    const query = (url.searchParams.get("q") ?? "").trim();
+    if (!query) {
+      throw new ApiError(400, "bad_request", "Parameter 'q' (nama tempat) wajib diisi");
+    }
+    const language = url.searchParams.get("lang") ?? "id";
+    const quota = await enforceQuota(env, auth.installId, QUOTA_COST.geocode);
+    const place = await geocodePlace(env, query, language);
+    return jsonResponse(
+      {
+        name: place.name,
+        label: place.label,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        country: place.country,
+        admin1: place.admin1,
+        timezone: place.timezone,
+        mock: place.mock === true,
+        attribution: "Open-Meteo Geocoding (CC BY 4.0)",
+        quotaRemaining: Math.max(0, quota.limit - quota.used),
+      },
+      200,
+      requestId,
+    );
+  }
+
+  if (path === "/v1/rates" && method === "GET") {
+    const base = (url.searchParams.get("base") ?? "IDR").trim();
+    const symbolsRaw = (url.searchParams.get("symbols") ?? "").trim();
+    if (!symbolsRaw) {
+      throw new ApiError(400, "bad_request", "Parameter 'symbols' wajib diisi (mis. USD,EUR)");
+    }
+    const symbols = symbolsRaw.split(",").map((code) => code.trim()).filter(Boolean);
+    const quota = await enforceQuota(env, auth.installId, QUOTA_COST.rates);
+    const result = await exchangeRates(env, base, symbols);
+    return jsonResponse(
+      {
+        base: result.base,
+        date: result.date,
+        rates: result.rates,
+        source: result.source,
+        mock: result.mock === true,
+        attribution: "Frankfurter — kurs referensi bank sentral",
+        quotaRemaining: Math.max(0, quota.limit - quota.used),
+      },
+      200,
+      requestId,
+    );
+  }
+
+  if (path === "/v1/dictionary" && method === "GET") {
+    const word = (url.searchParams.get("word") ?? "").trim();
+    if (!word) {
+      throw new ApiError(400, "bad_request", "Parameter 'word' wajib diisi");
+    }
+    const language = url.searchParams.get("lang") ?? "en";
+    const quota = await enforceQuota(env, auth.installId, QUOTA_COST.dictionary);
+    const result = await lookupWord(env, word, language);
+    return jsonResponse(
+      {
+        word: result.word,
+        phonetic: result.phonetic,
+        meanings: result.meanings,
+        source: result.source,
+        mock: result.mock === true,
+        attribution: result.source,
+        quotaRemaining: Math.max(0, quota.limit - quota.used),
+      },
+      200,
+      requestId,
+    );
+  }
+
   if (path === "/v1/weather" && method === "GET") {
     const latStr = url.searchParams.get("lat");
     const lonStr = url.searchParams.get("lon");
-    if (!latStr || !lonStr) {
-      throw new ApiError(400, "bad_request", "Parameter 'lat' dan 'lon' wajib diisi");
+    const placeQuery = (url.searchParams.get("q") ?? "").trim();
+
+    let latitude: number;
+    let longitude: number;
+    let locationLabel = "";
+
+    if (placeQuery) {
+      // Geocoding di dalam /v1/weather tidak menagih kuota terpisah: satu permintaan = satu kredit.
+      const place = await geocodePlace(env, placeQuery, url.searchParams.get("lang") ?? "id");
+      latitude = place.latitude;
+      longitude = place.longitude;
+      locationLabel = place.label;
+    } else {
+      if (!latStr || !lonStr) {
+        throw new ApiError(400, "bad_request", "Isi 'q' (nama tempat) atau 'lat'+'lon'");
+      }
+      latitude = Number(latStr);
+      longitude = Number(lonStr);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        throw new ApiError(400, "bad_request", "Parameter 'lat' dan 'lon' harus berupa angka");
+      }
     }
-    const latitude = Number(latStr);
-    const longitude = Number(lonStr);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      throw new ApiError(400, "bad_request", "Parameter 'lat' dan 'lon' harus berupa angka");
-    }
+
     const quota = await enforceQuota(env, auth.installId, QUOTA_COST.weather);
     const provider = resolveWeatherProvider(env);
     if (!provider.weather) throw new ApiError(501, "provider_not_configured", "Provider weather tidak tersedia");
@@ -328,8 +419,9 @@ async function route(request: Request, env: Env, requestId: string): Promise<Res
       {
         temperature: result.temperature,
         condition: result.condition,
-        location: result.location,
+        location: locationLabel || result.location,
         mock: provider.mock,
+        attribution: "Open-Meteo (CC BY 4.0)",
         quotaRemaining: Math.max(0, quota.limit - quota.used),
       },
       200,

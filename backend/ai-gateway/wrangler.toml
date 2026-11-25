@@ -46,6 +46,11 @@ TRANSLATE_DEFAULT_TARGET = "id"
 # Weather API (Open-Meteo / WeatherAPI.com compatible)
 WEATHER_BASE_URL = "https://api.open-meteo.com"
 
+# Utilitas tanpa kunci (geocoding Open-Meteo CC BY 4.0, kurs Frankfurter, kamus dictionaryapi.dev).
+GEOCODE_BASE_URL = "https://geocoding-api.open-meteo.com"
+RATES_BASE_URL = "https://api.frankfurter.dev"
+DICTIONARY_BASE_URL = "https://api.dictionaryapi.dev"
+
 # Batasi origin bila ada pemanggil browser (aplikasi Android tidak mengirim Origin).
 # ALLOWED_ORIGIN = "https://harimu.example"
 

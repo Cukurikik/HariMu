@@ -12,20 +12,32 @@ import com.harimu.app.feature.tools.pdfVaultTools
 import com.harimu.app.feature.tools.stubAudioTools
 import com.harimu.app.feature.tools.stubImageTools
 import com.harimu.app.feature.tools.stubVideoTools
+import com.harimu.app.feature.tools.utilityApiTools
 import com.harimu.app.feature.tools.videoTools
 
 object ToolRegistry {
 
-    val allTools: List<Tool> by lazy {
-        val combined = coreTools() + aiCloudTools() +
+    /** Daftar mentah sebelum dedup — dipakai [duplicateIds] untuk menangkap tabrakan ID. */
+    private val requestedTools: List<Tool> by lazy {
+        coreTools() + aiCloudTools() + utilityApiTools() +
             aiLocalTools() +
             videoTools() + stubVideoTools() +
             audioTools() + stubAudioTools() +
             imageTools() + stubImageTools() +
             pdfVaultTools() +
             converterTools() + converterSuiteTools()
+    }
 
-        combined.distinctBy { it.id }.sortedWith(
+    /**
+     * ID yang didaftarkan lebih dari sekali. `allTools` memakai `distinctBy`, jadi tanpa pemeriksaan
+     * ini tool kedua dengan ID sama akan hilang diam-diam dari registry (pernah terjadi pada
+     * CORE-05/06/07 di Fase 11). Tes regresi wajib memastikan daftar ini kosong.
+     */
+    fun duplicateIds(): List<String> =
+        requestedTools.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys.sorted()
+
+    val allTools: List<Tool> by lazy {
+        requestedTools.distinctBy { it.id }.sortedWith(
             compareBy<Tool>(
                 { it.group.ordinal },
                 { it.id.substringAfter('-', "0").toIntOrNull() ?: 0 },

@@ -91,6 +91,11 @@ export interface Env {
   WEATHER_BASE_URL?: string;
   WEATHER_API_KEY?: string;
 
+  // Utilitas tanpa kunci (semuanya boleh diganti lewat [vars])
+  GEOCODE_BASE_URL?: string;
+  RATES_BASE_URL?: string;
+  DICTIONARY_BASE_URL?: string;
+
   RATE_LIMIT_PER_MIN?: string;
   DAILY_QUOTA?: string;
   MAX_UPLOAD_BYTES?: string;

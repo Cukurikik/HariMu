@@ -20,6 +20,11 @@
 | CORE-07 | Key Vault | NAT | P14 | 🟡 | ✅ | AES 128/256 AndroidKeyStore non-ekspor; RSA 2048/3072/4096 & ECDSA P-256/384/521 dengan private key disegel kunci master Keystore; ekspor PEM digerbangi kredensial perangkat; enkripsi/dekripsi berkas AES-GCM; tanda tangan SHA256withRSA/ECDSA + verifikasi. Batas: gerbang di UI, bukan `setUserAuthenticationRequired` |
 | CORE-08 | Workspace Backup (.omni) | NAT | P14 | 🟢 | ✅ | ZIP + `manifest.json` skema 2; setelan/favorit/riwayat (+ metadata kunci); enkripsi `OMNIENC2` AES-GCM, PBKDF2-HMAC-SHA256 310k; impor menerima `OMNIENC1` & ZIP v1 lalu migrasi. Batas: private key tidak diekspor; maks 500 riwayat |
 | CORE-09 | Settings & Cloud Connections | LIB | P2 (UI) / P14 (cloud) | 🟡 | ✅ | S3/R2 SigV4 PUT (path-style), Drive OAuth PKCE scope `drive.file`, Dropbox OAuth PKCE, REST kustom; kredensial disegel SecretBox (AES-256-GCM Keystore); tes koneksi; antrean unggah persisten + retry 2s/8s/30s (3×); tombol “Unggah ke cloud” di ResultCard. Batas: tanpa multipart >5 GB, tanpa resumable Drive, token refresh manual-trigger |
+| CORE-10 | AI Chat | CL | P15 | 🟢 | ✅ (butuh gateway) | Sebelumnya ID `CORE-05` bertabrakan dengan Screen Recorder sehingga tool tidak pernah terdaftar; ID dipindah di Fase 15 |
+| CORE-11 | AI Translate | CL | P15 | 🟢 | ✅ (butuh gateway) | Sebelumnya `CORE-06` (bentrok Voice Recorder). Provider: LibreTranslate-compatible/LLM di gateway; hasil MOCK ditandai |
+| CORE-12 | AI Weather | CL | P15 | 🟢 | ✅ (butuh gateway) | Sebelumnya `CORE-07` (bentrok Key Vault). Menerima nama kota (geocoding Open-Meteo) atau `lat,lon`; atribusi CC BY 4.0 |
+| CORE-13 | Konversi Mata Uang | CL | P15 | 🟢 | ✅ (butuh gateway) | Kurs referensi Frankfurter (bank sentral) + tanggal; cache 12 jam di Worker. Bukan kurs live |
+| CORE-14 | Kamus | CL | P15 | 🟢 | ✅ (butuh gateway) | dictionaryapi.dev/Wiktionary (CC BY-SA), 12 bahasa, cache 7 hari; kegagalan provider ditampilkan sebagai kegagalan |
 
 ## 2. Video Forge
 
@@ -208,13 +213,13 @@
 
 | Grup | Jumlah tool | Fase |
 |---|---|---|
-| Core | 9 | P2, P5, P11, P14 |
+| Core | 14 | P2, P5, P11, P14, P15 |
 | Video Forge | 30 | P4, P5, P11 |
 | Audio Forge/Studio | 28 | P6, P7, P8, P11 |
 | Image Forge/Matrix | 47 | P9, P10, P11 |
 | PDF Vault | 21 | P12 |
 | Universal Converter | 28 | P13 |
-| **Total entri** | **163** (±145 implementasi unik setelah alias digabung) | |
+| **Total entri** | **168** (±150 implementasi unik setelah alias digabung) | |
 
 ## Item yang butuh keputusan Andikaa sebelum dikerjakan
 

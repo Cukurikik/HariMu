@@ -12,7 +12,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -27,6 +29,8 @@ import okio.BufferedSink
 import java.io.File
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
@@ -107,6 +111,31 @@ data class AiWeatherResult(
     val temperature: Double,
     val condition: String,
     val location: String,
+    val mock: Boolean,
+    val quotaRemaining: Int?
+)
+
+/** Kurs referensi (Frankfurter/bank sentral) dari gateway. */
+data class AiRatesResult(
+    val base: String,
+    val date: String,
+    val rates: Map<String, Double>,
+    val source: String,
+    val mock: Boolean,
+    val quotaRemaining: Int?
+)
+
+data class AiDictionaryMeaning(
+    val partOfSpeech: String,
+    val definitions: List<String>
+)
+
+/** Definisi kamus (Wiktionary via dictionaryapi.dev) dari gateway. */
+data class AiDictionaryResult(
+    val word: String,
+    val phonetic: String?,
+    val meanings: List<AiDictionaryMeaning>,
+    val source: String,
     val mock: Boolean,
     val quotaRemaining: Int?
 )
@@ -453,12 +482,80 @@ class AiClient(
 
     suspend fun weather(latitude: Double, longitude: Double): AiWeatherResult {
         val response = authed("/v1/weather?lat=$latitude&lon=$longitude", "GET")
+        return response.use { readWeather(it) }
+    }
+
+    /** Cuaca berdasarkan nama tempat; gateway melakukan geocoding Open-Meteo. */
+    suspend fun weatherAtPlace(place: String): AiWeatherResult {
+        val encoded = URLEncoder.encode(place.trim(), "UTF-8")
+        val response = authed("/v1/weather?q=$encoded", "GET")
+        return response.use { readWeather(it) }
+    }
+
+    private suspend fun readWeather(response: Response): AiWeatherResult {
+        val payload = readJsonObject(response, "weather")
+        val temperature = payload["temperature"]?.jsonPrimitive?.doubleOrNull
+            ?: payload.long("temperature")?.toDouble()
+            ?: 0.0
+        return AiWeatherResult(
+            temperature = temperature,
+            condition = payload.string("condition").orEmpty(),
+            location = payload.string("location").orEmpty(),
+            mock = payload.boolean("mock") ?: false,
+            quotaRemaining = payload.int("quotaRemaining")
+        )
+    }
+
+    /** Kurs referensi harian; `targets` maksimal 8 kode ISO-4217. */
+    suspend fun exchangeRates(base: String, targets: List<String>): AiRatesResult {
+        val baseCode = base.trim().uppercase(Locale.US)
+        val symbols = targets
+            .map { it.trim().uppercase(Locale.US) }
+            .filter { it.isNotBlank() && it != baseCode }
+            .distinct()
+            .joinToString(",")
+        require(symbols.isNotEmpty()) { "Pilih minimal satu mata uang tujuan yang berbeda" }
+        val response = authed("/v1/rates?base=$baseCode&symbols=$symbols", "GET")
         return response.use {
-            val payload = readJsonObject(it, "weather")
-            AiWeatherResult(
-                temperature = payload.long("temperature")?.toDouble() ?: 0.0,
-                condition = payload.string("condition").orEmpty(),
-                location = payload.string("location").orEmpty(),
+            val payload = readJsonObject(it, "rates")
+            val rates = payload["rates"]?.jsonObject
+                ?.mapNotNull { (code, value) -> value.jsonPrimitive.doubleOrNull?.let { rate -> code to rate } }
+                ?.toMap()
+                ?: emptyMap()
+            AiRatesResult(
+                base = payload.string("base") ?: baseCode,
+                date = payload.string("date").orEmpty(),
+                rates = rates,
+                source = payload.string("source").orEmpty(),
+                mock = payload.boolean("mock") ?: false,
+                quotaRemaining = payload.int("quotaRemaining")
+            )
+        }
+    }
+
+    /** Definisi kamus; bahasa yang didukung gateway: en, hi, es, fr, ja, ru, de, it, ko, pt, ar, tr. */
+    suspend fun dictionary(word: String, language: String = "en"): AiDictionaryResult {
+        val encodedWord = URLEncoder.encode(word.trim(), "UTF-8")
+        val encodedLang = URLEncoder.encode(language.trim(), "UTF-8")
+        val response = authed("/v1/dictionary?word=$encodedWord&lang=$encodedLang", "GET")
+        return response.use {
+            val payload = readJsonObject(it, "dictionary")
+            val meanings = payload["meanings"]?.jsonArray?.mapNotNull { element ->
+                val obj = element.jsonObject
+                val definitions = obj["definitions"]?.jsonArray
+                    ?.mapNotNull { definition -> definition.jsonObject.string("definition") }
+                    ?.filter { it.isNotBlank() }
+                    ?: emptyList()
+                if (definitions.isEmpty()) null else AiDictionaryMeaning(
+                    partOfSpeech = obj.string("partOfSpeech").orEmpty(),
+                    definitions = definitions
+                )
+            } ?: emptyList()
+            AiDictionaryResult(
+                word = payload.string("word").orEmpty(),
+                phonetic = payload.string("phonetic"),
+                meanings = meanings,
+                source = payload.string("source").orEmpty(),
                 mock = payload.boolean("mock") ?: false,
                 quotaRemaining = payload.int("quotaRemaining")
             )

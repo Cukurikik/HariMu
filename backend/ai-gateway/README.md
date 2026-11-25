@@ -19,6 +19,9 @@ pihak ketiga di repo maupun di APK. APK tidak pernah memegang kunci provider.**
 | POST | `/v1/image-edit/:op` | multipart `image`, `prompt` | `image/png` |
 | POST | `/v1/image-analyze` | multipart `image`, `question` | `{text, mock, quotaRemaining}` |
 | POST | `/v1/speech-to-text` | multipart `audio`, `language?` | `{text, mock, quotaRemaining}` |
+| GET | `/v1/geocode?q&lang` | — (Bearer) | `{name, label, latitude, longitude, country, timezone, mock, attribution}` |
+| GET | `/v1/rates?base&symbols` | — (Bearer) | `{base, date, rates, source, mock, attribution}` |
+| GET | `/v1/dictionary?word&lang` | — (Bearer) | `{word, phonetic, meanings[], source, mock, attribution}` |
 | POST | `/v1/video-generate` | `{prompt, durationSec, aspect}` | `202 {jobId, statusUrl, mock, pollAfterSec}` |
 | GET | `/v1/jobs/:id` | — (Bearer) | `{status, progress, downloadUrl?, error?}` |
 | GET | `/v1/download/:key?exp&sig` | — | byte artefak |
@@ -40,6 +43,10 @@ di-override di `wrangler.toml` (`CF_*_MODEL`); nilai default ada di `src/provide
 | `/v1/speech-to-text` | **Cloudflare Workers AI** | `@cf/openai/whisper` | Audio dikirim sebagai array byte; berkas besar memakai memori Worker (batas unggah 10 MiB) |
 | `/v1/video-generate` | **tidak ada** (K6) | — | 501 `provider_not_configured`; adapter Replicate hanya aktif bila `REPLICATE_API_TOKEN` + `REPLICATE_VIDEO_VERSION` diisi |
 | `/v1/jobs/:id`, `/v1/download/:key` | KV (`job:<id>`) + R2 (`ARTIFACTS`) | — | Status tidak pernah disimpan di memori Worker, jadi aman saat isolate didaur ulang |
+| `/v1/geocode?q=` | **Open-Meteo Geocoding** (tanpa kunci) | — | Non-komersial, < 10.000 panggilan/hari; wajib atribusi CC BY 4.0. Cache KV 30 hari |
+| `/v1/rates` | **Frankfurter** (tanpa kunci) | — | Kurs referensi bank sentral (bukan live); boleh komersial; cache 12 jam |
+| `/v1/dictionary` | **dictionaryapi.dev / Wiktionary** (tanpa kunci) | — | 12 bahasa, tanpa SLA, atribusi CC BY-SA, cache 7 hari |
+| `/v1/weather?q=` | geocoding + provider cuaca | — | Satu permintaan = satu kredit; `location` memakai label hasil geocoding |
 | `/v1/health`, `/v1/install`, `/v1/quota` | lokal (HMAC token, rate limit & kuota KV) | — | — |
 
 Mode `mock` (default) mengembalikan keluaran palsu yang **selalu ditandai** (`x-mock: 1`,

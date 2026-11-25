@@ -87,12 +87,16 @@ export async function quotaStatus(env: Env, installId: string): Promise<QuotaSna
   return { used, limit, resetsInSec: secondsUntilTomorrowUtc() };
 }
 
-/** Kuota harian berbobot: TTS=1, chat=1, terjemah=1, analisa=1, gambar=2, STT=2, cuaca=1, video=5. */
+/** Kuota harian berbobot: TTS=1, chat=1, terjemah=1, analisa=1, gambar=2, STT=2, cuaca=1, video=5.
+ * Geocode/kurs/kamus=1 (respons kecil dan di-cache, tapi tetap dihitung agar rate limit bermakna). */
 export const QUOTA_COST = {
   tts: 1,
   chat: 1,
   translate: 1,
   weather: 1,
+  geocode: 1,
+  rates: 1,
+  dictionary: 1,
   imageAnalyze: 1,
   imageGenerate: 2,
   imageEdit: 2,

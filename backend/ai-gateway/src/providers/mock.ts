@@ -86,6 +86,30 @@ export const mockProvider: Provider = {
     };
   },
 
+  async chat(request) {
+    const last = request.messages[request.messages.length - 1]?.content ?? "";
+    return {
+      text: `[MOCK] Balasan contoh untuk: "${last.slice(0, 120)}". Tidak ada model yang dipanggil.`,
+      mock: true,
+    };
+  },
+
+  async translate(request) {
+    return {
+      text: `[MOCK] ${request.targetLang}: ${request.text.slice(0, 200)}`,
+      sourceLang: request.sourceLang ?? "auto",
+      mock: true,
+    };
+  },
+
+  async weather(request) {
+    return {
+      temperature: 27.5,
+      condition: "Mock — cerah",
+      location: `${request.latitude},${request.longitude}`,
+    };
+  },
+
   async startVideo(request) {
     const id = `mock-${crypto.randomUUID()}`;
     return { providerJobId: `${id}?duration=${request.durationSec}` };

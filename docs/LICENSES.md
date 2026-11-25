@@ -24,6 +24,17 @@ Semua library dan aset di proyek ini diverifikasi memakai lisensi permisif (tanp
 | `net.lingala.zip4j:zip4j:2.11.5` | Apache-2.0 | ZIP AES-256 standar (CNV-18): enkripsi/dekripsi, kata sandi tidak disimpan |
 | Robolectric (`4.16.1`), AndroidX Test (`1.7.0` / `1.3.0`), `work-testing` (`2.10.1`) | MIT / Apache-2.0 | Pengujian JVM lokal (`testImplementation`, tidak masuk APK) |
 
+## Sumber Data Pihak Ketiga (Fase 15)
+
+Tidak ada library baru di APK. Data berikut diambil lewat `backend/ai-gateway` dan atribusinya ditampilkan di ringkasan hasil tool:
+
+| Sumber | Lisensi / Ketentuan | Dipakai oleh | Catatan |
+|---|---|---|---|
+| Open-Meteo (forecast + geocoding) | Data CC BY 4.0; API gratis **hanya non-komersial** (< 10.000 panggilan/hari, 5.000/jam, 600/menit) | `CORE-12` | Atribusi wajib. Bila HariMu dipasarkan/monetisasi, wajib langganan Open-Meteo atau ganti provider |
+| Frankfurter (kurs referensi bank sentral) | Gratis termasuk komersial, tanpa kunci, tanpa kuota; cache dianjurkan | `CORE-13` | Bukan kuotasi pasar langsung; tanggal kurs ditampilkan |
+| Wiktionary via dictionaryapi.dev | Data CC BY-SA, API tanpa kunci, tanpa SLA | `CORE-14` | Kegagalan provider ditampilkan sebagai kegagalan, bukan definisi kosong |
+| LibreTranslate (bila `TRANSLATE_BASE_URL` diisi) | Server AGPL-3.0; instance publik butuh kunci berbayar | `CORE-11` | Dijalankan sebagai layanan terpisah di server, tidak ditautkan ke APK |
+
 ## Catatan Kebijakan Lisensi (`01-ARSITEKTUR.md` & `SKILL.md`)
 - Tidak ada library **GPL** (seperti build FFmpeg `-gpl` dengan `x264`/`x265`) atau **AGPL** (seperti iText AGPL) yang dibundel di dalam proyek.
 - Varian FFmpeg yang dipakai adalah **`ffmpeg-kit-full` (LGPL v3.0)** dengan penautan dinamis pustaka native (`.so`) dalam App Bundle split ABI.

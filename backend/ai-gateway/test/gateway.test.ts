@@ -518,3 +518,97 @@ describe("gateway limits & persistence (K6)", () => {
     expect(bytes.byteLength).toBeGreaterThan(0);
   });
 });
+
+describe("public data utilities", () => {
+  it("geocodes a place name in mock mode", async () => {
+    const token = await issueToken(installId("geo"));
+    const response = await SELF.fetch(`${BASE}/v1/geocode?q=Jakarta`, { headers: auth(token) });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      label: string;
+      latitude: number;
+      longitude: number;
+      mock: boolean;
+      attribution: string;
+    };
+    expect(body.mock).toBe(true);
+    expect(body.label.length).toBeGreaterThan(0);
+    expect(body.latitude).toBeLessThan(0);
+    expect(body.attribution).toContain("Open-Meteo");
+  });
+
+  it("rejects an empty geocode query", async () => {
+    const token = await issueToken(installId("geo-empty"));
+    const response = await SELF.fetch(`${BASE}/v1/geocode?q=`, { headers: auth(token) });
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe("bad_request");
+  });
+
+  it("serves weather for a city name without coordinates", async () => {
+    const token = await issueToken(installId("weather-q"));
+    const response = await SELF.fetch(`${BASE}/v1/weather?q=Bandung`, { headers: auth(token) });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      temperature: number;
+      location: string;
+      attribution: string;
+    };
+    expect(typeof body.temperature).toBe("number");
+    expect(body.location.length).toBeGreaterThan(0);
+    expect(body.attribution).toContain("Open-Meteo");
+  });
+
+  it("rejects weather without a place or coordinates", async () => {
+    const token = await issueToken(installId("weather-empty"));
+    const response = await SELF.fetch(`${BASE}/v1/weather`, { headers: auth(token) });
+    expect(response.status).toBe(400);
+  });
+
+  it("returns reference rates for a base currency", async () => {
+    const token = await issueToken(installId("rates"));
+    const response = await SELF.fetch(`${BASE}/v1/rates?base=IDR&symbols=USD,EUR`, { headers: auth(token) });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      base: string;
+      date: string;
+      rates: Record<string, number>;
+      mock: boolean;
+    };
+    expect(body.base).toBe("IDR");
+    expect(body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(Object.keys(body.rates).sort()).toEqual(["EUR", "USD"]);
+    expect(body.mock).toBe(true);
+  });
+
+  it("rejects an invalid currency code", async () => {
+    const token = await issueToken(installId("rates-bad"));
+    const response = await SELF.fetch(`${BASE}/v1/rates?base=IDR&symbols=US`, { headers: auth(token) });
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe("bad_request");
+  });
+
+  it("returns dictionary meanings in mock mode", async () => {
+    const token = await issueToken(installId("dict"));
+    const response = await SELF.fetch(`${BASE}/v1/dictionary?word=hello`, { headers: auth(token) });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      word: string;
+      meanings: Array<{ partOfSpeech: string; definitions: string[] }>;
+      mock: boolean;
+      source: string;
+    };
+    expect(body.word).toBe("hello");
+    expect(body.meanings.length).toBeGreaterThan(0);
+    expect(body.meanings[0].definitions.length).toBeGreaterThan(0);
+    expect(body.mock).toBe(true);
+    expect(body.source).toContain("MOCK");
+  });
+
+  it("rejects an empty dictionary word", async () => {
+    const token = await issueToken(installId("dict-empty"));
+    const response = await SELF.fetch(`${BASE}/v1/dictionary?word=`, { headers: auth(token) });
+    expect(response.status).toBe(400);
+  });
+});
