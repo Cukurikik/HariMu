@@ -854,5 +854,26 @@
       "https": null,
       "cors": null
     }
+,
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/wealthville/gg2sc17r",
+      "name": "WealthVille",
+      "category": "Blockchain",
+      "description": "Liquidity pool scores and Enter/Hold/Exit verdicts for Solana and EVM chains.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    },
+    {
+      "site": "publicapis.dev",
+      "link": "https://publicapis.dev/resource/mirrorfly-chat-api/2uaqr8zv",
+      "name": "Mirrorfly Chat API",
+      "category": "Social",
+      "description": "MirrorFly&#x27;s chat API &amp; SDK add real-time messaging to any app in minutes, with full source code access, custom security, and hosting on your own servers.",
+      "auth": null,
+      "https": null,
+      "cors": null
+    }
   ]
 }
