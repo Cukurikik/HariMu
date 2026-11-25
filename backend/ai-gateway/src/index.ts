@@ -109,6 +109,7 @@ async function route(request: Request, env: Env, requestId: string): Promise<Res
         status: "ok",
         version: VERSION,
         mode: isMockMode(env) ? "mock" : "live",
+        corsOrigin: (env.ALLOWED_ORIGIN ?? "*").trim() || "*",
         time: new Date().toISOString(),
       },
       200,

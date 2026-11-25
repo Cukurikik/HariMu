@@ -105,6 +105,18 @@ fun coreTools(): List<Tool> = listOf(
             val text = input.textInput.trim()
             require(text.isNotEmpty()) { if (ctx.isEnglish) "Enter text first" else "Masukkan teks terlebih dahulu" }
             if (input.getString("engine", "Perangkat (offline)").startsWith("Gateway")) {
+                // Gateway menolak >4000 karakter (requireString di src/index.ts). Tolak lebih awal
+                // supaya pengguna tidak menunggu unduhan/gagal setelah kuota terpakai.
+                val gatewayTtsLimit = 4000
+                if (text.length > gatewayTtsLimit) {
+                    throw IllegalArgumentException(
+                        if (ctx.isEnglish) {
+                            "Text is ${text.length} characters; the gateway accepts at most $gatewayTtsLimit. Shorten it first."
+                        } else {
+                            "Teks ${text.length} karakter; gateway menerima maksimal $gatewayTtsLimit karakter. Pendekkan dulu."
+                        }
+                    )
+                }
                 val client = ctx.ai ?: throw AiException(
                     "ai_not_configured",
                     "Klien AI tidak tersedia; atur AI Gateway di Pengaturan."

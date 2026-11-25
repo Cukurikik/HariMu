@@ -2,11 +2,21 @@
 export interface Env {
   JOBS: KVNamespace;
   ARTIFACTS: R2Bucket;
+  /** Binding Workers AI (wrangler.toml `[ai] binding = "AI"`). */
+  AI?: Ai;
 
   PROVIDER_MODE?: string;
   INSTALL_TOKEN_SECRET?: string;
   DOWNLOAD_SIGNING_SECRET?: string;
 
+  /** Override model Workers AI; default ada di src/providers/cloudflare.ts. */
+  CF_TTS_MODEL?: string;
+  CF_IMAGE_MODEL?: string;
+  CF_IMAGE_EDIT_MODEL?: string;
+  CF_VISION_MODEL?: string;
+  CF_ASR_MODEL?: string;
+
+  /** Fallback opsional bila binding AI tidak tersedia. */
   OPENAI_API_KEY?: string;
   OPENAI_BASE_URL?: string;
   OPENAI_IMAGE_MODEL?: string;

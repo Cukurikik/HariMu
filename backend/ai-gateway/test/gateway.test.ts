@@ -1,4 +1,7 @@
-import { SELF } from "cloudflare:test";
+import { env, SELF } from "cloudflare:test";
+import { resolveProvider } from "../src/providers";
+import { cloudflareProvider } from "../src/providers/cloudflare";
+import type { Env } from "../src/config";
 import { describe, expect, it } from "vitest";
 
 const BASE = "https://gateway.test";
@@ -346,5 +349,172 @@ describe("install hardening", () => {
     expect(response.status).toBe(403);
     const body = (await response.json()) as { code: string };
     expect(body.code).toBe("forbidden");
+  });
+});
+
+/**
+ * K6: catatan "ditulis, belum dijalankan".
+ * Tes di bawah memakai provider mock untuk jalur HTTP, dan binding `AI` palsu untuk adapter
+ * Workers AI sehingga tidak ada panggilan jaringan/berbiaya.
+ */
+const TINY_PNG_B64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+interface FakeCall {
+  model: string;
+  inputs: Record<string, unknown>;
+  options?: unknown;
+}
+
+function fakeEnv(calls: FakeCall[], overrides: Record<string, unknown> = {}): Env {
+  const wav = new Uint8Array(64);
+  wav.set([0x52, 0x49, 0x46, 0x46], 0); // RIFF
+  wav.set([0x57, 0x41, 0x56, 0x45], 8); // WAVE
+  const ai = {
+    run: async (model: string, inputs: unknown, options?: unknown) => {
+      calls.push({ model, inputs: inputs as Record<string, unknown>, options });
+      if ((options as { returnRawResponse?: boolean } | undefined)?.returnRawResponse) {
+        return new Response(wav);
+      }
+      if (model.includes("vision")) return { response: "seekor kucing oren" };
+      if (model.includes("whisper")) return { text: "halo dunia" };
+      return { image: TINY_PNG_B64 };
+    },
+  };
+  return {
+    AI: ai as unknown as Env["AI"],
+    ...overrides,
+  } as unknown as Env;
+}
+
+describe("workers-ai adapter (K6)", () => {
+  it("sends speech to aura-1 as linear16 WAV and returns RIFF bytes", async () => {
+    const calls: FakeCall[] = [];
+    const provider = cloudflareProvider(fakeEnv(calls));
+    const result = await provider.tts!({ text: "Halo HariMu", voice: 2 });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].model).toBe("@cf/deepgram/aura-1");
+    expect(calls[0].inputs.speaker).toBe("asteria");
+    expect(calls[0].inputs.encoding).toBe("linear16");
+    expect(calls[0].inputs.container).toBe("wav");
+    expect((calls[0].options as { returnRawResponse?: boolean }).returnRawResponse).toBe(true);
+    expect(result.mime).toBe("audio/wav");
+    expect(String.fromCharCode(...result.bytes.slice(0, 4))).toBe("RIFF");
+  });
+
+  it("generates images with flux-1-schnell and decodes base64 to PNG bytes", async () => {
+    const calls: FakeCall[] = [];
+    const provider = cloudflareProvider(fakeEnv(calls));
+    const result = await provider.imageGenerate!({ prompt: "kucing oren", size: "1024x1024" });
+
+    expect(calls[0].model).toBe("@cf/black-forest-labs/flux-1-schnell");
+    expect(calls[0].inputs.prompt).toBe("kucing oren");
+    expect([...result.bytes.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  });
+
+  it("edits images through img2img with the uploaded bytes as base64", async () => {
+    const calls: FakeCall[] = [];
+    const provider = cloudflareProvider(fakeEnv(calls));
+    await provider.imageEdit!({
+      op: "restore",
+      bytes: new Uint8Array([1, 2, 3, 4]),
+      mime: "image/png",
+      params: { prompt: "lebih tajam" },
+    });
+
+    expect(calls[0].model).toBe("@cf/runwayml/stable-diffusion-v1-5-img2img");
+    expect(String(calls[0].inputs.prompt)).toContain("restore");
+    expect(typeof calls[0].inputs.image_b64).toBe("string");
+    expect(atob(String(calls[0].inputs.image_b64))).toBe(String.fromCharCode(1, 2, 3, 4));
+  });
+
+  it("analyses images with the llama vision model and returns its text", async () => {
+    const calls: FakeCall[] = [];
+    const provider = cloudflareProvider(fakeEnv(calls));
+    const result = await provider.imageAnalyze!({
+      bytes: new Uint8Array([9, 9]),
+      mime: "image/png",
+      question: "Apa isi gambar?",
+    });
+
+    expect(calls[0].model).toBe("@cf/meta/llama-3.2-11b-vision-instruct");
+    expect(calls[0].inputs.prompt).toBe("Apa isi gambar?");
+    expect(result).toEqual({ text: "seekor kucing oren", mock: false });
+  });
+
+  it("transcribes with whisper and maps the text field", async () => {
+    const calls: FakeCall[] = [];
+    const provider = cloudflareProvider(fakeEnv(calls));
+    const result = await provider.speechToText!({
+      bytes: new Uint8Array([1, 2]),
+      mime: "audio/wav",
+      language: "id",
+    });
+
+    expect(calls[0].model).toBe("@cf/openai/whisper");
+    expect(calls[0].inputs.language).toBe("id");
+    expect(Array.isArray(calls[0].inputs.audio)).toBe(true);
+    expect(result.text).toBe("halo dunia");
+  });
+
+  it("refuses video in live mode when no video provider is configured", () => {
+    const liveEnv = { PROVIDER_MODE: "live" } as unknown as Env;
+    expect(() => resolveProvider(liveEnv, "video")).toThrowError(/Video generation belum punya provider live/);
+  });
+});
+
+describe("gateway limits & persistence (K6)", () => {
+  it("reports the CORS origin in health", async () => {
+    const response = await SELF.fetch(`${BASE}/v1/health`);
+    const body = (await response.json()) as { corsOrigin: string };
+    expect(body.corsOrigin).toBe("*");
+  });
+
+  it("rejects TTS text over the 4000 character limit", async () => {
+    const token = await issueToken(installId("tts-long"));
+    const response = await SELF.fetch(`${BASE}/v1/text-to-speech`, {
+      method: "POST",
+      headers: { ...auth(token), "content-type": "application/json" },
+      body: JSON.stringify({ text: "a".repeat(4001) }),
+    });
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe("bad_request");
+  });
+
+  it("accepts exactly 4000 characters of TTS text", async () => {
+    const token = await issueToken(installId("tts-edge"));
+    const response = await SELF.fetch(`${BASE}/v1/text-to-speech`, {
+      method: "POST",
+      headers: { ...auth(token), "content-type": "application/json" },
+      body: JSON.stringify({ text: "a".repeat(4000) }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("audio/wav");
+  });
+
+  it("keeps job status in KV and the artifact in R2", async () => {
+    const token = await issueToken(installId("jobstore"));
+    const created = await SELF.fetch(`${BASE}/v1/video-generate`, {
+      method: "POST",
+      headers: { ...auth(token), "content-type": "application/json" },
+      body: JSON.stringify({ prompt: "penyimpanan job", durationSec: 2 }),
+    });
+    const { jobId } = (await created.json()) as { jobId: string };
+    await SELF.fetch(`${BASE}/v1/jobs/${jobId}`, { headers: auth(token) });
+
+    const bindings = env as unknown as { JOBS: KVNamespace; ARTIFACTS: R2Bucket };
+    const raw = await bindings.JOBS.get(`job:${jobId}`);
+    expect(raw).toBeTruthy();
+    const record = JSON.parse(String(raw)) as { status: string; installId: string; objectKey?: string };
+    expect(record.status).toBe("done");
+    expect(record.installId.length).toBeGreaterThan(0);
+    expect(record.objectKey).toBe(`jobs/${jobId}/result`);
+
+    const artifact = await bindings.ARTIFACTS.get(`jobs/${jobId}/result`);
+    expect(artifact).not.toBeNull();
+    const bytes = new Uint8Array(await artifact!.arrayBuffer());
+    expect(bytes.byteLength).toBeGreaterThan(0);
   });
 });

@@ -12,7 +12,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.aistudio.harimu.xqmzpk"
+        applicationId = "com.harimu.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

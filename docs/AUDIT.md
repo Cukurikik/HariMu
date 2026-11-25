@@ -87,13 +87,13 @@ tindak lanjut pada commit audit-fix.
 | M4 impor non-transaksional | **Selesai** | `importOmniBackup` dalam `withTransaction`, favorit `REPLACE`. |
 | M5 kata sandi arsip 4 karakter | **Selesai** | Minimum 8 karakter (`ArchiveEngine`). |
 | M6 CORS `*` | **Selesai (dapat dibatasi)** | `ALLOWED_ORIGIN`; default `*` tetap aman untuk Bearer token tanpa cookie. |
-| M7 job video di memori Worker | **Terbuka** | Belum diubah; perlu streaming provider/queue. Dicatat sebagai batas. |
+| M7 job video di memori Worker | **Selesai (statis)** | Status job di KV (`job:<id>`) dan hasil di R2 (`jobs/<id>/result`) — `src/jobs.ts`; tes K6 membaca keduanya langsung. |
 | M8 escape filter FFmpeg | **Terbuka** | Nilai masih berasal dari dropdown; hardening penuh belum dilakukan. |
 | M9 skew versi AGP/Kotlin vs Compose BOM | **Terbuka** | Tidak diubah tanpa toolchain untuk memverifikasi; dicatat sebagai risiko build. |
 | M10 instrumented test / dokumen usang | **Sebagian** | AUDIT.md, README, metadata.json, dan CONTRIBUTING.md disinkronkan; instrumented test belum ada. |
 | LOW: `fromBase64url` 500 | **Selesai** | Token → 401, unduhan → 403; ada test. |
 | LOW: GCM tanpa AAD | **Diterima** | Format lama harus tetap terbaca; AAD akan ditambahkan bersama versi format baru. |
-| LOW: TTS tanpa cap | **Terbuka** | Cap panjang klien lokal belum ditambahkan (server sudah membatasi 4000 karakter). |
+| LOW: TTS tanpa cap | **Selesai (statis)** | Klien menolak >4000 karakter sebelum memanggil gateway (`CoreAndVideoTools.kt`, CORE-03); server tetap membatasi 4000 (`requireString`) dengan tes batas. |
 
 **Verifikasi**: statis saja (tidak ada JDK/Gradle/Android SDK di lingkungan audit-fix). Test baru
 (`AuditV3HardeningTest`, test install-rate-limit Worker) **belum dieksekusi**.
@@ -176,9 +176,9 @@ yang dijalankan di lingkungan ini.
 | H1 build/test tak pernah dieksekusi | 167 unit test tanpa bukti hijau | **K1**: desk-check statis seluruh tes, satu asersi keliru diperbaiki (`ConverterAndRegistryTest` koordinat KML `0.0`) | Sebagian (butuh CI) |
 | H3 dokumen usang | README ±50 tool, AUDIT "54 tool", DECISIONS butir 2, SKILL/ARSITEKTUR menganjurkan Hilt | **K4**: README memuat 163 tool dari registry, §1–§4 diarsipkan, butir 2 dikoreksi, SKILL/ARSITEKTUR diselaraskan ke `:app` + `AppContainer` | Selesai (statis) |
 | H4 tanpa instrumented test | `androidTest/` hanya berisi 3 aset | **K3**: 7 berkas tes instrumented (media, audio, gambar, PDF, converter, keystore) + job CI `instrumented` `continue-on-error: true` | Ditulis, **belum dijalankan** |
-| M1 `applicationId` acak | `com.aistudio.harimu.xqmzpk` | Belum diubah; menunggu keputusan pemilik | Terbuka |
+| M1 `applicationId` acak | `com.aistudio.harimu.xqmzpk` | **K5**: diganti menjadi `com.harimu.app` (sama dengan `namespace`); manifest & FileProvider memakai `${applicationId}` | Selesai (statis) |
 | M5 detekt & skema Room | detekt tidak terpasang, `app/schemas/` tidak di-commit | Belum diubah | Terbuka |
-| H2 gateway mock | `wrangler.toml` `PROVIDER_MODE = "mock"`, KV placeholder | Belum diubah; butuh pilihan provider + kunci | Terbuka |
+| H2 gateway mock | `wrangler.toml` `PROVIDER_MODE = "mock"`, KV placeholder | **K6**: provider live = Cloudflare Workers AI (binding `AI`), README memuat urutan go-live; belum di-deploy/secret belum diisi | Siap live (menunggu deploy) |
 
 Batas yang masih berlaku:
 - `app/build.gradle.kts` **belum** punya `androidTestImplementation` (hanya `testImplementation`), sehingga

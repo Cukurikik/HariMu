@@ -3,11 +3,21 @@ main = "src/index.ts"
 compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 
-# Secret WAJIB diisi lewat `wrangler secret put`, tidak pernah di repo:
-#   INSTALL_TOKEN_SECRET, DOWNLOAD_SIGNING_SECRET,
-#   OPENAI_API_KEY (opsional), REPLICATE_API_TOKEN + REPLICATE_VIDEO_VERSION (opsional)
+# =============================================================================
+# PRODUKSI — `wrangler deploy` (tanpa --env)
+# =============================================================================
+# Secret TIDAK pernah ada di repo; isi lewat `wrangler secret put <NAMA>` (lihat README):
+#   WAJIB    : INSTALL_TOKEN_SECRET, DOWNLOAD_SIGNING_SECRET
+#   OPSIONAL : INSTALL_REGISTRATION_KEY (gerbang /v1/install)
+#   TIDAK PERLU untuk fitur AI: model berjalan di Workers AI lewat binding `AI` (tanpa kunci).
+#   OPSIONAL : REPLICATE_API_TOKEN + REPLICATE_VIDEO_VERSION (satu-satunya cara video live)
+#
+# Keputusan K6: TTS, gambar (generate/edit), vision, dan STT memakai Cloudflare Workers AI.
+# Video generation tidak punya provider live Cloudflare; selama REPLICATE_* kosong,
+# /v1/video-generate menjawab 501 provider_not_configured (bukan hasil palsu).
 
 [vars]
+# Default aman: "mock". Ubah ke "live" HANYA setelah secret terpasang (README langkah 6).
 PROVIDER_MODE = "mock"
 RATE_LIMIT_PER_MIN = "30"
 DAILY_QUOTA = "20"
@@ -15,11 +25,17 @@ MAX_UPLOAD_BYTES = "10485760"
 TOKEN_TTL_SEC = "2592000"
 INSTALL_RATE_PER_MIN = "10"
 INSTALL_DAILY_PER_IP = "40"
-# ALLOWED_ORIGIN = "https://harimu.example"  # opsional, default "*"
+VIDEO_JOB_TTL_SEC = "86400"
+# WAJIB diisi sebelum produksi dibuka untuk pemanggil browser (bukan aplikasi Android, yang
+# tidak mengirim Origin). Nilai "*" hanya boleh untuk pengembangan.
+# ALLOWED_ORIGIN = "https://harimu.example"
+
+[ai]
+binding = "AI"
 
 [[kv_namespaces]]
 binding = "JOBS"
-id = "REPLACE_WITH_KV_ID"
+id = "REPLACE_WITH_PRODUCTION_JOBS_KV_ID"
 
 [[r2_buckets]]
 binding = "ARTIFACTS"
@@ -28,15 +44,24 @@ bucket_name = "harimu-ai-artifacts"
 [observability]
 enabled = true
 
-# Lingkungan dev: pakai KV & bucket terpisah supaya uji coba tidak mencampuri produksi.
+# =============================================================================
+# DEV — `wrangler deploy --env dev` / `wrangler dev --env dev`
+# Worker, KV, dan bucket terpisah supaya uji coba tidak mencampuri produksi.
+# =============================================================================
+[env.dev]
+name = "harimu-ai-gateway-dev"
+
 [env.dev.vars]
 PROVIDER_MODE = "mock"
 RATE_LIMIT_PER_MIN = "60"
 DAILY_QUOTA = "50"
 
+[env.dev.ai]
+binding = "AI"
+
 [[env.dev.kv_namespaces]]
 binding = "JOBS"
-id = "REPLACE_WITH_DEV_KV_ID"
+id = "REPLACE_WITH_DEV_JOBS_KV_ID"
 
 [[env.dev.r2_buckets]]
 binding = "ARTIFACTS"
