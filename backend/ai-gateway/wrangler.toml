@@ -38,6 +38,14 @@ CF_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 CF_IMAGE_EDIT_MODEL = "@cf/runwayml/stable-diffusion-v1-5-img2img"
 CF_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 CF_ASR_MODEL = "@cf/openai/whisper"
+
+# Translation API (LibreTranslate / Google Translate compatible)
+TRANSLATE_BASE_URL = "https://libretranslate.de"
+TRANSLATE_DEFAULT_TARGET = "id"
+
+# Weather API (Open-Meteo / WeatherAPI.com compatible)
+WEATHER_BASE_URL = "https://api.open-meteo.com"
+
 # Batasi origin bila ada pemanggil browser (aplikasi Android tidak mengirim Origin).
 # ALLOWED_ORIGIN = "https://harimu.example"
 

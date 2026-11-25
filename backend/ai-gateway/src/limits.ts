@@ -87,7 +87,19 @@ export async function quotaStatus(env: Env, installId: string): Promise<QuotaSna
   return { used, limit, resetsInSec: secondsUntilTomorrowUtc() };
 }
 
-/** Kuota harian berbobot: TTS=1, analisa=1, gambar=2, STT=2, video=5. */
+/** Kuota harian berbobot: TTS=1, chat=1, terjemah=1, analisa=1, gambar=2, STT=2, cuaca=1, video=5. */
+export const QUOTA_COST = {
+  tts: 1,
+  chat: 1,
+  translate: 1,
+  weather: 1,
+  imageAnalyze: 1,
+  imageGenerate: 2,
+  imageEdit: 2,
+  speechToText: 2,
+  video: 5,
+} as const;
+
 export async function enforceQuota(env: Env, installId: string, cost: number): Promise<QuotaSnapshot> {
   const snapshot = await quotaStatus(env, installId);
   if (snapshot.used + cost > snapshot.limit) {

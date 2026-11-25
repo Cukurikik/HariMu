@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Theaters
 import com.harimu.app.core.ai.AiClient
 import com.harimu.app.core.ai.AiException
+import com.harimu.app.core.ai.AiMessage
+import com.harimu.app.core.ai.AiWeatherResult
 import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
@@ -50,6 +52,9 @@ fun aiCloudTools(): List<Tool> = listOf(
     videoGenTool(),
     analyzeImagesTool(),
     imageGeneratorTool(),
+    chatTool(),
+    translateTool(),
+    weatherTool(),
     cloudImageTool(
         id = "IMG-13",
         op = "remove",
@@ -388,6 +393,170 @@ private fun imageGeneratorTool(): Tool = object : Tool {
                     outputs = listOf(ToolOutputFile(dest, binary.mime, dest.name)),
                     summary = cloudBinarySummary("Gambar dari prompt", binary, size) +
                         " • ${ctx.storage.formatBytes(dest.length())}"
+                )
+            )
+        )
+    }.flowOn(Dispatchers.IO)
+}
+
+// ---------------------------------------------------------------- CORE-05 (AI Chat)
+
+private fun chatTool(): Tool = object : Tool {
+    override val id = "CORE-05"
+    override val group = ToolGroup.CORE
+    override val engineLabel = "CL"
+    override val icon = Icons.Filled.AutoAwesome
+    override val inputSpec = InputSpec.TextInput(
+        hintId = "Contoh: Jelaskan tentang Pulau Komodo dalam tiga kalimat...",
+        hintEn = "Example: Explain Komodo Island in three sentences...",
+        sample = "Jelaskan tentang Pulau Komodo dalam tiga kalimat."
+    )
+    override val requiresNetwork = true
+    override val params = listOf(
+        ToolParam.DropdownParam(
+            "temperature", "Kreativitas", "Temperature",
+            listOf("0.3", "0.7", "1.0"), "0.7"
+        ),
+        ToolParam.SliderParam("maxTokens", "Maks Token", "Max Tokens", 64f, 4096f, 512f, 64f, "token")
+    )
+
+    override fun title(isEnglish: Boolean) = if (isEnglish) "AI Chat" else "Obrolan AI"
+    override fun description(isEnglish: Boolean) = if (isEnglish) {
+        "Chat with an AI model through the gateway (Cloudflare Workers AI with external fallback)."
+    } else {
+        "Obrolan dengan model AI lewat gateway (Cloudflare Workers AI dengan fallback eksternal)."
+    }
+
+    override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+        val client = ctx.aiOrFail()
+        val message = input.textInput.trim()
+        require(message.isNotEmpty()) { "Tulis pesan dulu" }
+        val temperature = input.getString("temperature", "0.7").toDoubleOrNull() ?: 0.7
+        val maxTokens = input.getFloat("maxTokens", 512f).toInt()
+        emit(ToolProgress.Running(20, "Mengirim pesan ke gateway…"))
+        val messages = listOf(AiMessage("user", message))
+        val result = client.chat(messages, maxTokens = maxTokens, temperature = temperature)
+        val dest = ctx.storage.createOutputFile("AI_CHAT", "txt")
+        dest.writeText(result.text.trim())
+        emit(
+            ToolProgress.Done(
+                ToolResult(
+                    outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
+                    textOutput = result.text.trim(),
+                    summary = if (result.mock) {
+                        "Balasan MOCK (tanpa model sungguhan)"
+                    } else {
+                        "Balasan AI • sisa kuota: ${result.quotaRemaining ?: 0}"
+                    }
+                )
+            )
+        )
+    }.flowOn(Dispatchers.IO)
+}
+
+// ---------------------------------------------------------------- CORE-06 (AI Translate)
+
+private fun translateTool(): Tool = object : Tool {
+    override val id = "CORE-06"
+    override val group = ToolGroup.CORE
+    override val engineLabel = "CL"
+    override val icon = Icons.Filled.Colorize
+    override val inputSpec = InputSpec.TextInput(
+        hintId = "Contoh: Selamat pagi, apa kabar?",
+        hintEn = "Example: Good morning, how are you?",
+        sample = "Selamat pagi, apa kabar?"
+    )
+    override val requiresNetwork = true
+    override val params = listOf(
+        ToolParam.DropdownParam(
+            "targetLang", "Bahasa Target", "Target Language",
+            listOf("id", "en", "ja", "ko", "zh", "ar", "es", "fr", "de", "pt", "it", "ru", "th", "vi", "ms"), "id"
+        ),
+        ToolParam.DropdownParam(
+            "sourceLang", "Bahasa Sumber (kosongkan = otomatis)", "Source Language (empty = auto)",
+            listOf("", "id", "en", "ja", "ko", "zh", "ar", "es", "fr", "de", "pt", "it", "ru", "th", "vi", "ms"), ""
+        )
+    )
+
+    override fun title(isEnglish: Boolean) = if (isEnglish) "AI Translate" else "Terjemah AI"
+    override fun description(isEnglish: Boolean) = if (isEnglish) {
+        "Translate text through the gateway (LibreTranslate / Open-Meteo family)."
+    } else {
+        "Terjemahkan teks lewat gateway (LibreTranslate)."
+    }
+
+    override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+        val client = ctx.aiOrFail()
+        val text = input.textInput.trim()
+        require(text.isNotEmpty()) { "Tulis teks yang ingin diterjemahkan dulu" }
+        val targetLang = input.getString("targetLang", "id")
+        val sourceLang = input.getString("sourceLang", "").takeIf { it.isNotBlank() }
+        emit(ToolProgress.Running(20, "Mengirim teks ke gateway…"))
+        val result = client.translate(text, targetLang = targetLang, sourceLang = sourceLang)
+        val dest = ctx.storage.createOutputFile("AI_TRANSLATE", "txt")
+        dest.writeText(result.text.trim())
+        emit(
+            ToolProgress.Done(
+                ToolResult(
+                    outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
+                    textOutput = result.text.trim(),
+                    summary = if (result.mock) {
+                        "Terjemahan MOCK (tanpa model sungguhan)"
+                    } else {
+                        "Terjemahan ke $targetLang • sisa kuota: ${result.quotaRemaining ?: 0}"
+                    }
+                )
+            )
+        )
+    }.flowOn(Dispatchers.IO)
+}
+
+// ---------------------------------------------------------------- CORE-07 (AI Weather)
+
+private fun weatherTool(): Tool = object : Tool {
+    override val id = "CORE-07"
+    override val group = ToolGroup.CORE
+    override val engineLabel = "CL"
+    override val icon = Icons.Filled.Landscape
+    override val inputSpec = InputSpec.TextInput(
+        hintId = "Contoh: -6.2,106.8 (latitude,longitude)",
+        hintEn = "Example: -6.2,106.8 (latitude,longitude)",
+        sample = "-6.2,106.8"
+    )
+    override val requiresNetwork = true
+    override val params = emptyList()
+
+    override fun title(isEnglish: Boolean) = if (isEnglish) "AI Weather" else "Cuaca AI"
+    override fun description(isEnglish: Boolean) = if (isEnglish) {
+        "Current weather through the gateway (Open-Meteo). Masukkan latitude dan longitude."
+    } else {
+        "Cuaca terkini lewat gateway (Open-Meteo). Masukkan latitude dan longitude."
+    }
+
+    override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
+        val client = ctx.aiOrFail()
+        val raw = input.textInput.trim()
+        require(raw.isNotEmpty()) { "Masukkan latitude dan longitude (contoh: -6.2,106.8)" }
+        val parts = raw.split(",").map { it.trim() }
+        require(parts.size == 2) { "Format harus latitude,longitude (contoh: -6.2,106.8)" }
+        val lat = parts[0].toDoubleOrNull()
+            ?: throw IllegalArgumentException("Latitude tidak valid: ${parts[0]}")
+        val lon = parts[1].toDoubleOrNull()
+            ?: throw IllegalArgumentException("Longitude tidak valid: ${parts[1]}")
+        emit(ToolProgress.Running(20, "Mengambil data cuaca ke gateway…"))
+        val result = client.weather(lat, lon)
+        val dest = ctx.storage.createOutputFile("AI_WEATHER", "txt")
+        dest.writeText("""Cuaca di ${result.location}: ${result.temperature}°C, ${result.condition}""".trimIndent())
+        emit(
+            ToolProgress.Done(
+                ToolResult(
+                    outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
+                    textOutput = "Cuaca di ${result.location}: ${result.temperature}°C, ${result.condition}",
+                    summary = if (result.mock) {
+                        "Cuaca MOCK (tanpa model sungguhan)"
+                    } else {
+                        "Cuaca ${result.location} • ${result.temperature}°C • sisa kuota: ${result.quotaRemaining ?: 0}"
+                    }
                 )
             )
         )

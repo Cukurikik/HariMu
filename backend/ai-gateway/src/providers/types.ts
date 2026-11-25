@@ -35,6 +35,44 @@ export interface VideoRequest {
   aspect: string;
 }
 
+/** Permintaan chat teks (OpenAI-compatible /v1/chat/completions). */
+export interface ChatRequest {
+  messages: Array<{ role: string; content: string }>;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+/** Hasil chat teks. */
+export interface ChatResponse {
+  text: string;
+}
+
+/** Permintaan terjemahan teks. */
+export interface TranslateRequest {
+  text: string;
+  targetLang: string;
+  sourceLang?: string;
+}
+
+/** Hasil terjemahan. */
+export interface TranslateResponse {
+  text: string;
+  sourceLang?: string;
+}
+
+/** Permintaan cuaca. */
+export interface WeatherRequest {
+  latitude: number;
+  longitude: number;
+}
+
+/** Hasil cuaca. */
+export interface WeatherResponse {
+  temperature: number;
+  condition: string;
+  location: string;
+}
+
 export interface ProviderResult {
   bytes: Uint8Array;
   mime: string;
@@ -59,7 +97,10 @@ export type Capability =
   | "imageEdit"
   | "imageAnalyze"
   | "speechToText"
-  | "video";
+  | "video"
+  | "chat"
+  | "translate"
+  | "weather";
 
 export interface Provider {
   readonly id: string;
@@ -71,6 +112,9 @@ export interface Provider {
   speechToText?(request: AsrRequest): Promise<{ text: string; mock?: boolean }>;
   startVideo?(request: VideoRequest): Promise<VideoStart>;
   pollVideo?(providerJobId: string): Promise<VideoPoll>;
+  chat?(request: ChatRequest): Promise<ChatResponse>;
+  translate?(request: TranslateRequest): Promise<TranslateResponse>;
+  weather?(request: WeatherRequest): Promise<WeatherResponse>;
 }
 
 /** Adapter yang dipakai bersama beberapa provider untuk menandai capability yang tak didukung. */
