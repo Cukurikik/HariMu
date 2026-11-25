@@ -57,17 +57,14 @@ import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.toolapi.ToolGroup
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
-fun HistoryScreen(
-    container: AppContainer
-) {
+fun HistoryScreen(container: AppContainer) {
     val context = LocalContext.current
     val currentLocale = LocalLocale.current.platformLocale
     val scope = rememberCoroutineScope()
@@ -96,117 +93,117 @@ fun HistoryScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-        if (items.isNotEmpty()) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.history_count_title, items.size),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    TextButton(onClick = { scope.launch(Dispatchers.IO) { container.workspace.clearHistory() } }) {
-                        Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.action_clear))
-                    }
-                }
-            }
-        }
-
-        if (items.isEmpty()) {
-            item {
-                EmptyState(
-                    icon = Icons.Filled.History,
-                    title = stringResource(R.string.history_empty_title),
-                    subtitle = stringResource(R.string.history_empty_desc)
-                )
-            }
-        } else {
-            items(items, key = { it.id }) { item ->
-                val group = ToolGroup.entries.firstOrNull { it.name == item.groupName } ?: ToolGroup.CORE
-                val file = File(item.outputPath)
-                val fileExists = item.outputPath.isNotEmpty() && file.exists()
-                val timeStr = SimpleDateFormat("dd MMM HH:mm", currentLocale).format(Date(item.createdAt))
-
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ToolIdBadge(id = item.toolId, accent = group.accentColor())
-                                Text(item.toolTitle, style = MaterialTheme.typography.titleSmall)
-                            }
-                            IconButton(onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteHistory(item.id) } }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = stringResource(R.string.action_delete),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        Text(item.summary, style = MaterialTheme.typography.bodyMedium)
+            if (items.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "$timeStr • ${container.storage.formatBytes(item.fileSizeBytes)}",
-                            style = MonoTextStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = stringResource(R.string.history_count_title, items.size),
+                            style = MaterialTheme.typography.titleMedium
                         )
+                        TextButton(onClick = { scope.launch(Dispatchers.IO) { container.workspace.clearHistory() } }) {
+                            Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.action_clear))
+                        }
+                    }
+                }
+            }
 
-                        if (fileExists) {
-                            Spacer(Modifier.height(2.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = {
-                                        runCatching {
+            if (items.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Filled.History,
+                        title = stringResource(R.string.history_empty_title),
+                        subtitle = stringResource(R.string.history_empty_desc)
+                    )
+                }
+            } else {
+                items(items, key = { it.id }) { item ->
+                    val group = ToolGroup.entries.firstOrNull { it.name == item.groupName } ?: ToolGroup.CORE
+                    val file = File(item.outputPath)
+                    val fileExists = item.outputPath.isNotEmpty() && file.exists()
+                    val timeStr = SimpleDateFormat("dd MMM HH:mm", currentLocale).format(Date(item.createdAt))
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    ToolIdBadge(id = item.toolId, accent = group.accentColor())
+                                    Text(item.toolTitle, style = MaterialTheme.typography.titleSmall)
+                                }
+                                IconButton(onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteHistory(item.id) } }) {
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = stringResource(R.string.action_delete),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            Text(item.summary, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = "$timeStr • ${container.storage.formatBytes(item.fileSizeBytes)}",
+                                style = MonoTextStyle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            if (fileExists) {
+                                Spacer(Modifier.height(2.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            runCatching {
+                                                context.startActivity(
+                                                    Intent.createChooser(container.storage.buildOpenIntent(file, item.mimeType), item.outputName)
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.action_open))
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
                                             context.startActivity(
-                                                Intent.createChooser(container.storage.buildOpenIntent(file, item.mimeType), item.outputName)
+                                                Intent.createChooser(container.storage.buildShareIntent(file, item.mimeType), item.outputName)
                                             )
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.action_open))
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        context.startActivity(
-                                            Intent.createChooser(container.storage.buildShareIntent(file, item.mimeType), item.outputName)
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.action_share))
-                                }
-                                Button(
-                                    onClick = {
-                                        pendingSave = item
-                                        safLauncher.launch(item.outputName)
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.action_save))
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.action_share))
+                                    }
+                                    Button(
+                                        onClick = {
+                                            pendingSave = item
+                                            safLauncher.launch(item.outputName)
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.action_save))
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
         }
         }
     }
