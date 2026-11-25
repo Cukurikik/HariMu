@@ -6,25 +6,43 @@
 
 Aplikasi Android (Kotlin + Jetpack Compose + Material 3) berbasis arsitektur **Registry-Driven** untuk kebutuhan utilitas harian secara lokal (on-device). Semua tool berjalan tanpa akun; AI dan koneksi cloud bersifat opsional dan memakai gateway/akun milik pengguna.
 
-## Fitur Utama (6 Grup Tool)
+## Fitur Utama (163 Tool, 6 Grup)
 
-1. **Core & Perekam** — Screen Recorder MediaProjection (`CORE-05`), Voice Recorder FFT dengan WAV/AAC/Opus (`CORE-06`), Text-to-Speech ke WAV (`CORE-03`), Key Vault Keystore + ekspor PEM bergerbang biometrik (`CORE-07`), Backup Workspace `.omni` skema 2 (`CORE-08`), dan Cloud Connections S3/R2·Drive·Dropbox·REST (`CORE-09`).
-2. **Video Forge** — Potong video (`VID-01`), gabung MP4 (`VID-02`), ekstrak audio M4A (`VID-08`), mux audio ke video (`VID-16`), pecah video ke ZIP (`VID-21`), ekstrak frame PNG (`VID-22`), dan bisukan video (`VID-24`).
-3. **Audio Studio** — Live 5-Band Equalizer (`AUD-02`), ubah volume (`AUD-08`), potong audio (`AUD-09`), gabung/mix audio (`AUD-10`), manipulasi kanal (`AUD-15`), hapus bagian hening (`AUD-16`), putar balik (`AUD-17`), efek gema (`AUD-24`), fade in/out (`AUD-26`), dan poster gelombang waveform (`AUD-28`).
-4. **Image Matrix** — Editor kanvas interaktif (`IMG-47`), crop, resize, putar, balik, perluas kanvas, pelurus horizon, konverter PNG/JPG/WebP/PDF, generator paket ikon Android, Base64 encoder, kompresor cerdas, ekstraktor palet warna K-Means, inspeksi & hapus EXIF, watermark, filter warna, bingkai Polaroid, poster tipografi, gradien, refleksi, dan sprite sheet + atlas JSON.
-5. **PDF Vault** — Gabung PDF (`PDF-01`), pisah ke ZIP (`PDF-02`), putar halaman (`PDF-03`), ekstrak rentang halaman (`PDF-05`), gambar ke PDF (`PDF-08`), watermark (`PDF-12`), penomoran halaman (`PDF-18`), dan perbandingan visual antar PDF (`PDF-20`).
-6. **Universal Converter** — PDF ke gambar ZIP (`CNV-14`), inspeksi & kemas ulang ZIP (`CNV-16`), arsip terenkripsi AES-256-GCM `.hzm` (`CNV-18`), JSON ⇄ XML (`CNV-23`), CSV ⇄ TSV (`CNV-24`), formatter kode & JSON (`CNV-25`), Markdown ke HTML (`CNV-26`), GeoJSON ke KML (`CNV-27`), dan konverter mesh 3D STL → OBJ (`CNV-28`).
+`ToolRegistry` mendaftarkan **163 tool unik** dalam 6 grup (9/30/28/47/21/28); judul, deskripsi, dan parameter tiap tool berasal dari kode di `app/src/main/java/com/harimu/app/feature/tools/*.kt`. Daftar lengkap 163 judul ada di `02-KATALOG-FITUR.md`.
+
+| Grup | Jumlah | Contoh tool (ID terverifikasi di registry) |
+|---|---|---|
+| Core | 9 | Pro Video Editor (`CORE-01`), Screen Recorder (`CORE-05`), Voice Recorder (`CORE-06`), Crypto Key Vault (`CORE-07`), Workspace Backup `.omni` (`CORE-08`), Settings & Cloud Connections (`CORE-09`) |
+| Video Forge | 30 | Trim (`VID-01`), gabung MP4 (`VID-02`), upscaler 1.5–2x lewat Media3 H.264 (`VID-07`), ekstrak audio MP3 (`VID-08`), mux audio (`VID-16`), pecah video (`VID-21`), ekstrak frame (`VID-22`), bisukan (`VID-24`) |
+| Audio Forge & Studio | 28 | Pro 10-Band Equalizer live + ekspor (`AUD-02`), Audio Studio Pro multitrack (`AUD-21`), potong audio (`AUD-09`), hapus bagian hening (`AUD-16`), fade in/out (`AUD-26`), visualizer audio (`AUD-28`) |
+| Image Forge & Matrix | 47 | Image Matrix Studio (`IMG-47`), crop (`IMG-01`), konversi format (`IMG-23`), hapus EXIF (`IMG-29`), AI enhancer (`IMG-14`), AI object remover (`IMG-13`) |
+| PDF Vault | 21 | Gabung (`PDF-01`), pisah ke ZIP (`PDF-02`), gambar ke PDF (`PDF-08`), enkripsi (`PDF-10`), dekripsi (`PDF-11`), watermark (`PDF-12`), redaksi permanen (`PDF-14`), penomoran halaman (`PDF-18`), editor metadata (`PDF-19`), perbandingan dokumen (`PDF-20`) |
+| Universal Converter | 28 | ZIP AES-256 (`CNV-18`), ekstraksi aman zip-slip (`CNV-16`), JSON ⇄ XML (`CNV-23`), CSV ⇄ TSV (`CNV-24`), formatter kode/JSON (`CNV-25`), Markdown → HTML (`CNV-26`), GeoJSON → KML (`CNV-27`), STL → OBJ (`CNV-28`) |
+
+Catatan status: seluruh 163 ID teregistrasi dan dapat dicari; tidak ada `StubTool` yang diinstansiasi (`stubVideoTools()`/`stubAudioTools()`/`stubImageTools()` mengembalikan daftar kosong). VID-07 menghasilkan MP4/H.264 lewat Media3 (jalur FFmpeg hanya untuk penajaman, encoder `mpeg4`). Fitur PDF→Word/Excel/PowerPoint dan OCR tetap versi "Basic" seperti tertulis di katalog.
 
 ## Dokumentasi Proyek
 
 - `01-ARSITEKTUR.md` — Cetak biru arsitektur
 - `02-KATALOG-FITUR.md` — Katalog fitur lengkap
-- `docs/AUDIT.md` — Audit struktur proyek, dependency, & temuan Fase 0
+- `docs/AUDIT.md` — Arsip audit Fase 0, status Audit v3, & ringkasan Audit v4 (statis)
 - `docs/DECISIONS.md` — Keputusan teknis
 - `docs/LICENSES.md` — Daftar lisensi library & aset
 
 ## Verifikasi Build, Test & Lint
 
+Repo ini **belum menyertakan Gradle Wrapper** (`gradlew`, `gradle/wrapper/`), jadi perintah memakai
+Gradle yang terpasang di mesin/CI:
+
 ```bash
-./gradlew assembleDebug testDebugUnitTest lintDebug
+gradle assembleDebug testDebugUnitTest lintDebug
 ```
+
+CI (`.github/workflows/android-ci.yml`) tidak memakai `./gradlew`. Workflow memasang Gradle 9.3.1 lewat
+`gradle/actions/setup-gradle` (versi minimum untuk AGP 9.1.1), lalu menjalankan `gradle assembleDebug`,
+`gradle testDebugUnitTest`, `gradle lintDebug`, dan `gradle assembleRelease`.
+
+Wrapper bisa dibuat nanti dengan menjalankan `gradle wrapper` **sekali** di komputer yang punya Gradle;
+perintah itu menghasilkan `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, dan
+`gradle-wrapper.properties`. Setelah wrapper ada, perintah `./gradlew ...` dapat dipakai kembali dan
+langkah setup Gradle di CI tidak lagi diperlukan.

@@ -9,13 +9,15 @@ import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Portrait
-import com.arthenica.ffmpegkit.FFmpegKit
-import com.arthenica.ffmpegkit.ReturnCode
 import com.harimu.app.core.ai.AiException
 import com.harimu.app.core.ai.AiLocalEngines
 import com.harimu.app.core.engines.AudioEngine
 import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.engines.VideoEngine
+import com.harimu.app.core.media.FfmpegCapabilities
+import com.harimu.app.core.media.Media3Request
+import com.harimu.app.core.media.Media3TransformerEngine
+import com.harimu.app.core.media.MediaJob
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolContext
@@ -267,23 +269,28 @@ private fun localDenoiseTool(): Tool = object : Tool {
 
 // --------------------------------------------------------------- VID-07
 
-private fun videoUpscaleTool(): Tool = object : Tool {
+private fun videoUpscaleTool(
+    media3: Media3TransformerEngine = Media3TransformerEngine(),
+    ffmpegJob: MediaJob = MediaJob()
+): Tool = object : Tool {
     override val id = "VID-07"
     override val group = ToolGroup.VIDEO
-    override val engineLabel = "FF"
+    override val engineLabel = "M3/FF"
     override val icon = Icons.Filled.HighQuality
     override val inputSpec = InputSpec.SingleVideo
     override val params = listOf(
         ToolParam.DropdownParam("factor", "Perbesaran", "Scale", listOf("1.5x", "2x"), "1.5x"),
-        ToolParam.SliderParam("sharpness", "Ketajaman", "Sharpness", 0f, 100f, 45f, 5f, "%"),
-        ToolParam.DropdownParam("quality", "Kualitas", "Quality", listOf("Tinggi (CRF 18)", "Sedang (CRF 23)"), "Sedang (CRF 23)")
+        ToolParam.SliderParam("sharpness", "Ketajaman (jalur FFmpeg)", "Sharpening (FFmpeg path)", 0f, 100f, 0f, 5f, "%"),
+        ToolParam.DropdownParam("quality", "Kualitas", "Quality", listOf("Tinggi", "Sedang"), "Sedang")
     )
 
     override fun title(isEnglish: Boolean) = if (isEnglish) "Video Upscaler 1.5–2×" else "Pembesar Video 1.5–2×"
     override fun description(isEnglish: Boolean) = if (isEnglish) {
-        "Upscale a short clip with FFmpeg (lanczos + unsharp). Max 60 s and 1080p input; slow on CPU."
+        "Upscale a short clip with the device encoder (Media3 + H.264). Max 60 s and 1080p input, output ≤ 2160p. " +
+            "Sharpening above 0 switches to the FFmpeg path (LGPL mpeg4 + unsharp, slower)."
     } else {
-        "Perbesar klip pendek dengan FFmpeg (lanczos + unsharp). Maks 60 detik & input 1080p; lambat di CPU."
+        "Perbesar klip pendek memakai encoder perangkat (Media3 + H.264). Maks 60 detik & input 1080p, hasil ≤ 2160p. " +
+            "Ketajaman di atas 0 beralih ke jalur FFmpeg (LGPL mpeg4 + unsharp, lebih lambat)."
     }
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
@@ -310,35 +317,102 @@ private fun videoUpscaleTool(): Tool = object : Tool {
         val targetHeight = (meta.second * factor).roundToInt()
         require(targetHeight <= 2160) { "Hasil ${targetHeight}px melebihi 2160p." }
 
-        emit(ToolProgress.Running(10, "Menyiapkan berkas sumber…"))
-        val sourceFile = ctx.storage.copyUriToTemp(uri, "vid_upscale_src", "mp4")
-        val dest = ctx.storage.createOutputFile("VID_UPSCALE", "mp4")
-        val sharp = input.getFloat("sharpness", 45f).toInt()
-        val crf = if (input.getString("quality", "Sedang (CRF 23)").startsWith("Tinggi")) 18 else 23
-        val filter = "scale=trunc(iw*$factor/2)*2:trunc(ih*$factor/2)*2:flags=lanczos," +
-            "unsharp=5:5:${(sharp / 100f * 1.2f)}:5:5:0"
-        val command = "-y -i \"${sourceFile.absolutePath}\" -vf \"$filter\" " +
-            "-c:v libx264 -preset veryfast -crf $crf -c:a copy -movflags +faststart " +
-            "\"${dest.absolutePath}\""
+        // Encoder H.264 membutuhkan dimensi genap.
+        fun even(value: Int): Int = ((value.coerceAtLeast(1) + 1) / 2) * 2
+        val targetWidth = even((meta.first * factor).roundToInt())
+        val targetH = even(targetHeight)
+        val sharp = input.getFloat("sharpness", 0f).toInt().coerceIn(0, 100)
+        val highQuality = input.getString("quality", "Sedang").startsWith("Tinggi")
 
-        emit(ToolProgress.Running(25, "FFmpeg: ${meta.first}×${meta.second} → ${(meta.first * factor).roundToInt()}×$targetHeight (CPU, bisa lama)…"))
-        val session = withContext(Dispatchers.IO) { FFmpegKit.execute(command) }
-        val success = ReturnCode.isSuccess(session.returnCode)
-        sourceFile.delete()
-        if (!success || !dest.exists() || dest.length() == 0L) {
-            val tail = session.output?.takeLast(400) ?: session.failStackTrace ?: "tanpa detail"
-            dest.delete()
-            throw IllegalStateException("FFmpeg gagal (kode ${session.returnCode}): $tail")
-        }
-        emit(
-            ToolProgress.Done(
-                ToolResult(
-                    outputs = listOf(ToolOutputFile(dest, "video/mp4", dest.name)),
-                    summary = "${factor}× → ${(meta.first * factor).roundToInt()}×$targetHeight • " +
-                        "${ctx.storage.formatBytes(dest.length())} • upscale lanczos + unsharp (bukan model AI)"
+        if (sharp <= 0) {
+            emit(ToolProgress.Running(10, "Menyiapkan berkas sumber…"))
+            emit(
+                ToolProgress.Running(
+                    25,
+                    "Media3 H.264: ${meta.first}×${meta.second} → $targetWidth×$targetH (encoder perangkat)…"
                 )
             )
-        )
+            val request = Media3Request(
+                inputUri = uri,
+                toolTag = "VID_UPSCALE",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                videoMimeType = "video/avc",
+                targetWidth = targetWidth,
+                targetHeight = targetH,
+                // Kira-kira 0,1 bit/piksel/frame @30fps; "Tinggi" memakai 1,5× nilai dasar.
+                targetVideoBitrateBps = (
+                    targetWidth.toLong() * targetH * (if (highQuality) 3L else 2L)
+                    ).toInt()
+            )
+            media3.runTransformerOnly(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                request = request,
+                isEnglish = ctx.isEnglish
+            ).collect { progress ->
+                if (progress is ToolProgress.Done) {
+                    val size = progress.result.outputs.firstOrNull()?.file?.length() ?: 0L
+                    emit(
+                        ToolProgress.Done(
+                            progress.result.copy(
+                                summary = "$factor× → $targetWidth×$targetH • ${ctx.storage.formatBytes(size)} • " +
+                                    "H.264 Media3 (encoder perangkat, bukan model AI)"
+                            )
+                        )
+                    )
+                } else {
+                    emit(progress)
+                }
+            }
+        } else {
+            // unsharp tidak ada di Media3; jalur FFmpeg dipakai hanya saat pengguna meminta penajaman.
+            FfmpegCapabilities.requireFilter("unsharp", ctx.isEnglish)
+            FfmpegCapabilities.requireEncoder("mpeg4", ctx.isEnglish)
+            val amount = sharp / 100f * 1.2f
+            val filter = "scale=trunc(iw*$factor/2)*2:trunc(ih*$factor/2)*2:flags=lanczos," +
+                "unsharp=5:5:$amount:5:5:0"
+            emit(
+                ToolProgress.Running(
+                    25,
+                    "FFmpeg: ${meta.first}×${meta.second} → $targetWidth×$targetH (mpeg4 + unsharp, CPU)…"
+                )
+            )
+            ffmpegJob.runCommand(
+                context = ctx.appContext,
+                storage = ctx.storage,
+                inputUris = listOf(uri),
+                toolTag = "VID_UPSCALE",
+                outputExt = "mp4",
+                outputMime = "video/mp4",
+                expectedDurationMs = durationMs,
+                isEnglish = ctx.isEnglish
+            ) { inputs, output ->
+                listOf(
+                    "-y",
+                    "-i", inputs.first().absolutePath,
+                    "-vf", filter,
+                    "-c:v", "mpeg4", "-q:v", if (highQuality) "2" else "4",
+                    "-c:a", "copy",
+                    "-movflags", "+faststart",
+                    output.absolutePath
+                )
+            }.collect { progress ->
+                if (progress is ToolProgress.Done) {
+                    val size = progress.result.outputs.firstOrNull()?.file?.length() ?: 0L
+                    emit(
+                        ToolProgress.Done(
+                            progress.result.copy(
+                                summary = "$factor× → $targetWidth×$targetH • ${ctx.storage.formatBytes(size)} • " +
+                                    "FFmpeg mpeg4 + unsharp (LGPL, bukan model AI)"
+                            )
+                        )
+                    )
+                } else {
+                    emit(progress)
+                }
+            }
+        }
     }.flowOn(Dispatchers.IO)
 }
 

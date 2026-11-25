@@ -23,7 +23,7 @@ Daftar lengkap + engine + fase ada di `02-KATALOG-FITUR.md`. Arsitektur ada di `
 2. **Perbaikan harus tertarget.** Setiap temuan/perbaikan ditulis dengan jalur file lengkap (contoh: `feature/video/src/main/kotlin/.../TrimTool.kt`) dan baris/fungsi yang diubah. Jangan menulis ulang file di luar lingkup tugas.
 3. **Jangan ubah format file** (nama, ekstensi, struktur proyek, format data) tanpa instruksi eksplisit dari Andikaa.
 4. **Satu fase = satu lingkup.** Jangan loncat ke fase berikutnya. Selesaikan, jalankan build + test, lalu laporkan.
-5. **Build harus hijau** di akhir setiap fase: `./gradlew assembleDebug testDebugUnitTest lintDebug`.
+5. **Build harus hijau** di akhir setiap fase: `gradle assembleDebug testDebugUnitTest lintDebug` (repo tanpa Gradle wrapper; CI memasang Gradle 9.3.1 lewat `gradle/actions/setup-gradle`). **Pemilik tidak build lokal** — verifikasi nyata hanya lewat CI (`.github/workflows/android-ci.yml`: job `android`, `backend`, `instrumented`).
 6. **Jangan pernah menaruh API key di APK.** Semua panggilan AI cloud lewat Cloudflare Worker (AI Gateway). Backend memakai Cloudflare, bukan Firebase.
 7. **Jujur soal batas.** Jika sebuah fitur tidak realistis on-device (mis. PDF→Word berkualitas tinggi, konversi font OTF↔TTF, Stem Splitter besar), tulis keputusan yang dipilih (cloud / model unduhan / versi terbatas) di `docs/DECISIONS.md`, jangan pura-pura selesai.
 8. **Cek lisensi** sebelum menambah library (FFmpeg build GPL, iText AGPL, dll.). Catat di `docs/LICENSES.md`.
@@ -34,11 +34,11 @@ Daftar lengkap + engine + fase ada di `02-KATALOG-FITUR.md`. Arsitektur ada di `
 | Area | Pilihan |
 |---|---|
 | Bahasa/UI | Kotlin, Jetpack Compose, Material 3 (tema terang/gelap/AMOLED) |
-| DI | Hilt |
+| DI | `AppContainer` manual di `HariMuApp.kt` (tanpa Hilt) |
 | Navigasi | Navigation Compose (type-safe routes) |
 | Async | Coroutines + Flow, WorkManager untuk job panjang |
 | Data | Room (riwayat, favorit), DataStore (pengaturan), file di app-specific storage + MediaStore/SAF untuk ekspor |
-| Media | Media3 (Transformer, ExoPlayer), FFmpeg (wrapper terpelihara; cek status ffmpeg-kit karena repo aslinya sudah diarsipkan), MediaCodec |
+| Media | Media3 (Transformer, ExoPlayer), FFmpeg `ffmpeg-kit-full:8.1.9` LGPL dari fork terpelihara (tanpa `libx264`/`libx265`), MediaCodec |
 | Gambar | Coil, Bitmap/Canvas, ExifInterface, GPUImage/OpenGL ES atau RenderEffect (API 31+) |
 | PDF | `PdfRenderer` (render), PdfBox-Android atau library berlisensi permisif (manipulasi) |
 | OCR | ML Kit Text Recognition dan/atau Tesseract (butuh 8 bahasa) |
@@ -53,25 +53,25 @@ Daftar lengkap + engine + fase ada di `02-KATALOG-FITUR.md`. Arsitektur ada di `
 
 ```
 harimu/
-├── app/                      # entry point, nav host, Hilt root
-├── core/
-│   ├── design/               # tema, komponen Compose bersama
-│   ├── tool-api/             # interface Tool, ToolRegistry, ToolParam, ToolResult
-│   ├── engine-media/         # wrapper FFmpeg + Media3, job runner
-│   ├── engine-image/         # operasi Bitmap, filter, EXIF
-│   ├── engine-pdf/
-│   ├── engine-ml/            # loader model, delegate GPU/NNAPI
-│   ├── files/                # SAF, MediaStore, temp manager, hasil
-│   ├── data/                 # Room, DataStore
-│   ├── cloud/                # klien S3/R2, Drive, Dropbox, REST kustom
-│   └── ai-client/            # klien ke Cloudflare AI Gateway
-├── feature/
-│   ├── home/ settings/ history/
-│   ├── core-tools/ video/ audio/ image/ pdf/ converter/
-└── backend/ai-gateway/       # Cloudflare Worker (TypeScript)
+├── app/                                  # satu-satunya modul Gradle (`:app`)
+│   └── src/main/java/com/harimu/app/
+│       ├── HariMuApp.kt                  # Application + AppContainer (DI manual)
+│       ├── core/
+│       │   ├── design/ toolapi/ data/ files/ backup/
+│       │   ├── engines/                  # image, PDF, converter, arsip, kripto
+│       │   ├── media/                    # MediaJob (FFmpeg), Media3, probe, matematika media
+│       │   ├── jobs/                     # JobManager, JobQueuePolicy, ToolJobWorker
+│       │   ├── ai/                       # klien Cloudflare AI Gateway
+│       │   ├── pdf/ security/ recording/ cloud/
+│       └── feature/
+│           ├── home/ catalog/ toolscreen/ studios/ tools/ history/ settings/
+├── backend/ai-gateway/                   # Cloudflare Worker (TypeScript)
+└── gradle/libs.versions.toml             # katalog versi (tanpa wrapper)
 ```
 
-Aturan dependensi: `feature/*` boleh bergantung ke `core/*`, tidak boleh ke `feature/*` lain. Tool yang muncul di dua grup (mis. Video to GIF di Video Forge dan Universal Converter) memakai **satu implementasi** dan dua entri registry.
+Aturan dependensi: `feature/*` hanya bergantung ke `core/*`. Karena hanya ada satu modul Gradle, aturan ini dijaga lewat konvensi paket dan review, bukan batas modul fisik. Tool yang muncul di dua grup (mis. Video to GIF di Video Forge dan Universal Converter) memakai **satu implementasi** dan dua entri registry.
+
+Struktur ini adalah keputusan resmi pemilik (opsi **A**, Fase K4): multi-modul fisik dan Hilt **tidak** dipakai; lihat `docs/DECISIONS.md` butir 20.
 
 ## 5. Kontrak Tool (wajib diikuti setiap tool)
 

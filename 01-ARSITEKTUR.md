@@ -3,7 +3,7 @@
 ## 1. Prinsip
 
 1. **Registry-driven.** Semua ±160 tool adalah entri di `ToolRegistry`. Beranda, pencarian, favorit, dan riwayat dibangun dari registry, bukan di-hardcode.
-2. **Engine dipisah dari tool.** Tool hanya merangkai parameter; kerja berat ada di engine (`engine-media`, `engine-image`, `engine-pdf`, `engine-ml`).
+2. **Engine dipisah dari tool.** Tool hanya merangkai parameter; kerja berat ada di paket engine `core/media`, `core/engines`, `core/pdf`, dan `core/ai` di dalam satu modul `:app`.
 3. **On-device dulu, cloud bila perlu.** Tiga tingkat: `LOCAL` (tanpa internet), `MODEL` (butuh model ML yang diunduh sekali), `CLOUD` (lewat Cloudflare Worker).
 4. **Streaming, bukan memuat penuh.** Proses file lewat URI/stream/tile; jangan memuat media besar ke RAM.
 5. **Job-based.** Pekerjaan panjang berjalan lewat WorkManager/foreground service, tahan terhadap rotasi layar dan proses ditutup.
@@ -15,7 +15,7 @@ UI (Compose) ──► ToolScreen(params) ──► JobManager ──► WorkMan
                                             │
                     ┌───────────────────────┼───────────────────────┐
                     ▼                       ▼                       ▼
-              engine-media            engine-image/pdf         ai-client
+            core/media                core/engines, core/pdf     core/ai
           (FFmpeg + Media3)        (Bitmap, PdfRenderer,    (Cloudflare Worker)
                                     ML Kit, ONNX/LiteRT)           │
                                                                     ▼
@@ -30,11 +30,11 @@ Hasil ──► files/ (temp → output) ──► Room (riwayat) ──► Shar
 | Jalur | Dipakai untuk | Catatan |
 |---|---|---|
 | Media3 Transformer + MediaCodec | trim, merge, crop, resize, rotate, speed, text/gambar overlay, transisi sederhana | Hardware-accelerated, cepat, lisensi bersih |
-| FFmpeg (wrapper) | konversi format, GIF, reverse, loop, stabilize (vidstab), chromakey, filter audio (equalizer, loudnorm, afftdn, atempo, aecho), subtitle burn-in, concat | Fleksibel; perhatikan lisensi (build GPL) dan ukuran APK |
+| FFmpeg (`ffmpeg-kit-full:8.1.9` LGPL) | konversi format, GIF, reverse, loop, `deshake`, chromakey, filter audio (equalizer, loudnorm, afftdn, atempo, aecho), subtitle burn-in, concat | LGPL tanpa `libx264`/`libx265`/`vidstab`; ukuran APK besar, split per ABI |
 
 Catatan penting:
 - Repo `ffmpeg-kit` asli sudah diarsipkan. Pilih fork/wrapper yang aktif dipelihara, **verifikasi sendiri** statusnya, atau bangun FFmpeg sendiri dengan flag LGPL. Dokumentasikan pilihan di `docs/DECISIONS.md`.
-- Encoder x264/x265 berlisensi GPL. Jika memakai build LGPL, gunakan encoder hardware `h264_mediacodec`.
+- Encoder x264/x265 berlisensi GPL dan **tidak tersedia** di build ini: H.264 dikerjakan Media3/MediaCodec (mis. `VID-07`), sedangkan jalur FFmpeg untuk penajaman memakai encoder `mpeg4` dan dijaga guard `core/media/FfmpegCapabilities.kt`.
 - Gunakan App Bundle + split ABI; pertimbangkan Play Feature Delivery untuk paket FFmpeg dan model ML.
 
 `MediaJob` menyediakan: parsing progres (durasi total vs waktu terproses), batal, log, validasi codec, dan fallback otomatis (Media3 gagal → FFmpeg).
@@ -129,3 +129,5 @@ Ketentuan:
 - Golden test untuk filter gambar.
 - Uji perangkat: minimal satu perangkat RAM 3–4 GB, satu API 26–28, satu API terbaru.
 - Uji ketahanan: batal di tengah job, proses dimatikan, ruang disk penuh, file korup.
+- **Status 25 Nov 2026**: tujuh berkas instrumented test sudah ada di `app/src/androidTest/java/com/harimu/app/` (media, audio, gambar, PDF, converter, keystore) tetapi **belum dijalankan**; eksekusinya hanya lewat job CI `instrumented` (`continue-on-error`). Unit test belum pernah dieksekusi sama sekali.
+- **Batasan lingkungan**: pemilik tidak melakukan build lokal; verifikasi nyata hanya lewat CI `.github/workflows/android-ci.yml`.

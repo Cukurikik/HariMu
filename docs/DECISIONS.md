@@ -1,10 +1,10 @@
 # Keputusan Teknis HariMu (Android)
 
 1. **Arsitektur Registry-Driven (`ToolRegistry` & `ToolContract`)**
-   Semua tool terdaftar terpusat di `ToolRegistry` dan dirender secara dinamis oleh `ToolScreen` berdasarkan `InputSpec` dan `ToolParam`, sedangkan tool interaktif kompleks (Voice Recorder, Image Matrix, Equalizer 5-Band, Key Vault, Backup `.omni`) memakai layar studio khusus.
+   Semua tool terdaftar terpusat di `ToolRegistry` dan dirender secara dinamis oleh `ToolScreen` berdasarkan `InputSpec` dan `ToolParam`, sedangkan tool interaktif kompleks (Voice Recorder, Image Matrix, Equalizer 10-Band, Key Vault, Backup `.omni`) memakai layar studio khusus.
 
 2. **Engine On-Device Tanpa Biner GPL**
-   - **Media/Video**: Memakai Android native `MediaExtractor`, `MediaMuxer`, dan `MediaMetadataRetriever` (tanpa dependensi FFmpeg GPL).
+   - **Media/Video**: Jalur utama Media3 `Transformer`/`MediaCodec` + Android native `MediaExtractor`, `MediaMuxer`, `MediaMetadataRetriever`; FFmpeg hanya untuk format/filter yang tidak tersedia di Media3, memakai `dev.ffmpegkit-maintained:ffmpeg-kit-full:8.1.9` berlisensi **LGPL v3.0** (tanpa `libx264`/`libx265`/`vidstab`). Jadi tetap **tanpa biner GPL**, tetapi bukan "tanpa dependensi FFmpeg" — rincian di butir 6 dan 19.
    - **Audio DSP**: Memakai `MediaCodec` PCM decoder + DSP Kotlin langsung (gain, trim, mix/concat, manipulasi kanal, silence remover, reverse, echo, fade, waveform PNG) serta `android.media.audiofx.Equalizer` dan `AudioRecord` / `TextToSpeech`.
    - **Gambar**: Memakai `Bitmap`, `Canvas`, `ColorMatrix`, `Matrix`, `ExifInterface`, dan klasterisasi warna `K-Means`.
    - **PDF**: Memakai Android native `PdfRenderer` dan `PdfDocument` (merge, split, rotate, extract, image-to-PDF, PDF-to-image, watermark, page numbering, pixel-diff comparison).
@@ -12,13 +12,13 @@
 
 3. **Toolchain Build & Analisis Statis (Fase 0)**
    - **AGP `9.1.1` + Kotlin `2.2.10` + KSP `2.3.5`**: Memakai dukungan Kotlin bawaan AGP 9 tanpa plugin terpisah `org.jetbrains.kotlin.android`.
-   - **Style & CI**: `.editorconfig` dan `config/detekt/detekt.yml` disiapkan di repo; GitHub Actions (`.github/workflows/android-ci.yml`) menjalankan `ktlint`, `./gradlew assembleDebug`, `./gradlew testDebugUnitTest`, dan `./gradlew lintDebug` tanpa menambahkan plugin Gradle Detekt 1.x yang berpotensi bentrok dengan Kotlin 2.2.
+   - **Style & CI**: `.editorconfig` dan `config/detekt/detekt.yml` disiapkan di repo; GitHub Actions (`.github/workflows/android-ci.yml`) menjalankan `ktlint`, `gradle assembleDebug`, `gradle testDebugUnitTest`, dan `gradle lintDebug` (repo tanpa wrapper; CI memasang Gradle 9.3.1 lewat `gradle/actions/setup-gradle`) tanpa menambahkan plugin Gradle Detekt 1.x yang berpotensi bentrok dengan Kotlin 2.2.
 
 4. **Fitur Cloud & Model Besar**
    Tool yang bergantung pada backend Cloudflare Worker atau model ML unduhan besar (seperti `CORE-02` Prompt Video Gen, `IMG-21` AI Image Gen, `PDF-06` PDF↔Office LibreOffice) tidak di-stub dengan respons palsu; konfigurasi endpoint S3/R2/Worker tersedia di Setelan saat backend disambungkan.
 
 5. **Infrastruktur Inti & Antrean Job (Fase 2)**
-   - **Katalog Penuh 163 Tool**: `ToolRegistry` mendaftarkan 59 tool aktif + 104 `StubTool` (`"Segera hadir"`) sehingga seluruh 163 ID di `02-KATALOG-FITUR.md` dapat dicari, difavoritkan, dan dibuka di `ToolScreen`.
+   - **Katalog Penuh 163 Tool**: `ToolRegistry` mendaftarkan 163 tool unik (9/30/28/47/21/28) sehingga seluruh ID di `02-KATALOG-FITUR.md` dapat dicari, difavoritkan, dan dibuka di `ToolScreen`. *(Dikoreksi di Fase K4: catatan lama "59 tool aktif + 104 `StubTool`" sudah tidak berlaku — `stubVideoTools()`/`stubAudioTools()`/`stubImageTools()` mengembalikan daftar kosong dan tidak ada `StubTool` yang diinstansiasi.)*
    - **Antrean & Pemulihan WorkManager**: `JobManager` membatasi maks. 2 job berat paralel lewat `JobQueuePolicy` (FIFO) yang disinkronkan dengan tabel Room `jobs` (`JobEntity`). Saat `HariMuApp.onCreate()` berjalan, `recoverPendingJobs()` menyelaraskan status `WorkManager` atau menjadwalkan ulang job yang terputus setelah proses dimatikan.
    - **File, SAF & Model ML**: `FileStorageManager` menamai keluaran `HariMu_<tool>_<timestamp>.<ext>`, membersihkan direktori temp saat startup dan setelah tiap job, memeriksa ruang disk bebas sebelum eksekusi, serta mendukung ekspor ke folder default SAF (`OpenDocumentTree`), `MediaStore`, atau `CreateDocument` dan berbagi via `FileProvider`. `ModelManager` menyimpan model lokal di `noBackupFilesDir/models`.
    - **Cloud Connections**: Bagian Cloud Connections di `SettingsScreen` hadir sebagai UI kosong terdaftar yang siap dihubungkan pada P14.
@@ -119,7 +119,7 @@
       - IMG-12 hapus latar = flood fill dari tepi + toleransi warna + feather alpha (bukan U²-Net)
       - IMG-19 bokeh = blur radial di sekitar titik fokus (bukan depth map)
       - IMG-22 denoise = smart blur tepi-terjaga 3 pass (bukan DnCNN)
-      - VID-07 = FFmpeg `scale=lanczos,unsharp` dengan batas 60 detik & 1080p (bukan model super-resolution)
+      - VID-07 = FFmpeg `scale=lanczos,unsharp` dengan batas 60 detik & 1080p (bukan model super-resolution) — **direvisi di butir 19 (K2): Media3 H.264; FFmpeg hanya untuk penajaman**
       - AUD-20/AUD-04 DSP = mid/side (vokal ≈ (L+R)/2, instrumen ≈ (L−R)/2) → 2 jalur WAV, bukan Demucs 4-stem
       - AUD-27 memakai gateway (Whisper-compatible); Whisper on-device belum ada, jadi tanpa gateway tool gagal dengan pesan jelas.
       Semua batas ini ditulis di katalog (`✅ (heuristik …)`), deskripsi tool, dan ringkasan hasil.
@@ -174,3 +174,14 @@
     - **CI**: action di-pin ke commit SHA, ktlint diambil dari Maven Central dengan verifikasi SHA-1, dan job backend menjalankan `npm ci` + `typecheck` + `vitest`. Batas: detekt belum diaktifkan, instrumented test tetap belum ada (butuh emulator di CI).
     - **Verifikasi**: tetap **statis** (tanpa JDK/Gradle/Android SDK di lingkungan ini). Yang dijalankan: skrip keseimbangan kurung pada seluruh berkas berubah, pemeriksaan YAML workflow, dan test Kotlin/Worker baru ditulis namun **belum dieksekusi**. Tidak ada klaim `assembleDebug`/`test` sukses.
 ---
+
+19. **VID-07 tanpa `libx264` (Fase K2)** — Build FFmpeg proyek adalah `ffmpeg-kit-full:8.1.9` LGPL yang tidak memuat encoder H.264 GPL, sehingga perintah lama `-c:v libx264` tidak akan pernah berhasil di perangkat. Asumsi yang diambil (pemilik tidak memilih opsi lain): **keluaran MP4/H.264 lewat Media3 Transformer** (`Media3TransformerEngine.runTransformerOnly`, encoder perangkat/MediaCodec), bukan WebM/libvpx.
+    - **Jalur utama (ketajaman = 0, default)**: `Media3Request` dengan `targetWidth`/`targetHeight` (dibulatkan ke angka genap), `videoMimeType = "video/avc"`, dan `targetVideoBitrateBps` kasar ±0,1 bit/piksel/frame @30fps ("Tinggi" 1,5×). Audio dipertahankan (default `removeAudio = false`). Batas lama tetap: durasi 1–60 detik, tinggi input ≤1080p, hasil ≤2160p; pelanggaran menghasilkan pesan Indonesia yang sama seperti sebelumnya.
+    - **Jalur FFmpeg (ketajaman > 0)**: hanya karena `unsharp` tidak tersedia di Media3. Dijalankan lewat `MediaJob.runCommand` → `FFmpegKit.executeWithArgumentsAsync` (tidak ada lagi `FFmpegKit.execute(String)` di repo), encoder **`mpeg4`** + `-q:v 2/4`, filter `scale=…:flags=lanczos,unsharp=5:5:<amount>:5:5:0`, audio `-c:a copy`, lalu `-movflags +faststart`. MediaJob menangani pembersihan direktori temp dan pelaporan progres.
+    - **Guard kapabilitas baru** `core/media/FfmpegCapabilities.kt`: saat runtime menjalankan `ffmpeg -hide_banner -encoders` dan `-filters` sekali per proses (parse nama dari kolom flag), lalu `requireEncoder`/`requireFilter` melempar pesan jelas bila encoder/filter yang dibutuhkan tidak ada — bukan crash FFmpeg. Bila probe gagal (output kosong), guard fail-open agar tidak mematikan tool.
+    - **Hasil pemindaian encoder/filter** (lihat laporan Fase K2): encoder yang dipakai hanya `mpeg4`, `libvpx`, `libvorbis`, `libmp3lame`, `aac`, `flac`, `pcm_s16le`, `pcm_s24le`, `mjpeg`, dan `copy` — semuanya LGPL/native. Filter yang dipakai: `scale`, `crop`, `unsharp`, `eq`, `gblur`, `avgblur`, `deshake`, `colorbalance`, `overlay`, `ass`, `palettegen`/`paletteuse`, `fps`, `format`, `pad`, `setsar`, `transpose`, `atempo`, `asetrate`, `aresample`, `aecho`, `acompressor`, `alimiter`, `apad`, `aloop`, `amix`, `adelay`, `atrim`, `concat`, `pan`, `volume`, `afade`, `lowpass`, `sine`, `showwaves`/`showspectrum`/`showcqt`/`avectorscope`. Tidak ada pemakaian `libx264`, `libx265`, `vidstab`, `rubberband`, `delogo`, atau `boxblur` di kode (hanya tersisa sebagai catatan historis di `VideoBatch2Math.kt`).
+    - **Status**: *Ditulis, belum diuji di perangkat*. Batas jujur: kualitas `mpeg4` (MPEG-4 Part 2) di jalur penajaman lebih rendah dari H.264, dan `Presentation.LAYOUT_SCALE_TO_FIT` Media3 memakai penskalaan GPU (bukan lanczos CPU), sehingga ketajaman hasil bisa berbeda dari versi FFmpeg lama.
+---
+
+20. **Arsitektur resmi: single-module `:app` + `AppContainer` manual (Fase K4, 25 Nov 2026)** — Pemilik memilih opsi **(A)**. Struktur yang berlaku: satu modul Gradle `:app` dengan paket `core/*` dan `feature/*`, DI manual lewat `AppContainer` (`app/src/main/java/com/harimu/app/HariMuApp.kt:22`), **tanpa Hilt dan tanpa submodul Gradle**. `SKILL.md`, `01-ARSITEKTUR.md`, `docs/AUDIT.md`, README, dan CONTRIBUTING diselaraskan ke kenyataan ini; migrasi multi-modul/Hilt tidak dikerjakan dan bila diminta harus menjadi rencana terpisah.
+    - **Batasan lingkungan**: pemilik tidak melakukan build lokal. Verifikasi nyata hanya lewat CI `.github/workflows/android-ci.yml` (job `android`, `backend`, dan `instrumented` yang masih `continue-on-error: true`). Semua laporan fase sampai K4 berlabel **statis, belum dikompilasi**.

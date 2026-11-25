@@ -31,7 +31,7 @@
 | VID-04 | Resize Video (1080/720/480/360p) | M3 | P4 | 🟢 | ✅ |
 | VID-05 | Change Video Speed | M3/FF | P4 | 🟡 | ✅ |
 | VID-06 | Video to GIF | FF | P4 | 🟡 | ✅ |
-| VID-07 | Video Upscaler (1.5x–4x) | ML/FF | P11 | 🔴 | ✅ (FFmpeg lanczos+unsharp, maks 60s/1080p) |
+| VID-07 | Video Upscaler (1.5x–2x) | M3/FF | P11 | 🔴 | ✅ Media3 H.264 (encoder perangkat, ≤60 dtk, input ≤1080p, hasil ≤2160p); ketajaman >0 memakai jalur FFmpeg `mpeg4`+`unsharp` dengan guard `FfmpegCapabilities` — **Ditulis, belum diuji di perangkat** |
 | VID-08 | Video to Audio (MP3) | FF | P4 | 🟢 | ✅ |
 | VID-09 | Rotate Video | M3 | P4 | 🟢 | ✅ |
 | VID-10 | Flip Video | M3/FF | P4 | 🟢 | ✅ |
@@ -176,7 +176,7 @@
 | CNV-01 | Universal Video Transcoder | FF | P13 | ✅ alias VID-18 (MP4/WebM/AVI/MKV) |
 | CNV-02 | Video to Animated GIF | FF | P13 | ✅ alias VID-06 (palet 2-pass) |
 | CNV-03 | Video to Audio Extractor (MP3/WAV/FLAC/AAC) | FF | P13 | ✅ perluasan VID-08 (4 format; WAV/FLAC hanya wadah lossless dari audio terdekode) |
-| CNV-04 | Video Upscaler (AI) 2x | ML | P13 | ✅ alias VID-07 (FFmpeg lanczos + unsharp, bukan model neural) |
+| CNV-04 | Video Upscaler (AI) 2x | ML | P13 | ✅ alias VID-07 (Media3 H.264; ketajaman opsional via FFmpeg `mpeg4`+`unsharp`; bukan model neural) — **Ditulis, belum diuji di perangkat** |
 | CNV-05 | Universal Audio Transcoder | FF | P13 | ✅ alias AUD-13 (MP3/WAV/OGG/FLAC/M4A/OPUS) |
 | CNV-06 | Hi-Res Lossless Converter | FF | P13 | ✅ FLAC/WAV 24-bit hingga 96 kHz (upsampling tidak menambah detail) |
 | CNV-07 | Voice to Text Converter | ML/CL | P13 | ✅ alias AUD-27 (butuh AI Gateway; tanpa kredensial gagal jelas) |

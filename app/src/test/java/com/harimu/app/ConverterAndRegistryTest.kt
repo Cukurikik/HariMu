@@ -48,7 +48,7 @@ class ConverterAndRegistryTest {
         val kml = ConverterEngine.geoJsonToKml(
             """{"type":"Point","coordinates":[106.82,-6.17]}"""
         )
-        assertTrue(kml.contains("<coordinates>106.82,-6.17,0</coordinates>"))
+        assertTrue(kml.contains("<coordinates>106.82,-6.17,0.0</coordinates>"))
     }
 
     @Test
