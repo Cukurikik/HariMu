@@ -229,3 +229,16 @@
 4. **Stem Splitter & Upscaler video** — unduh model besar di perangkat, atau jalankan via cloud?
 5. **Font converter** — cukup WOFF/WOFF2 saja, atau wajib OTF↔TTF?
 6. **Screen Recorder** — default MP4 atau WebM?
+
+---
+
+## Referensi: Katalog Public API
+
+**File patokan:** `docs/DATA_PUBLIC_API.json` (sumber: `public-apis-complete.json`, 3542 entri dari publicapis.dev & publicapi.dev).
+
+File ini adalah **referensi tunggal** untuk setiap fitur baru yang berhubungan dengan Public API (mis. browser katalog, tool AI baru yang memanggil API publik tertentu, integrasi provider). Sebelum menambahkan fitur terkait, baca file ini untuk:
+- Memilih API kandidat (nama, kategori, deskripsi, link, auth/https/cors).
+- Menghindari duplikasi dengan entri yang sudah ada.
+- Menjaga konsistensi penamaan dan kategori.
+
+Tidak ada kode runtime yang membaca file ini; ini murni dokumentasi/referensi.
