@@ -288,5 +288,18 @@
     <string name="cd_undo">Urungkan</string>
     <string name="cd_redo">Ulangi</string>
     <string name="cd_mixer">Tampilkan atau sembunyikan mixer</string>
+
+    <!-- Universal Tool Workspace (P5) -->
+    <string name="progress_paused">Dijeda</string>
+    <string name="progress_cancelled">Dibatalkan</string>
+    <string name="progress_cancelled_message">Pemrosesan dibatalkan oleh pengguna. Anda dapat menjalankan tool kembali.</string>
+    <string name="progress_multiple_outputs">%1$d file hasil dihasilkan</string>
+    <string name="result_output_files">File Hasil (%1$d)</string>
+    <string name="result_additional_files">%1$d file tambahan</string>
+    <string name="action_run_again">Jalankan Lagi</string>
+    <string name="action_pause">Jeda</string>
+    <string name="action_resume">Lanjut</string>
+    <string name="action_details">Detail</string>
+    <string name="fallback_file_name">berkas_%1$d</string>
 </resources>
 
