@@ -69,10 +69,14 @@ import com.harimu.app.feature.studios.EqualizerScreen
 import com.harimu.app.feature.studios.ImageForgeScreen
 import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
+import com.harimu.app.feature.studios.PdfStudioScreen
+import com.harimu.app.feature.studios.PdfVaultScreen
 import com.harimu.app.feature.studios.ScreenRecorderScreen
+import com.harimu.app.feature.studios.UniversalConverterScreen
 import com.harimu.app.feature.studios.VideoEditorScreen
 import com.harimu.app.feature.studios.VideoForgeScreen
 import com.harimu.app.feature.studios.VoiceRecorderScreen
+import com.harimu.app.feature.studios.tabForPdfTool
 import com.harimu.app.feature.toolscreen.ToolScreen
 import com.harimu.app.navigation.HariMuAppShell
 import com.harimu.app.navigation.SHELL_UP_BUTTON_TAG
@@ -98,6 +102,9 @@ import java.util.Locale
 @Serializable data object AudioForgeRoute
 @Serializable data object EqualizerRoute
 @Serializable data object AudioStudioRoute
+@Serializable data object PdfVaultRoute
+@Serializable data class PdfStudioRoute(val initialTab: String? = null, val initialToolId: String? = null)
+@Serializable data class UniversalConverterRoute(val initialToolId: String? = null)
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
 @Serializable data object PrayerTimesRoute
@@ -278,6 +285,8 @@ private fun HariMuRoot(
                             when (group) {
                                 ToolGroup.NUSANTARA -> navController.navigate(NusantaraRoute)
                                 ToolGroup.AUDIO -> navController.navigate(AudioForgeRoute)
+                                ToolGroup.PDF -> navController.navigate(PdfVaultRoute)
+                                ToolGroup.CONVERTER -> navController.navigate(UniversalConverterRoute())
                                 else -> navController.navigate(CatalogRoute(group.name))
                             }
                         },
@@ -330,7 +339,10 @@ private fun HariMuRoot(
                         },
                         onOpenAudioForge = { navController.navigate(AudioForgeRoute) },
                         onOpenImageForge = { navController.navigate(ImageForgeRoute) },
-                        onOpenImageMatrix = { navController.navigate(ImageMatrixRoute) }
+                        onOpenImageMatrix = { navController.navigate(ImageMatrixRoute) },
+                        onOpenPdfVault = { navController.navigate(PdfVaultRoute) },
+                        onOpenPdfStudio = { navController.navigate(PdfStudioRoute()) },
+                        onOpenUniversalConverter = { navController.navigate(UniversalConverterRoute()) }
                     )
                 }
                 composable<ToolRoute> { entry ->
@@ -343,7 +355,13 @@ private fun HariMuRoot(
                         onToggleFavorite = {
                             scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(args.toolId) }
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenPdfStudio = { tab, id ->
+                            navController.navigate(PdfStudioRoute(initialTab = tab, initialToolId = id))
+                        },
+                        onOpenUniversalConverter = { id ->
+                            navController.navigate(UniversalConverterRoute(initialToolId = id))
+                        }
                     )
                 }
                 composable<VoiceRecorderRoute> {
@@ -393,6 +411,38 @@ private fun HariMuRoot(
                         container = container,
                         isEnglish = settings.isEnglish,
                         onOpenTool = { toolId -> navController.navigate(ToolRoute(toolId)) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable<PdfVaultRoute> {
+                    PdfVaultScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = ::openTool,
+                        onOpenPdfStudio = { tab, id ->
+                            navController.navigate(PdfStudioRoute(initialTab = tab.name, initialToolId = id))
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable<PdfStudioRoute> { entry ->
+                    val args = entry.toRoute<PdfStudioRoute>()
+                    PdfStudioScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        initialToolId = args.initialToolId,
+                        initialTabName = args.initialTab,
+                        onOpenTool = { toolId -> navController.navigate(ToolRoute(toolId)) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable<UniversalConverterRoute> { entry ->
+                    val args = entry.toRoute<UniversalConverterRoute>()
+                    UniversalConverterScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        initialToolId = args.initialToolId,
+                        onOpenTool = ::openTool,
                         onBack = { navController.popBackStack() }
                     )
                 }

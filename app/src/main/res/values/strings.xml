@@ -525,6 +525,188 @@
     <string name="cd_image_layer_duplicate">Duplikat layer</string>
     <string name="cd_image_layer_delete">Hapus layer</string>
     <string name="cd_image_close">Tutup</string>
+
+    <!-- PDF Vault & Document Studio -->
+    <string name="pdf_vault_title">PDF Vault</string>
+    <string name="pdf_vault_studio_title">PDF Document Studio</string>
+    <string name="pdf_vault_hero_badge">WORKSPACE DOKUMEN TERPADU</string>
+    <string name="pdf_vault_hero_subtitle">Pratinjau halaman nyata, atur urutan &amp; rotasi, watermark langsung, redaksi terverifikasi, form AcroForm, dan perbandingan dokumen.</string>
+    <string name="pdf_vault_open_studio">Buka PDF Studio</string>
+    <string name="pdf_vault_quick_organize">Atur Halaman &amp; Gabung</string>
+    <string name="pdf_vault_quick_security">Keamanan &amp; Redaksi</string>
+    <string name="pdf_vault_quick_compare">Bandingkan A/B</string>
+    <string name="pdf_vault_search_hint">Cari 21 tool PDF (gabung, OCR, redaksi, form…)</string>
+    <string name="pdf_vault_results_count">%1$d tool PDF ditampilkan</string>
+    <string name="pdf_vault_cat_all">Semua</string>
+    <string name="pdf_vault_cat_pages">Halaman &amp; Gabung</string>
+    <string name="pdf_vault_cat_security">Keamanan &amp; Privasi</string>
+    <string name="pdf_vault_cat_ocr_ai">OCR &amp; AI</string>
+    <string name="pdf_vault_cat_convert">Konversi &amp; Kompres</string>
+    <string name="pdf_vault_cat_forms">Form, Nomor &amp; Diff</string>
+    <string name="pdf_vault_converter_bridge_title">Alat Konverter PDF Terkait</string>
+    <string name="pdf_vault_converter_bridge_subtitle">Akses cepat ke alat PDF di grup Universal Converter</string>
+
+    <string name="pdf_cap_lossless">OBJEK ASLI</string>
+    <string name="pdf_cap_raster">RASTERISASI</string>
+    <string name="pdf_cap_basic">KONVERSI DASAR</string>
+    <string name="pdf_cap_ocr">OCR LOKAL</string>
+    <string name="pdf_cap_cloud">AI GATEWAY</string>
+
+    <string name="pdf_preview_title">Pratinjau Dokumen PDF</string>
+    <string name="pdf_preview_page_counter">Hal %1$d / %2$d</string>
+    <string name="pdf_preview_encrypted">PDF terenkripsi — masukkan kata sandi untuk melihat isi dan memproses halaman.</string>
+    <string name="pdf_preview_loading">Merender halaman PDF…</string>
+    <string name="pdf_preview_error">Gagal merender pratinjau halaman PDF.</string>
+    <string name="pdf_preview_zoom_title">Pratinjau Halaman %1$d</string>
+    <string name="pdf_preview_meta_pages">%1$d hal</string>
+    <string name="pdf_preview_meta_locked">Terkunci</string>
+    <string name="pdf_preview_meta_unlocked">Terbuka</string>
+    <string name="pdf_preview_meta_forms">%1$d field form</string>
+    <string name="pdf_preview_meta_text_yes">Ada teks</string>
+    <string name="pdf_preview_meta_text_no">Pindai / Tanpa teks</string>
+
+    <string name="pdf_picker_all_pages">Semua</string>
+    <string name="pdf_picker_odd_pages">Ganjil</string>
+    <string name="pdf_picker_even_pages">Genap</string>
+    <string name="pdf_picker_clear_pages">Kosongkan</string>
+    <string name="pdf_picker_selected_count">Ketuk halaman untuk memilih. %1$d dari %2$d dipilih.</string>
+    <string name="pdf_picker_reorder_hint">Gunakan tombol kiri/kanan atau seret tahan thumbnail untuk mengubah urutan.</string>
+    <string name="pdf_picker_page_desc">Halaman %1$d</string>
+    <string name="pdf_picker_move_left">Geser halaman %1$d ke kiri</string>
+    <string name="pdf_picker_move_right">Geser halaman %1$d ke kanan</string>
+    <string name="pdf_picker_remove_page">Hapus halaman %1$d dari urutan</string>
+
+    <string name="pdf_studio_tab_inspect">Inspeksi &amp; OCR</string>
+    <string name="pdf_studio_tab_pages">Halaman &amp; Gabung</string>
+    <string name="pdf_studio_tab_security">Keamanan &amp; Redaksi</string>
+    <string name="pdf_studio_tab_forms">Form &amp; Metadata</string>
+    <string name="pdf_studio_tab_compare">Bandingkan A/B</string>
+
+    <string name="pdf_studio_pick_primary">Pilih PDF Utama</string>
+    <string name="pdf_studio_change_primary">Ganti PDF</string>
+    <string name="pdf_studio_empty_doc_title">Belum ada PDF dipilih</string>
+    <string name="pdf_studio_empty_doc_subtitle">Pilih berkas PDF untuk melihat halaman, memeriksa metadata, mengatur halaman, mengenkripsi, atau meredaksi secara permanen.</string>
+    <string name="pdf_studio_unlock_hint">Kata Sandi Dokumen (jika terenkripsi)</string>
+    <string name="pdf_studio_unlock_apply">Buka</string>
+    <string name="pdf_studio_inspect_text_title">Cuplikan Teks Terekstrak</string>
+    <string name="pdf_studio_inspect_no_text">Tidak ditemukan lapisan teks. Kemungkinan PDF hasil pindai gambar — gunakan OCR on-device.</string>
+    <string name="pdf_studio_ocr_lang">Bahasa OCR (8 Bahasa)</string>
+    <string name="pdf_studio_ocr_ready">Data bahasa siap lokal</string>
+    <string name="pdf_studio_ocr_need_download">Belum terunduh — otomatis diunduh saat OCR dijalankan</string>
+    <string name="pdf_studio_run_ocr">Jalankan OCR PDF ke .txt</string>
+    <string name="pdf_studio_run_ai_structure">Analisis Struktur AI</string>
+    <string name="pdf_studio_compress_section">Kompres PDF (Rasterisasi)</string>
+    <string name="pdf_studio_compress_note">Kompresi PDF merasterisasi halaman menjadi gambar JPEG. Ukuran berkas berkurang tetapi lapisan teks tidak lagi dapat diseleksi.</string>
+    <string name="pdf_studio_run_compress">Kompres Sekarang</string>
+
+    <string name="pdf_studio_pages_section">Manipulasi Halaman (Objek Asli)</string>
+    <string name="pdf_studio_pages_extract">Ekstrak Terpilih</string>
+    <string name="pdf_studio_pages_apply_reorder">Simpan Urutan Baru</string>
+    <string name="pdf_studio_pages_rotate_90">Putar +90°</string>
+    <string name="pdf_studio_pages_rotate_180">Putar 180°</string>
+    <string name="pdf_studio_pages_rotate_270">Putar 270°</string>
+    <string name="pdf_studio_split_per_file">Halaman per berkas (.zip)</string>
+    <string name="pdf_studio_run_split">Pisah ke ZIP</string>
+
+    <string name="pdf_studio_merge_section">Antrean Gabung PDF (PDF-01)</string>
+    <string name="pdf_studio_merge_add">Tambah PDF</string>
+    <string name="pdf_studio_merge_run">Gabungkan %1$d PDF</string>
+    <string name="pdf_studio_merge_need_two">Tambahkan minimal 2 berkas PDF untuk digabung tanpa rasterisasi.</string>
+
+    <string name="pdf_studio_img2pdf_section">Gambar ke PDF (PDF-08)</string>
+    <string name="pdf_studio_img2pdf_add">Pilih Gambar</string>
+    <string name="pdf_studio_img2pdf_run">Buat PDF dari %1$d Gambar</string>
+
+    <string name="pdf_studio_security_enc_section">Enkripsi &amp; Dekripsi PDF</string>
+    <string name="pdf_studio_user_pwd">Password Pengguna (buka dokumen)</string>
+    <string name="pdf_studio_owner_pwd">Password Pemilik (izin)</string>
+    <string name="pdf_studio_run_encrypt">Enkripsi PDF</string>
+    <string name="pdf_studio_run_decrypt">Hapus Enkripsi</string>
+
+    <string name="pdf_studio_watermark_section">Watermark Langsung (PDF-12 &amp; PDF-13)</string>
+    <string name="pdf_studio_watermark_pick_img">Pilih Gambar Watermark</string>
+    <string name="pdf_studio_watermark_apply">Terapkan Watermark</string>
+    <string name="pdf_studio_watermark_remove">Hapus Watermark Objek</string>
+    <string name="pdf_studio_watermark_remove_note">Penghapusan watermark hanya menghapus objek anotasi &amp; layer OCG terpisah. Watermark yang sudah menyatu ke isi halaman tidak dapat dihapus.</string>
+
+    <string name="pdf_studio_redact_section">Redaksi Permanen &amp; Verifikasi (PDF-14)</string>
+    <string name="pdf_studio_redact_terms">Istilah yang dihapus (pisahkan koma/baris)</string>
+    <string name="pdf_studio_redact_scan">Pindai Kemunculan di Pratinjau</string>
+    <string name="pdf_studio_redact_apply">Redaksi Permanen &amp; Verifikasi</string>
+    <string name="pdf_studio_redact_hits_found">%1$d area ditemukan di %2$d halaman — lihat kotak sorotan merah pada pratinjau.</string>
+    <string name="pdf_studio_redact_hits_none">Tidak ditemukan kecocokan teks pada dokumen.</string>
+    <string name="pdf_studio_redact_note">Redaksi meratakan seluruh halaman menjadi gambar, menutup area istilah dengan hitam pekat, lalu memverifikasi bahwa teks tidak lagi terbaca.</string>
+
+    <string name="pdf_studio_meta_section">Metadata Dokumen (PDF-19)</string>
+    <string name="pdf_studio_meta_apply">Simpan Metadata</string>
+    <string name="pdf_studio_pagenum_section">Penomoran Halaman (PDF-18)</string>
+    <string name="pdf_studio_pagenum_apply">Tambah Nomor Halaman</string>
+    <string name="pdf_studio_form_section">Pengisi Form AcroForm (PDF-21)</string>
+    <string name="pdf_studio_form_empty">Dokumen PDF ini tidak memiliki field form AcroForm interaktif.</string>
+    <string name="pdf_studio_form_apply">Simpan Form Terisi</string>
+
+    <string name="pdf_studio_compare_section">Bandingkan Dua Dokumen PDF (PDF-20)</string>
+    <string name="pdf_studio_compare_pick_a">Pilih Dokumen A</string>
+    <string name="pdf_studio_compare_pick_b">Pilih Dokumen B</string>
+    <string name="pdf_studio_compare_run">Jalankan Perbandingan Lengkap (.txt + .zip)</string>
+    <string name="pdf_studio_compare_preview_btn">Lihat Diff Halaman %1$d</string>
+
+    <string name="pdf_studio_result_saved_path">Tersimpan di: %1$s</string>
+    <string name="pdf_studio_open_in_tool">Buka PDF Document Studio untuk pratinjau multi-halaman &amp; kontrol interaktif</string>
+    <string name="pdf_honest_basic_conversion_title">Batasan Konversi On-Device (Dasar)</string>
+    <string name="pdf_honest_basic_conversion_body">Konversi Office berjalan lokal tanpa server: Word/Excel mengekstrak teks per halaman, sedangkan PowerPoint merender halaman menjadi slide gambar. Tata letak kompleks, tabel bergaya, dan kolom tidak dipertahankan penuh.</string>
+    <string name="pdf_honest_unwatermark_body">Alat ini hanya menghapus watermark berupa anotasi atau layer terpisah (OCG). Watermark yang sudah menyatu ke aliran gambar/vektor halaman tidak dapat dihapus secara otomatis.</string>
+    <string name="pdf_honest_raster_body">Kompresi/Redaksi merasterisasi halaman PDF menjadi bitmap JPEG agar ukuran lebih kecil atau teks sensitif hilang permanen; teks di halaman tersebut tidak lagi dapat diseleksi.</string>
+
+    <string name="cd_toggle_password">Tampilkan atau sembunyikan kata sandi</string>
+    <string name="cd_pdf_prev_page">Halaman sebelumnya</string>
+    <string name="cd_pdf_next_page">Halaman berikutnya</string>
+    <string name="cd_pdf_zoom">Perbesar pratinjau halaman PDF</string>
+    <string name="cd_pdf_move_up">Naikkan urutan berkas PDF</string>
+    <string name="cd_pdf_move_down">Turunkan urutan berkas PDF</string>
+
+    <!-- Universal Converter (P10) -->
+    <string name="converter_hub_title">Universal Converter</string>
+    <string name="converter_hub_subtitle">Identifikasi format otomatis, target valid saja, batch &amp; antrean kerja.</string>
+    <string name="converter_badge_engines">28 Engine</string>
+    <string name="converter_badge_workflows">6 Alur</string>
+    <string name="converter_badge_queue_active">%1$d Aktif</string>
+    <string name="converter_mode_workbench">Workbench</string>
+    <string name="converter_mode_workflows">Alur &amp; Tool</string>
+    <string name="converter_input_files">Berkas</string>
+    <string name="converter_input_text">Teks / Data</string>
+    <string name="converter_pick_media">Pilih Foto / Video</string>
+    <string name="converter_pick_files">Pilih Berkas / Batch</string>
+    <string name="converter_clear_files">Kosongkan</string>
+    <string name="converter_load_text_file">Muat Berkas</string>
+    <string name="converter_load_sample">Muat Contoh</string>
+    <string name="converter_detected_sources_title">Sumber Terdeteksi (%1$d)</string>
+    <string name="converter_empty_source_title">Pilih berkas atau tempel data terstruktur</string>
+    <string name="converter_empty_source_desc">Format asli terdeteksi dari header dan ekstensi berkas. Hanya format tujuan yang benar-benar didukung akan ditampilkan.</string>
+    <string name="converter_target_section">Format Tujuan Valid</string>
+    <string name="converter_target_conversion_group">Konversi Format</string>
+    <string name="converter_target_security_group">Keamanan Arsip</string>
+    <string name="converter_no_format_targets">Tidak ada konversi format yang didukung untuk masukan ini.</string>
+    <string name="converter_batch_mode_label">Proses setiap berkas sebagai job antrean terpisah (%1$d berkas)</string>
+    <string name="converter_run_single">Mulai Konversi</string>
+    <string name="converter_run_batch">Antrekan %1$d Berkas</string>
+    <string name="converter_run_archive_multi">Kunci %1$d Berkas ke ZIP AES-256</string>
+    <string name="converter_queue_title">Antrean &amp; Hasil Konversi</string>
+    <string name="converter_queue_empty_title">Belum ada job konversi</string>
+    <string name="converter_queue_empty_desc">Konversi berjalan melalui antrean background (maks 2 paralel) dengan progres real-time dan tombol batal.</string>
+    <string name="converter_queue_status_queued">Mengantre</string>
+    <string name="converter_queue_status_running">Berjalan %1$d%%</string>
+    <string name="converter_queue_status_done">Selesai</string>
+    <string name="converter_queue_status_failed">Gagal</string>
+    <string name="converter_queue_status_cancelled">Dibatalkan</string>
+    <string name="converter_workflow_search_hint">Cari alur, format, atau kode CNV...</string>
+    <string name="converter_workflow_all">Semua (%1$d)</string>
+    <string name="converter_open_workbench_cta">Buka di Workbench</string>
+    <string name="converter_open_tool_cta">Buka Tool</string>
+    <string name="converter_catalog_open_studio">Buka Universal Converter Workbench &amp; Antrean</string>
+    <string name="converter_honest_limits_title">Batasan &amp; Catatan Jujur</string>
+    <string name="converter_retry">Coba Lagi</string>
+    <string name="converter_cd_remove_file">Hapus berkas dari daftar konversi</string>
 </resources>
 
 

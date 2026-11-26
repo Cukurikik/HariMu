@@ -99,7 +99,7 @@ fun converterTools(): List<Tool> = listOf(
                 "mode", "Operasi", "Operation",
                 listOf("Enkripsi ZIP AES-256", "Dekripsi ZIP AES-256"), "Enkripsi ZIP AES-256"
             ),
-            ToolParam.TextParam("password", "Kata Sandi", "Password", "", "Minimal 4 karakter", "Min 4 chars")
+            ToolParam.TextParam("password", "Kata Sandi", "Password", "", "Minimal 8 karakter (enkripsi)", "Min 8 chars (encrypt)")
         )
         override fun title(isEnglish: Boolean) = if (isEnglish) "AES-256 Encrypted Archive" else "Arsip Terenkripsi AES-256"
         override fun description(isEnglish: Boolean) = if (isEnglish) {

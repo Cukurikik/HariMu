@@ -55,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.harimu.app.R
+import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
+import com.harimu.app.core.design.pdf.PdfWatermarkPreviewSpec
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.feature.toolscreen.WaveformView
@@ -293,7 +295,6 @@ fun ToolInputPreview(
     when (inputSpec) {
         InputSpec.SingleImage,
         InputSpec.MultipleImages,
-        InputSpec.PdfAndImage,
         InputSpec.VideoAndImage,
         InputSpec.AudioAndImage -> {
             selectedUris.firstOrNull()?.let { uri ->
@@ -303,10 +304,37 @@ fun ToolInputPreview(
                 ImagePreviewCard(uri = uri, storage = storage, modifier = modifier, title = "Secondary Image")
             }
         }
+        InputSpec.PdfAndImage -> {
+            val wmSpec = PdfWatermarkPreviewSpec(
+                isImage = params["mode"]?.toString() == "Gambar",
+                text = params["text"]?.toString().orEmpty(),
+                imageUri = secondaryUri,
+                opacityPct = (params["opacity"] as? Number)?.toInt() ?: 25,
+                angleDeg = (params["angle"] as? Number)?.toInt() ?: -35,
+                sizePct = (params["size"] as? Number)?.toInt() ?: 10
+            )
+            selectedUris.firstOrNull()?.let { uri ->
+                PdfPreviewCard(
+                    uri = uri,
+                    storage = storage,
+                    isEnglish = isEnglish,
+                    params = params,
+                    watermarkSpec = wmSpec,
+                    modifier = modifier
+                )
+            }
+            secondaryUri?.let { uri ->
+                ImagePreviewCard(
+                    uri = uri,
+                    storage = storage,
+                    modifier = modifier,
+                    title = stringResource(R.string.action_pick_pdf_watermark_image)
+                )
+            }
+        }
         InputSpec.SingleVideo,
         InputSpec.MultipleVideos,
         InputSpec.VideoAndAudio,
-        InputSpec.VideoAndImage,
         InputSpec.VideoAndSubtitle,
         InputSpec.VideoAndMedia -> {
             selectedUris.firstOrNull()?.let { uri ->
@@ -315,7 +343,6 @@ fun ToolInputPreview(
         }
         InputSpec.SingleAudio,
         InputSpec.MultipleAudios,
-        InputSpec.AudioAndImage,
         InputSpec.AudioAndWatermarkAudio -> {
             selectedUris.firstOrNull()?.let { uri ->
                 AudioPreviewCard(uri = uri, modifier = modifier)
@@ -324,7 +351,13 @@ fun ToolInputPreview(
         InputSpec.SinglePdf,
         InputSpec.MultiplePdfs -> {
             selectedUris.firstOrNull()?.let { uri ->
-                PdfPreviewCard(uri = uri, storage = storage, modifier = modifier)
+                PdfPreviewCard(
+                    uri = uri,
+                    storage = storage,
+                    isEnglish = isEnglish,
+                    params = params,
+                    modifier = modifier
+                )
             }
         }
         is InputSpec.TextInput -> {
@@ -542,35 +575,25 @@ private fun AudioPreviewCard(
 private fun PdfPreviewCard(
     uri: Uri,
     storage: FileStorageManager,
-    modifier: Modifier = Modifier
+    isEnglish: Boolean,
+    params: Map<String, Any>,
+    modifier: Modifier = Modifier,
+    watermarkSpec: PdfWatermarkPreviewSpec? = null
 ) {
-    val displayName = storage.getDisplayName(uri) ?: "PDF"
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "PDF Preview", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text(text = displayName, style = MonoTextStyle, color = MaterialTheme.colorScheme.secondary)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = Icons.Filled.PictureAsPdf,
-                    contentDescription = "PDF",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-            }
-        }
-    }
+    val password = params["password"]?.toString()
+        ?: params["userPwd"]?.toString()
+        ?: ""
+    val previewRotationDeg = params["angle"]?.toString()?.toIntOrNull() ?: 0
+    PdfDocumentPreviewCard(
+        uri = uri,
+        storage = storage,
+        isEnglish = isEnglish,
+        password = password,
+        previewRotationDeg = previewRotationDeg,
+        watermarkSpec = watermarkSpec,
+        maxHeightDp = 240.dp,
+        modifier = modifier
+    )
 }
 
 @Composable

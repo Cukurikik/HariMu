@@ -411,17 +411,19 @@ fun pdfVaultTools(): List<Tool> = listOf(
             val userPwd = input.getString("userPwd", "")
             val ownerPwd = input.getString("ownerPwd", "")
             require(userPwd.isNotBlank() || ownerPwd.isNotBlank()) { "Isi minimal satu password" }
-            val keyBits = when (input.getString("key", "AES-256")) {
+            val keyAlgo = input.getString("key", "AES-256")
+            val keyBits = when (keyAlgo) {
                 "AES-128" -> 128
                 "RC4-128" -> 128
                 else -> 256
             }
+            val preferAes = keyAlgo != "RC4-128"
             progress(40, "Menerapkan enkripsi...")
             val dest = ctx.storage.createOutputFile("PDF_ENCRYPT", "pdf")
-            val pages = PdfVaultEngine.encrypt(ctx.appContext, ctx.storage, pdfOf(input), dest, userPwd, ownerPwd, keyBits)
+            val pages = PdfVaultEngine.encrypt(ctx.appContext, ctx.storage, pdfOf(input), dest, userPwd, ownerPwd, keyBits, preferAes)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages halaman terenkripsi ${input.getString("key", "AES-256")} • ${ctx.storage.formatBytes(dest.length())}"
+                summary = "$pages halaman terenkripsi $keyAlgo • ${ctx.storage.formatBytes(dest.length())}"
             )
         }
     ),

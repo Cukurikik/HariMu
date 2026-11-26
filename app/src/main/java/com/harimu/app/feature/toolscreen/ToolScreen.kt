@@ -37,9 +37,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -52,9 +55,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -69,6 +74,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.rememberCoroutineScope
@@ -85,10 +91,12 @@ import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ProgressCallbacks
+import com.harimu.app.core.design.ResultAction
 import com.harimu.app.core.design.ResultActions
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.ToolFileSelector
 import com.harimu.app.core.design.ToolInputPreview
+import com.harimu.app.core.design.ToolMultiResultCard
 import com.harimu.app.core.design.ToolParameterPanel
 import com.harimu.app.core.design.ToolProgressView
 import com.harimu.app.core.design.ToolProgressState
@@ -98,7 +106,11 @@ import com.harimu.app.core.design.audio.AudioForgeToolPreviewSection
 import com.harimu.app.core.design.audio.resolveWaveformOverlaySpec
 import com.harimu.app.core.design.image.ImageForgeToolPreviewSection
 import com.harimu.app.core.design.toProgressState
+import com.harimu.app.core.converter.ConverterFormatMatrix
+import com.harimu.app.core.converter.DetectedSource
+import com.harimu.app.core.converter.SourceFormatDetector
 import com.harimu.app.core.media.Id3TagHelper
+import com.harimu.app.core.pdf.PdfOcrEngine
 import com.harimu.app.core.pdf.PdfVaultEngine
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.ToolGroup
@@ -106,6 +118,7 @@ import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolResult
+import com.harimu.app.feature.studios.tabForPdfTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -118,7 +131,9 @@ fun ToolScreen(
     isEnglish: Boolean,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenPdfStudio: ((initialTab: String, toolId: String) -> Unit)? = null,
+    onOpenUniversalConverter: ((toolId: String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val spacing = HariMuThemeTokens.spacing
@@ -143,7 +158,7 @@ fun ToolScreen(
         onDispose { runCatching { audioPlayer?.release() } }
     }
 
-    // Auto-fill ID3 tags for AUD-18
+    // Auto-fill ID3 tags (AUD-18), PDF metadata (PDF-19), and AcroForm fields (PDF-21)
     LaunchedEffect(tool.id, state.selectedUris) {
         if (tool.id == "AUD-18" && state.selectedUris.isNotEmpty()) {
             val existing = withContext(Dispatchers.IO) {
@@ -163,6 +178,27 @@ fun ToolScreen(
             }
             if ((state.paramValues["genre"]?.toString()).isNullOrBlank() && existing.genre.isNotBlank()) {
                 vm.setParam("genre", existing.genre)
+            }
+        } else if (tool.id == "PDF-19" && state.selectedUris.isNotEmpty()) {
+            val existing = withContext(Dispatchers.IO) {
+                runCatching { PdfVaultEngine.readMetadata(context, container.storage, state.selectedUris.first()) }
+                    .getOrDefault(emptyMap())
+            }
+            listOf("title", "author", "subject", "keywords").forEach { key ->
+                val cur = state.paramValues[key]?.toString().orEmpty()
+                val readVal = existing[key].orEmpty()
+                if (cur.isBlank() && readVal.isNotBlank()) {
+                    vm.setParam(key, readVal)
+                }
+            }
+        } else if (tool.id == "PDF-21" && state.selectedUris.isNotEmpty()) {
+            val fields = withContext(Dispatchers.IO) {
+                runCatching { PdfVaultEngine.listFormFields(context, container.storage, state.selectedUris.first()) }
+                    .getOrDefault(emptyList())
+            }
+            val cur = state.paramValues["values"]?.toString().orEmpty()
+            if (cur.isBlank() && fields.isNotEmpty()) {
+                vm.setParam("values", fields.joinToString("|") { "${it.first}=${it.second}" })
             }
         }
     }
@@ -226,8 +262,12 @@ fun ToolScreen(
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { destUri ->
         val src = pendingExportFile
         if (destUri != null && src != null) {
-            val ok = container.storage.copyFileToUri(src.file, destUri)
-            Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    container.storage.copyFileToUri(src.file, destUri)
+                }
+                Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -289,6 +329,24 @@ fun ToolScreen(
                 if (tool.isStub) {
                     StubNoticeCard(tool = tool, isEnglish = isEnglish)
                 }
+
+                // PDF Vault Studio link & capability disclosure notices
+                PdfToolCapabilityCards(
+                    toolId = tool.id,
+                    group = tool.group,
+                    paramValues = state.paramValues,
+                    onOpenPdfStudio = onOpenPdfStudio
+                )
+
+                // Universal Converter workbench link, detected source format & honest capability disclosure
+                ConverterToolCapabilityCards(
+                    toolId = tool.id,
+                    group = tool.group,
+                    selectedUris = state.selectedUris,
+                    container = container,
+                    isEnglish = isEnglish,
+                    onOpenUniversalConverter = onOpenUniversalConverter
+                )
 
                 // Input section
                 InputSection(
@@ -606,7 +664,10 @@ fun SpecializedPreviews(
                 isEnglish = isEnglish,
                 reorderMode = false,
                 pages = PdfVaultEngine.parsePagesLoose(state.paramValues["pages"]?.toString() ?: ""),
-                onPagesChange = { pages -> vm.setParam("pages", PdfVaultEngine.formatPageRange(pages)) }
+                onPagesChange = { pages -> vm.setParam("pages", PdfVaultEngine.formatPageRange(pages)) },
+                previewRotationDeg = if (tool.id == "PDF-03") {
+                    state.paramValues["angle"]?.toString()?.toIntOrNull() ?: 0
+                } else 0
             )
         }
     }
@@ -747,6 +808,22 @@ fun DetailedResultView(
     )
 
     // Additional previews for all outputs
+    if (result.outputs.size > 1) {
+        ToolMultiResultCard(
+            outputs = result.outputs,
+            storage = container.storage,
+            onItemClick = { out -> openFile(out, container.storage, context) },
+            onItemAction = { out, action ->
+                when (action) {
+                    ResultAction.Open, ResultAction.Details -> openFile(out, container.storage, context)
+                    ResultAction.Share -> shareFile(out, container.storage, context)
+                    ResultAction.Save -> saveFile(out, container.storage, settings, scope, context, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher)
+                    ResultAction.Delete -> { out.file.delete() }
+                }
+            }
+        )
+    }
+
     if (result.outputs.isNotEmpty()) {
         result.outputs.forEach { out ->
             when {
@@ -941,8 +1018,27 @@ fun buildParamValidators(tool: com.harimu.app.core.toolapi.Tool): Map<String, (A
                 }
             }
             is ToolParam.TextParam -> {
-                if (param.key == "password" || param.key.contains("pass")) {
-                    validators[param.key] = com.harimu.app.core.design.ParamValidators.minLength(4, "Password must be at least 4 characters")
+                if (param.key == "password" || param.key.contains("pass", ignoreCase = true) || param.key.contains("pwd", ignoreCase = true)) {
+                    // For encryption creation tools warn gently if short; unlock tools allow any existing password.
+                    if (tool.id == "CNV-18") {
+                        validators[param.key] = { value ->
+                            val s = value.toString()
+                            if (s.isNotEmpty() && s.length < 8) {
+                                com.harimu.app.core.design.ParamValidation.Warning("AES-256 ZIP encryption requires 8+ characters")
+                            } else {
+                                com.harimu.app.core.design.ParamValidation.Valid
+                            }
+                        }
+                    } else if (tool.id == "PDF-10" || tool.id == "CNV-16") {
+                        validators[param.key] = { value ->
+                            val s = value.toString()
+                            if (s.isNotEmpty() && s.length < 4) {
+                                com.harimu.app.core.design.ParamValidation.Warning("Use 4+ characters for stronger protection")
+                            } else {
+                                com.harimu.app.core.design.ParamValidation.Valid
+                            }
+                        }
+                    }
                 } else if (param.key == "color" || param.key.contains("Hex")) {
                     validators[param.key] = com.harimu.app.core.design.ParamValidators.hexColor()
                 } else if (param.key == "email") {
@@ -963,4 +1059,235 @@ fun buildParamValidators(tool: com.harimu.app.core.toolapi.Tool): Map<String, (A
     }
 
     return validators
+}
+
+@Composable
+private fun PdfToolCapabilityCards(
+    toolId: String,
+    group: ToolGroup,
+    paramValues: Map<String, Any>,
+    onOpenPdfStudio: ((initialTab: String, toolId: String) -> Unit)?
+) {
+    val context = LocalContext.current
+    val isPdfOrBridge = group == ToolGroup.PDF || toolId in setOf("CNV-13", "CNV-14", "CNV-15")
+
+    if (isPdfOrBridge && onOpenPdfStudio != null) {
+        OutlinedButton(
+            onClick = { onOpenPdfStudio(tabForPdfTool(toolId).name, toolId) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("tool_open_pdf_studio_btn")
+        ) {
+            Icon(Icons.Filled.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.pdf_studio_open_in_tool),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    val honestBodyRes = when (toolId) {
+        "PDF-06", "PDF-07", "CNV-13" -> R.string.pdf_honest_basic_conversion_body
+        "PDF-13" -> R.string.pdf_honest_unwatermark_body
+        "PDF-09", "PDF-14" -> R.string.pdf_honest_raster_body
+        else -> null
+    }
+
+    if (honestBodyRes != null) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("pdf_honest_notice_card"),
+            colors = CardDefaults.cardColors(containerColor = HariMuThemeTokens.semantic.warningContainer),
+            border = BorderStroke(1.dp, HariMuThemeTokens.semantic.warning.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = HariMuThemeTokens.semantic.onWarningContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.pdf_honest_basic_conversion_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = HariMuThemeTokens.semantic.onWarningContainer
+                    )
+                    Text(
+                        text = stringResource(honestBodyRes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = HariMuThemeTokens.semantic.onWarningContainer
+                    )
+                }
+            }
+        }
+    }
+
+    if (toolId == "PDF-15" || toolId == "PDF-16" || toolId == "CNV-15") {
+        val rawLang = paramValues["language"]?.toString() ?: "Indonesia"
+        val codes = rawLang.split("+").map { PdfOcrEngine.codeFromLabel(it.trim()) }.distinct()
+        val missing = remember(codes, context) { PdfOcrEngine.missing(context, codes) }
+        val ready = missing.isEmpty()
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("pdf_ocr_readiness_card"),
+            shape = RoundedCornerShape(10.dp),
+            color = if (ready) HariMuThemeTokens.semantic.successContainer else HariMuThemeTokens.semantic.infoContainer
+        ) {
+            Text(
+                text = if (ready) {
+                    stringResource(R.string.pdf_studio_ocr_ready) + " (${codes.joinToString("+")})"
+                } else {
+                    stringResource(R.string.pdf_studio_ocr_need_download) + " (${missing.joinToString("+")})"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (ready) HariMuThemeTokens.semantic.onSuccessContainer else HariMuThemeTokens.semantic.onInfoContainer,
+                modifier = Modifier.padding(10.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConverterToolCapabilityCards(
+    toolId: String,
+    group: ToolGroup,
+    selectedUris: List<Uri>,
+    container: AppContainer,
+    isEnglish: Boolean,
+    onOpenUniversalConverter: ((toolId: String) -> Unit)?
+) {
+    if (group != ToolGroup.CONVERTER) return
+    val context = LocalContext.current
+
+    if (onOpenUniversalConverter != null) {
+        OutlinedButton(
+            onClick = { onOpenUniversalConverter(toolId) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .minimumInteractiveComponentSize()
+                .testTag("tool_open_converter_btn")
+        ) {
+            Icon(Icons.Filled.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.converter_open_workbench_cta),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    var detectedSources by remember(toolId, selectedUris) { mutableStateOf<List<DetectedSource>>(emptyList()) }
+    LaunchedEffect(toolId, selectedUris) {
+        detectedSources = if (selectedUris.isEmpty()) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.IO) {
+                selectedUris.map { uri -> SourceFormatDetector.detectFromUri(context, container.storage, uri) }
+            }
+        }
+    }
+
+    if (detectedSources.isNotEmpty()) {
+        val summaryLine = detectedSources.joinToString(", ") { src ->
+            "${src.displayName} → ${src.format.badge} (${src.detectionMethod})"
+        }
+        val notes = detectedSources.mapNotNull { src ->
+            src.note(isEnglish) ?: ConverterFormatMatrix.unsupportedReason(src.format, isEnglish)
+        }.distinct()
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("converter_detected_format_card"),
+            shape = RoundedCornerShape(10.dp),
+            color = if (notes.isEmpty()) HariMuThemeTokens.semantic.infoContainer else HariMuThemeTokens.semantic.warningContainer
+        ) {
+            Column(
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = summaryLine,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (notes.isEmpty()) HariMuThemeTokens.semantic.onInfoContainer else HariMuThemeTokens.semantic.onWarningContainer
+                )
+                notes.forEach { note ->
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = HariMuThemeTokens.semantic.onWarningContainer
+                    )
+                }
+            }
+        }
+    }
+
+    val honestNote = when (toolId) {
+        "CNV-03" -> if (isEnglish) "Audio track copy/transcode to MP3/AAC/WAV/FLAC. WAV/FLAC wraps decoded audio and does not restore lost source detail."
+        else "Ekstraksi trek audio ke MP3/AAC/WAV/FLAC. WAV/FLAC hanya wadah lossless dari audio terdekode, tidak menambah detail."
+        "CNV-04" -> if (isEnglish) "Uses device Media3/FFmpeg lanczos + unsharp scaling (max 60s & ≤1080p input), not a neural super-resolution model."
+        else "Memakai skaler perangkat Media3/FFmpeg (maks 60 detik & input ≤1080p), bukan model super-resolusi AI."
+        "CNV-06" -> if (isEnglish) "Outputs 24-bit WAV/FLAC up to 96 kHz. Upsampling lossy inputs (e.g., MP3/AAC) cannot recover lost frequencies."
+        else "Menghasilkan WAV/FLAC 24-bit hingga 96 kHz. Upsampling sumber lossy tidak mengembalikan detail yang hilang."
+        "CNV-10" -> if (isEnglish) "Powered by AndroidSVG 1.4 (up to 4096 px). SVG filter effects, system fonts, and SMIL/CSS animations are omitted."
+        else "Memakai AndroidSVG 1.4 (maks 4096 px). Filter SVG, font sistem, dan animasi tidak dirender."
+        "CNV-17" -> if (isEnglish) "Converts ZIP/7Z/TAR.GZ/RAR into sanitized clean ZIPs. RAR is read-only (writing RAR is unsupported); zip-slip & 200x zip-bomb limits apply."
+        else "Mengonversi ZIP/7Z/TAR.GZ/RAR ke ZIP bersih. RAR hanya bisa dibaca (tulis RAR tidak tersedia); proteksi zip-slip & zip-bomb 200x aktif."
+        "CNV-19" -> if (isEnglish) "Reads spine text order into TXT/HTML/PDF. DRM-protected EPUBs are refused, and original images/CSS layouts are omitted."
+        else "Membaca teks sesuai urutan spine ke TXT/HTML/PDF. EPUB ber-DRM ditolak, serta gambar & CSS asli tidak disertakan."
+        "CNV-20" -> if (isEnglish) "Supports CBZ (ZIP) and read-only CBR (RAR) with natural page sorting. EPUB output is minimal image-per-page."
+        else "Mendukung CBZ (ZIP) dan CBR/RAR (baca-saja) dengan urutan halaman alami. EPUB keluaran bersifat minimal per gambar."
+        "CNV-21" -> if (isEnglish) "Supports TTF/OTF ⇄ WOFF 1.0 only. WOFF2 (Brotli) and OTF(CFF) ⇄ TTF outline conversions are rejected honestly."
+        else "Hanya mendukung TTF/OTF ⇄ WOFF 1.0. WOFF2 (Brotli) dan konversi outline OTF(CFF) ⇄ TTF ditolak secara jelas."
+        "CNV-22" -> if (isEnglish) "TrueType glyph subsetting to WOFF 1.0 (drops hinting/GSUB/GPOS/kern). CFF/OTF and WOFF2 fonts are refused."
+        else "Subsetting glif TrueType ke WOFF 1.0 (tabel hinting/GSUB/GPOS/kern dibuang). Font CFF/OTF dan WOFF2 ditolak."
+        else -> null
+    }
+
+    if (honestNote != null) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("converter_honest_notice_card"),
+            colors = CardDefaults.cardColors(containerColor = HariMuThemeTokens.semantic.warningContainer),
+            border = BorderStroke(1.dp, HariMuThemeTokens.semantic.warning.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = HariMuThemeTokens.semantic.onWarningContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.converter_honest_limits_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = HariMuThemeTokens.semantic.onWarningContainer
+                    )
+                    Text(
+                        text = honestNote,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = HariMuThemeTokens.semantic.onWarningContainer
+                    )
+                }
+            }
+        }
+    }
 }

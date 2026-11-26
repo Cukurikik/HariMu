@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.jobs.ToolJobWorker
@@ -12,12 +13,14 @@ import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolContext
 import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolOutputCodec
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.core.toolapi.ToolResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +28,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 
 data class ToolUiState(
     val tool: Tool? = null,
@@ -117,11 +122,35 @@ class ToolViewModel(
                         )
                     }
                     ToolJobWorker.STATUS_SUCCEEDED -> {
+                        val workData = withContext(Dispatchers.IO) {
+                            val ctx = appContextRef
+                            val uuid = job.workRequestId.takeIf { it.isNotBlank() }
+                                ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                            if (ctx != null && uuid != null) {
+                                runCatching { WorkManager.getInstance(ctx).getWorkInfoById(uuid).get()?.outputData }.getOrNull()
+                            } else {
+                                null
+                            }
+                        }
+                        val decodedOutputs = workData?.getString(ToolJobWorker.KEY_OUTPUTS_JSON)
+                            ?.let { raw -> ToolOutputCodec.decode(raw) }
+                            .orEmpty()
+                            .mapNotNull { entry ->
+                                val f = File(entry.path)
+                                if (f.exists()) ToolOutputFile(f, entry.mimeType, entry.displayName) else null
+                            }
                         val outFile = job.outputPath.takeIf { p -> p.isNotBlank() }?.let { File(it) }
                             ?.takeIf { f -> f.exists() }
-                        val outputs = if (outFile != null) {
-                            listOf(ToolOutputFile(outFile, job.outputMime.ifBlank { "text/plain" }, outFile.name))
-                        } else emptyList()
+                        val outputs = decodedOutputs.ifEmpty {
+                            if (outFile != null) {
+                                listOf(ToolOutputFile(outFile, job.outputMime.ifBlank { "text/plain" }, outFile.name))
+                            } else {
+                                emptyList()
+                            }
+                        }
+                        val workerText = workData?.getString(ToolJobWorker.KEY_TEXT_OUTPUT)?.takeIf { it.isNotBlank() }
+                        val fallbackText = outputs.firstOrNull { it.mimeType.startsWith("text/") }
+                            ?.file?.takeIf { f -> f.length() < 16384L }?.runCatching { readText() }?.getOrNull()
                         _state.update {
                             it.copy(
                                 isRunning = false,
@@ -129,7 +158,7 @@ class ToolViewModel(
                                 progress = ToolProgress.Done(
                                     ToolResult(
                                         outputs = outputs,
-                                        textOutput = outFile?.takeIf { f -> f.length() < 8192L }?.runCatching { readText() }?.getOrNull(),
+                                        textOutput = workerText ?: fallbackText,
                                         summary = job.summary.ifBlank { job.toolTitle }
                                     )
                                 )

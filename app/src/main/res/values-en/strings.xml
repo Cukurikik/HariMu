@@ -525,6 +525,188 @@
     <string name="cd_image_layer_duplicate">Duplicate layer</string>
     <string name="cd_image_layer_delete">Delete layer</string>
     <string name="cd_image_close">Close</string>
+
+    <!-- PDF Vault & Document Studio -->
+    <string name="pdf_vault_title">PDF Vault</string>
+    <string name="pdf_vault_studio_title">PDF Document Studio</string>
+    <string name="pdf_vault_hero_badge">UNIFIED DOCUMENT WORKSPACE</string>
+    <string name="pdf_vault_hero_subtitle">Live page preview, page organizer &amp; rotation, live watermark, verified redaction, AcroForm filler, and A/B document diff.</string>
+    <string name="pdf_vault_open_studio">Open PDF Studio</string>
+    <string name="pdf_vault_quick_organize">Pages &amp; Merge</string>
+    <string name="pdf_vault_quick_security">Protect &amp; Redact</string>
+    <string name="pdf_vault_quick_compare">Compare A/B</string>
+    <string name="pdf_vault_search_hint">Search 21 PDF tools (merge, OCR, redact, form…)</string>
+    <string name="pdf_vault_results_count">%1$d PDF tools shown</string>
+    <string name="pdf_vault_cat_all">All</string>
+    <string name="pdf_vault_cat_pages">Pages &amp; Merge</string>
+    <string name="pdf_vault_cat_security">Security &amp; Privacy</string>
+    <string name="pdf_vault_cat_ocr_ai">OCR &amp; AI</string>
+    <string name="pdf_vault_cat_convert">Convert &amp; Compress</string>
+    <string name="pdf_vault_cat_forms">Forms, Numbers &amp; Diff</string>
+    <string name="pdf_vault_converter_bridge_title">Related PDF Converter Tools</string>
+    <string name="pdf_vault_converter_bridge_subtitle">Quick access to PDF tools in the Universal Converter group</string>
+
+    <string name="pdf_cap_lossless">LOSSLESS OBJ</string>
+    <string name="pdf_cap_raster">RASTERIZED</string>
+    <string name="pdf_cap_basic">BASIC CONVERT</string>
+    <string name="pdf_cap_ocr">ON-DEVICE OCR</string>
+    <string name="pdf_cap_cloud">AI GATEWAY</string>
+
+    <string name="pdf_preview_title">PDF Document Preview</string>
+    <string name="pdf_preview_page_counter">Page %1$d / %2$d</string>
+    <string name="pdf_preview_encrypted">Encrypted PDF — enter the password to inspect pages and process the document.</string>
+    <string name="pdf_preview_loading">Rendering PDF page…</string>
+    <string name="pdf_preview_error">Unable to render PDF page preview.</string>
+    <string name="pdf_preview_zoom_title">Page %1$d Preview</string>
+    <string name="pdf_preview_meta_pages">%1$d pages</string>
+    <string name="pdf_preview_meta_locked">Locked</string>
+    <string name="pdf_preview_meta_unlocked">Unlocked</string>
+    <string name="pdf_preview_meta_forms">%1$d form fields</string>
+    <string name="pdf_preview_meta_text_yes">Text layer</string>
+    <string name="pdf_preview_meta_text_no">Scanned / No text</string>
+
+    <string name="pdf_picker_all_pages">All</string>
+    <string name="pdf_picker_odd_pages">Odd</string>
+    <string name="pdf_picker_even_pages">Even</string>
+    <string name="pdf_picker_clear_pages">Clear</string>
+    <string name="pdf_picker_selected_count">Tap pages to select. %1$d of %2$d selected.</string>
+    <string name="pdf_picker_reorder_hint">Use move left/right buttons or long-press drag to change page order.</string>
+    <string name="pdf_picker_page_desc">Page %1$d</string>
+    <string name="pdf_picker_move_left">Move page %1$d left</string>
+    <string name="pdf_picker_move_right">Move page %1$d right</string>
+    <string name="pdf_picker_remove_page">Remove page %1$d from order</string>
+
+    <string name="pdf_studio_tab_inspect">Inspect &amp; OCR</string>
+    <string name="pdf_studio_tab_pages">Pages &amp; Merge</string>
+    <string name="pdf_studio_tab_security">Security &amp; Redact</string>
+    <string name="pdf_studio_tab_forms">Forms &amp; Metadata</string>
+    <string name="pdf_studio_tab_compare">Compare A/B</string>
+
+    <string name="pdf_studio_pick_primary">Select Primary PDF</string>
+    <string name="pdf_studio_change_primary">Change PDF</string>
+    <string name="pdf_studio_empty_doc_title">No PDF selected yet</string>
+    <string name="pdf_studio_empty_doc_subtitle">Choose a PDF to inspect pages and metadata, organize or split pages, encrypt, or permanently redact sensitive terms.</string>
+    <string name="pdf_studio_unlock_hint">Document Password (if encrypted)</string>
+    <string name="pdf_studio_unlock_apply">Unlock</string>
+    <string name="pdf_studio_inspect_text_title">Extracted Text Snippet</string>
+    <string name="pdf_studio_inspect_no_text">No extractable text layer found. Likely a scanned PDF — run on-device OCR.</string>
+    <string name="pdf_studio_ocr_lang">OCR Language (8 Languages)</string>
+    <string name="pdf_studio_ocr_ready">Language data installed locally</string>
+    <string name="pdf_studio_ocr_need_download">Not downloaded yet — fetched automatically when OCR runs</string>
+    <string name="pdf_studio_run_ocr">Run PDF OCR to .txt</string>
+    <string name="pdf_studio_run_ai_structure">AI Structure Recognition</string>
+    <string name="pdf_studio_compress_section">Compress PDF (Rasterize)</string>
+    <string name="pdf_studio_compress_note">Compression rasterizes pages to JPEG images. File size drops, but text becomes non-selectable images.</string>
+    <string name="pdf_studio_run_compress">Compress Now</string>
+
+    <string name="pdf_studio_pages_section">Page Operations (Lossless Objects)</string>
+    <string name="pdf_studio_pages_extract">Extract Selected</string>
+    <string name="pdf_studio_pages_apply_reorder">Save Reordered PDF</string>
+    <string name="pdf_studio_pages_rotate_90">Rotate +90°</string>
+    <string name="pdf_studio_pages_rotate_180">Rotate 180°</string>
+    <string name="pdf_studio_pages_rotate_270">Rotate 270°</string>
+    <string name="pdf_studio_split_per_file">Pages per file (.zip)</string>
+    <string name="pdf_studio_run_split">Split into ZIP</string>
+
+    <string name="pdf_studio_merge_section">Merge PDF Queue (PDF-01)</string>
+    <string name="pdf_studio_merge_add">Add PDFs</string>
+    <string name="pdf_studio_merge_run">Merge %1$d PDFs</string>
+    <string name="pdf_studio_merge_need_two">Add at least 2 PDF files to merge losslessly without rasterizing.</string>
+
+    <string name="pdf_studio_img2pdf_section">Images to PDF (PDF-08)</string>
+    <string name="pdf_studio_img2pdf_add">Pick Images</string>
+    <string name="pdf_studio_img2pdf_run">Create PDF from %1$d Images</string>
+
+    <string name="pdf_studio_security_enc_section">Encrypt &amp; Decrypt PDF</string>
+    <string name="pdf_studio_user_pwd">User Password (open document)</string>
+    <string name="pdf_studio_owner_pwd">Owner Password (permissions)</string>
+    <string name="pdf_studio_run_encrypt">Encrypt PDF</string>
+    <string name="pdf_studio_run_decrypt">Remove Encryption</string>
+
+    <string name="pdf_studio_watermark_section">Live Watermark (PDF-12 &amp; PDF-13)</string>
+    <string name="pdf_studio_watermark_pick_img">Pick Watermark Image</string>
+    <string name="pdf_studio_watermark_apply">Apply Watermark</string>
+    <string name="pdf_studio_watermark_remove">Remove Object Watermarks</string>
+    <string name="pdf_studio_watermark_remove_note">Removal only strips separate annotation &amp; OCG layers. Watermarks burned into page content streams cannot be removed automatically.</string>
+
+    <string name="pdf_studio_redact_section">Permanent Redaction &amp; Verification (PDF-14)</string>
+    <string name="pdf_studio_redact_terms">Terms to redact (comma or newline separated)</string>
+    <string name="pdf_studio_redact_scan">Scan Matches on Preview</string>
+    <string name="pdf_studio_redact_apply">Permanently Redact &amp; Verify</string>
+    <string name="pdf_studio_redact_hits_found">%1$d regions matched across %2$d pages — inspect red highlight boxes on the preview.</string>
+    <string name="pdf_studio_redact_hits_none">No matching text found in the document.</string>
+    <string name="pdf_studio_redact_note">Redaction flattens pages to images, paints opaque black boxes over matches, and re-extracts text to verify sensitive terms are gone.</string>
+
+    <string name="pdf_studio_meta_section">Document Metadata (PDF-19)</string>
+    <string name="pdf_studio_meta_apply">Save Metadata</string>
+    <string name="pdf_studio_pagenum_section">Page Numbering (PDF-18)</string>
+    <string name="pdf_studio_pagenum_apply">Add Page Numbers</string>
+    <string name="pdf_studio_form_section">AcroForm Filler (PDF-21)</string>
+    <string name="pdf_studio_form_empty">This PDF contains no interactive AcroForm fields.</string>
+    <string name="pdf_studio_form_apply">Save Filled Form</string>
+
+    <string name="pdf_studio_compare_section">Compare Two PDFs (PDF-20)</string>
+    <string name="pdf_studio_compare_pick_a">Pick Document A</string>
+    <string name="pdf_studio_compare_pick_b">Pick Document B</string>
+    <string name="pdf_studio_compare_run">Run Full Comparison (.txt + .zip)</string>
+    <string name="pdf_studio_compare_preview_btn">Inspect Page %1$d Diff</string>
+
+    <string name="pdf_studio_result_saved_path">Saved to: %1$s</string>
+    <string name="pdf_studio_open_in_tool">Open PDF Document Studio for multi-page preview &amp; interactive tools</string>
+    <string name="pdf_honest_basic_conversion_title">Basic On-Device Conversion Limits</string>
+    <string name="pdf_honest_basic_conversion_body">Office conversion runs locally without a server: Word/Excel extract per-page text, and PowerPoint renders pages as slide images. Complex layouts, styled tables, and columns are not preserved.</string>
+    <string name="pdf_honest_unwatermark_body">This tool only strips separate annotation or Optional Content Group (OCG) layers. Watermarks burned directly into page graphics/content streams cannot be removed automatically.</string>
+    <string name="pdf_honest_raster_body">Compression/Redaction rasterizes PDF pages into JPEG bitmaps to shrink size or permanently erase content; page text becomes non-selectable.</string>
+
+    <string name="cd_toggle_password">Show or hide password</string>
+    <string name="cd_pdf_prev_page">Previous page</string>
+    <string name="cd_pdf_next_page">Next page</string>
+    <string name="cd_pdf_zoom">Zoom PDF page preview</string>
+    <string name="cd_pdf_move_up">Move PDF file up</string>
+    <string name="cd_pdf_move_down">Move PDF file down</string>
+
+    <!-- Universal Converter (P10) -->
+    <string name="converter_hub_title">Universal Converter</string>
+    <string name="converter_hub_subtitle">Auto-detected formats, valid targets only, batching &amp; live queue.</string>
+    <string name="converter_badge_engines">28 Engines</string>
+    <string name="converter_badge_workflows">6 Workflows</string>
+    <string name="converter_badge_queue_active">%1$d Active</string>
+    <string name="converter_mode_workbench">Workbench</string>
+    <string name="converter_mode_workflows">Workflows &amp; Tools</string>
+    <string name="converter_input_files">Files</string>
+    <string name="converter_input_text">Text / Data</string>
+    <string name="converter_pick_media">Pick Photo / Video</string>
+    <string name="converter_pick_files">Pick Files / Batch</string>
+    <string name="converter_clear_files">Clear</string>
+    <string name="converter_load_text_file">Load File</string>
+    <string name="converter_load_sample">Load Sample</string>
+    <string name="converter_detected_sources_title">Detected Sources (%1$d)</string>
+    <string name="converter_empty_source_title">Choose files or paste structured data</string>
+    <string name="converter_empty_source_desc">Source format is sniffed from file headers and extensions. Only genuinely supported conversion targets are shown.</string>
+    <string name="converter_target_section">Valid Target Formats</string>
+    <string name="converter_target_conversion_group">Format Conversion</string>
+    <string name="converter_target_security_group">Archive Security</string>
+    <string name="converter_no_format_targets">No format conversions are supported for this input.</string>
+    <string name="converter_batch_mode_label">Queue each file as its own conversion job (%1$d files)</string>
+    <string name="converter_run_single">Start Conversion</string>
+    <string name="converter_run_batch">Enqueue %1$d Files</string>
+    <string name="converter_run_archive_multi">Lock %1$d Files to AES-256 ZIP</string>
+    <string name="converter_queue_title">Conversion Queue &amp; Results</string>
+    <string name="converter_queue_empty_title">No conversion jobs yet</string>
+    <string name="converter_queue_empty_desc">Conversions run in a background queue (up to 2 in parallel) with live progress and cancellation.</string>
+    <string name="converter_queue_status_queued">Queued</string>
+    <string name="converter_queue_status_running">Running %1$d%%</string>
+    <string name="converter_queue_status_done">Done</string>
+    <string name="converter_queue_status_failed">Failed</string>
+    <string name="converter_queue_status_cancelled">Cancelled</string>
+    <string name="converter_workflow_search_hint">Search workflow, format, or CNV ID...</string>
+    <string name="converter_workflow_all">All (%1$d)</string>
+    <string name="converter_open_workbench_cta">Open in Workbench</string>
+    <string name="converter_open_tool_cta">Open Tool</string>
+    <string name="converter_catalog_open_studio">Open Universal Converter Workbench &amp; Queue</string>
+    <string name="converter_honest_limits_title">Capabilities &amp; Honest Limits</string>
+    <string name="converter_retry">Retry</string>
+    <string name="converter_cd_remove_file">Remove file from conversion list</string>
 </resources>
 
 

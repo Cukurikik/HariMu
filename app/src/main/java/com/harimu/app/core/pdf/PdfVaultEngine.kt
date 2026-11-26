@@ -16,6 +16,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
@@ -84,7 +85,104 @@ object PdfVaultEngine {
         load(context, storage, uri, password).use { it.doc.numberOfPages }
 
     fun isEncrypted(context: Context, storage: FileStorageManager, uri: Uri): Boolean =
-        load(context, storage, uri).use { it.doc.isEncrypted }
+        try {
+            load(context, storage, uri).use { it.doc.isEncrypted }
+        } catch (_: InvalidPasswordException) {
+            true
+        }
+
+    data class PdfDocInspection(
+        val pageCount: Int = 0,
+        val fileSizeBytes: Long = 0L,
+        val isEncrypted: Boolean = false,
+        val requiresPassword: Boolean = false,
+        val title: String = "",
+        val author: String = "",
+        val subject: String = "",
+        val keywords: String = "",
+        val creator: String = "",
+        val producer: String = "",
+        val formFields: List<Pair<String, String>> = emptyList(),
+        val hasExtractableText: Boolean = false,
+        val previewSnippet: String = ""
+    )
+
+    fun inspectDocument(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        password: String = ""
+    ): PdfDocInspection {
+        ensureInit(context)
+        val temp = storage.copyUriToTemp(uri, "pdfinspect", "pdf")
+        val sizeBytes = temp.length()
+        return try {
+            val doc = if (password.isNotBlank()) PDDocument.load(temp, password) else PDDocument.load(temp)
+            doc.use { pd ->
+                val info = pd.documentInformation
+                val formFields = pd.documentCatalog.acroForm?.fieldTree?.mapNotNull { field ->
+                    val value = runCatching { field.valueAsString }.getOrNull().orEmpty()
+                    field.fullyQualifiedName?.let { it to value }
+                }.orEmpty()
+                val snippet = runCatching {
+                    val stripper = PDFTextStripper().apply {
+                        startPage = 1
+                        endPage = min(pd.numberOfPages, 2).coerceAtLeast(1)
+                    }
+                    stripper.getText(pd).trim()
+                }.getOrNull().orEmpty()
+                PdfDocInspection(
+                    pageCount = pd.numberOfPages,
+                    fileSizeBytes = sizeBytes,
+                    isEncrypted = pd.isEncrypted,
+                    requiresPassword = false,
+                    title = info.title.orEmpty(),
+                    author = info.author.orEmpty(),
+                    subject = info.subject.orEmpty(),
+                    keywords = info.keywords.orEmpty(),
+                    creator = info.creator.orEmpty(),
+                    producer = info.producer.orEmpty(),
+                    formFields = formFields,
+                    hasExtractableText = snippet.isNotBlank(),
+                    previewSnippet = snippet.take(1500)
+                )
+            }
+        } catch (_: InvalidPasswordException) {
+            PdfDocInspection(
+                pageCount = 0,
+                fileSizeBytes = sizeBytes,
+                isEncrypted = true,
+                requiresPassword = true
+            )
+        } finally {
+            temp.delete()
+        }
+    }
+
+    /** Copies a PDF into a readable (decrypted if needed) temp file for Android PdfRenderer preview. */
+    fun prepareRenderableTemp(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        password: String = ""
+    ): File {
+        val temp = storage.copyUriToTemp(uri, "pdf_render_ready", "pdf")
+        if (password.isBlank()) return temp
+        return try {
+            ensureInit(context)
+            PDDocument.load(temp, password).use { doc ->
+                if (!doc.isEncrypted) return temp
+                doc.isAllSecurityToBeRemoved = true
+                val unlocked = storage.createTempFile("pdf_render_unlocked", "pdf")
+                doc.save(unlocked)
+                temp.delete()
+                unlocked
+            }
+        } catch (t: Throwable) {
+            temp.delete()
+            throw t
+        }
+    }
 
     // -------------------------------------------------------------- halaman
 
@@ -123,8 +221,12 @@ object PdfVaultEngine {
                     val end = min(start + chunk, total)
                     PDDocument().use { partDoc ->
                         for (index in start until end) partDoc.importPage(source.doc.getPage(index))
+                        val partBytes = ByteArrayOutputStream().use { buffer ->
+                            partDoc.save(buffer)
+                            buffer.toByteArray()
+                        }
                         zip.putNextEntry(ZipEntry("bagian_${part}_hal_${start + 1}-$end.pdf"))
-                        partDoc.save(zip)
+                        zip.write(partBytes)
                         zip.closeEntry()
                     }
                     start = end
@@ -302,7 +404,8 @@ object PdfVaultEngine {
         dest: File,
         userPassword: String,
         ownerPassword: String,
-        keyBits: Int
+        keyBits: Int,
+        preferAes: Boolean = keyBits != 40
     ): Int {
         require(userPassword.isNotBlank() || ownerPassword.isNotBlank()) {
             "Isi minimal satu password (pengguna atau pemilik)"
@@ -324,8 +427,8 @@ object PdfVaultEngine {
                 40 -> 40
                 else -> 128
             }
-            // 40-bit tetap RC4; 128/256 memakai AES (AESV2/AESV3 di StandardSecurityHandler).
-            policy.isPreferAES = keyBits != 40
+            // 40-bit tetap RC4; 128-bit bisa AES-128 atau RC4-128; 256-bit AESV3.
+            policy.isPreferAES = if (policy.encryptionKeyLength == 40) false else preferAes
             loaded.doc.protect(policy)
             loaded.doc.save(dest)
             return loaded.doc.numberOfPages
@@ -356,6 +459,43 @@ object PdfVaultEngine {
         val verified: Boolean,
         val note: String
     )
+
+    data class RedactionPreview(
+        val pageHits: Map<Int, List<RectF>>,
+        val pageSizes: List<Pair<Float, Float>>,
+        val totalBoxes: Int,
+        val pagesWithHits: Set<Int>
+    )
+
+    fun previewRedactionHits(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        terms: List<String>,
+        password: String = ""
+    ): RedactionPreview {
+        val cleanTerms = terms.map { it.trim() }.filter { it.isNotEmpty() }
+        if (cleanTerms.isEmpty()) {
+            return RedactionPreview(emptyMap(), emptyList(), 0, emptySet())
+        }
+        return load(context, storage, uri, password).use { loaded ->
+            val locator = TermLocator(cleanTerms).apply {
+                startPage = 1
+                endPage = loaded.doc.numberOfPages
+            }
+            locator.getText(loaded.doc)
+            val sizes = (0 until loaded.doc.numberOfPages).map { index ->
+                val box = loaded.doc.getPage(index).mediaBox
+                box.width to box.height
+            }
+            RedactionPreview(
+                pageHits = locator.hits,
+                pageSizes = sizes,
+                totalBoxes = locator.hits.values.sumOf { it.size },
+                pagesWithHits = locator.hits.keys.toSet()
+            )
+        }
+    }
 
     /**
      * Redaksi permanen: halaman yang mengandung istilah diratakan menjadi gambar lalu kotak hitam
@@ -394,13 +534,13 @@ object PdfVaultEngine {
             return RedactReport(
                 pages = pageSizes.size,
                 boxes = 0,
-                remainingTextChars = extractTextFile(context, storage, uri).length,
+                remainingTextChars = extractTextFile(context, storage, uri, password).length,
                 verified = false,
                 note = "Istilah tidak ditemukan sebagai teks; tidak ada area yang dihapus."
             )
         }
         // Render tiap halaman (yang punya kotak) ke bitmap, tutup area, lalu susun PDF baru.
-        val tempPdf = storage.copyUriToTemp(uri, "pdf_redact_src", "pdf")
+        val tempPdf = prepareRenderableTemp(context, storage, uri, password)
         val document = PDDocument()
         try {
             ParcelFileDescriptor.open(tempPdf, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
@@ -503,7 +643,25 @@ object PdfVaultEngine {
         storage: FileStorageManager,
         uri: Uri,
         password: String = ""
-    ): String = load(context, storage, uri, password).use { extractText(it.tempFile) }
+    ): String = load(context, storage, uri, password).use { loaded ->
+        PDFTextStripper().getText(loaded.doc)
+    }
+
+    fun extractTextSample(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        maxPages: Int = 5,
+        password: String = "",
+        maxChars: Int = 6000
+    ): String = load(context, storage, uri, password).use { loaded ->
+        if (loaded.doc.numberOfPages <= 0) return@use ""
+        val stripper = PDFTextStripper().apply {
+            startPage = 1
+            endPage = min(loaded.doc.numberOfPages, maxPages).coerceAtLeast(1)
+        }
+        stripper.getText(loaded.doc).trim().take(maxChars)
+    }
 
     // ---------------------------------------------------------- metadata
 
@@ -828,6 +986,55 @@ object PdfVaultEngine {
             removedLines = removed,
             diffImagesZip = diffZip
         )
+    }
+
+    data class ComparisonPagePreview(
+        val bitmapA: Bitmap?,
+        val bitmapB: Bitmap?,
+        val diffBitmap: Bitmap?,
+        val changed: Boolean,
+        val pagesA: Int,
+        val pagesB: Int
+    )
+
+    fun renderComparisonPagePreview(
+        context: Context,
+        storage: FileStorageManager,
+        uriA: Uri,
+        uriB: Uri,
+        pageIndex: Int,
+        dpi: Int = 100
+    ): ComparisonPagePreview {
+        val tempA = storage.copyUriToTemp(uriA, "cmp_prev_a", "pdf")
+        val tempB = storage.copyUriToTemp(uriB, "cmp_prev_b", "pdf")
+        try {
+            ParcelFileDescriptor.open(tempA, ParcelFileDescriptor.MODE_READ_ONLY).use { descA ->
+                ParcelFileDescriptor.open(tempB, ParcelFileDescriptor.MODE_READ_ONLY).use { descB ->
+                    PdfRenderer(descA).use { rendererA ->
+                        PdfRenderer(descB).use { rendererB ->
+                            val bitmapA = renderBitmap(rendererA, pageIndex, dpi)
+                            val bitmapB = renderBitmap(rendererB, pageIndex, dpi)
+                            val diff = if (bitmapA != null && bitmapB != null) {
+                                buildDiffBitmap(bitmapA, bitmapB)
+                            } else {
+                                null
+                            }
+                            return ComparisonPagePreview(
+                                bitmapA = bitmapA,
+                                bitmapB = bitmapB,
+                                diffBitmap = diff?.bitmap,
+                                changed = diff?.changed ?: (bitmapA != null || bitmapB != null),
+                                pagesA = rendererA.pageCount,
+                                pagesB = rendererB.pageCount
+                            )
+                        }
+                    }
+                }
+            }
+        } finally {
+            tempA.delete()
+            tempB.delete()
+        }
     }
 
     private data class DiffResult(val bitmap: Bitmap, val changed: Boolean)

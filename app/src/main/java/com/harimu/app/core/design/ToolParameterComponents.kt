@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +63,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -379,12 +384,41 @@ private fun ValidatedTextParam(
     onValueChange: (Any) -> Unit,
     isEnglish: Boolean
 ) {
+    val isPasswordField = remember(param.key) {
+        val k = param.key.lowercase()
+        k == "password" || k.contains("pass") || k.contains("pwd")
+    }
+    var passwordVisible by remember(param.key) { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = { onValueChange(it) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         isError = !validation.isValid,
+        visualTransformation = if (isPasswordField && !passwordVisible) {
+            PasswordVisualTransformation()
+        } else {
+            VisualTransformation.None
+        },
+        keyboardOptions = if (isPasswordField) {
+            KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
+        } else {
+            KeyboardOptions.Default
+        },
+        trailingIcon = if (isPasswordField) {
+            {
+                IconButton(
+                    onClick = { passwordVisible = !passwordVisible },
+                    modifier = Modifier.minimumInteractiveComponentSize()
+                ) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = stringResource(R.string.cd_toggle_password)
+                    )
+                }
+            }
+        } else null,
         label = { Text(if (isEnglish) param.labelEn else param.labelId) },
         placeholder = {
             if (param.placeholderId.isNotBlank() || param.placeholderEn.isNotBlank()) {

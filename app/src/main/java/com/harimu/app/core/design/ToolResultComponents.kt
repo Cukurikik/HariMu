@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.harimu.app.R
+import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolResult
@@ -285,29 +286,15 @@ private fun AudioResultPreview(output: ToolOutputFile, modifier: Modifier) {
 
 @Composable
 private fun PdfResultPreview(output: ToolOutputFile, storage: FileStorageManager, modifier: Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = Icons.Filled.PictureAsPdf,
-                    contentDescription = "PDF",
-                    modifier = Modifier.fillMaxSize().padding(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-            }
-            Text(text = output.displayName, style = MonoTextStyle, color = MaterialTheme.colorScheme.secondary)
-        }
-    }
+    PdfDocumentPreviewCard(
+        uri = output.file.toUri(),
+        storage = storage,
+        isEnglish = false,
+        maxHeightDp = 240.dp,
+        title = output.displayName,
+        testTag = "pdf_result_preview_card",
+        modifier = modifier
+    )
 }
 
 @Composable

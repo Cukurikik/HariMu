@@ -18,8 +18,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -69,7 +72,10 @@ fun CatalogScreen(
     onBack: (() -> Unit)? = null,
     onOpenAudioForge: (() -> Unit)? = null,
     onOpenImageForge: (() -> Unit)? = null,
-    onOpenImageMatrix: (() -> Unit)? = null
+    onOpenImageMatrix: (() -> Unit)? = null,
+    onOpenPdfVault: (() -> Unit)? = null,
+    onOpenPdfStudio: (() -> Unit)? = null,
+    onOpenUniversalConverter: (() -> Unit)? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
     val layout = HariMuThemeTokens.layout
@@ -243,6 +249,64 @@ fun CatalogScreen(
                                             )
                                         }
                                     }
+                                }
+                            }
+                            if (group == ToolGroup.PDF && (onOpenPdfVault != null || onOpenPdfStudio != null)) {
+                                androidx.compose.foundation.layout.Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (onOpenPdfVault != null) {
+                                        OutlinedButton(
+                                            onClick = onOpenPdfVault,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .minimumInteractiveComponentSize()
+                                                .testTag("catalog_open_pdf_vault_btn")
+                                        ) {
+                                            Icon(Icons.Filled.ViewAgenda, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = stringResource(R.string.pdf_vault_title),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    if (onOpenPdfStudio != null) {
+                                        OutlinedButton(
+                                            onClick = onOpenPdfStudio,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .minimumInteractiveComponentSize()
+                                                .testTag("catalog_open_pdf_studio_btn")
+                                        ) {
+                                            Icon(Icons.Filled.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = stringResource(R.string.pdf_vault_open_studio),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            if (group == ToolGroup.CONVERTER && onOpenUniversalConverter != null) {
+                                OutlinedButton(
+                                    onClick = onOpenUniversalConverter,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .minimumInteractiveComponentSize()
+                                        .testTag("catalog_open_converter_btn")
+                                ) {
+                                    Icon(Icons.Filled.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.converter_catalog_open_studio),
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                         }
