@@ -1,15 +1,15 @@
 package com.harimu.app.feature.tools
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MergeType
+import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Flip
-import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.VolumeOff
 import com.harimu.app.core.media.Media3Request
 import com.harimu.app.core.media.Media3TransformerEngine
 import com.harimu.app.core.media.MediaJob
@@ -118,7 +118,7 @@ fun videoForgeBatch1CoreTools(
         override val id = "VID-02"
         override val group = ToolGroup.VIDEO
         override val engineLabel = "M3/FF"
-        override val icon = Icons.Filled.MergeType
+        override val icon = Icons.AutoMirrored.Filled.MergeType
         override val inputSpec = InputSpec.MultipleVideos
         override val params = emptyList<ToolParam>()
         override fun title(isEnglish: Boolean) = if (isEnglish) "Merge Videos" else "Gabung Video"
@@ -409,7 +409,7 @@ fun videoForgeBatch1CoreTools(
         override val id = "VID-09"
         override val group = ToolGroup.VIDEO
         override val engineLabel = "M3/FF"
-        override val icon = Icons.Filled.RotateRight
+        override val icon = Icons.AutoMirrored.Filled.RotateRight
         override val inputSpec = InputSpec.SingleVideo
         override val params = listOf(
             ToolParam.DropdownParam("deg", "Sudut (Searah Jarum Jam)", "Angle (Clockwise)", listOf("90", "180", "270"), "90")
@@ -623,7 +623,7 @@ fun videoForgeBatch1CoreTools(
         override val id = "VID-24"
         override val group = ToolGroup.VIDEO
         override val engineLabel = "M3/FF"
-        override val icon = Icons.Filled.VolumeOff
+        override val icon = Icons.AutoMirrored.Filled.VolumeOff
         override val inputSpec = InputSpec.SingleVideo
         override val params = emptyList<ToolParam>()
         override fun title(isEnglish: Boolean) = if (isEnglish) "Remove Video Audio" else "Bisukan Video"

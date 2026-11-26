@@ -10,6 +10,7 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
@@ -232,7 +232,7 @@ private fun rotateTool(): Tool = object : Tool {
     override val id = "IMG-03"
     override val group = ToolGroup.IMAGE
     override val engineLabel = "NAT"
-    override val icon = Icons.Filled.RotateRight
+    override val icon = Icons.AutoMirrored.Filled.RotateRight
     override val inputSpec = InputSpec.SingleImage
     override val params = listOf<ToolParam>(
         ToolParam.DropdownParam("deg", "Sudut Putar", "Rotation Angle", listOf("90", "180", "270"), "90"),

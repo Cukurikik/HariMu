@@ -11,7 +11,11 @@
     <string name="nav_catalog">Catalog</string>
     <string name="cd_back">Back</string>
     <string name="cd_clear">Clear</string>
+    <string name="cd_close">Close</string>
     <string name="cd_toggle_favorite">Toggle favorite</string>
+    <string name="status_info">Information</string>
+    <string name="status_warning">Warning</string>
+    <string name="status_success">Completed</string>
 
     <!-- Home -->
     <string name="search_hint">Search tools (video, audio, image, PDF, converter)…</string>
@@ -261,4 +265,28 @@
     <string name="licenses_screen_title">Open Source Licenses</string>
     <string name="licenses_intro">All libraries and assets bundled in HariMu use permissive licenses (no GPL/AGPL dependencies inside the APK).</string>
     <string name="licenses_policy_title">License Policy Notes</string>
+
+    <!-- AI Gateway Settings, PDF Watermark, Perspective, & Studio Actions (UI Hardening) -->
+    <string name="settings_ai_gateway_title">AI Gateway</string>
+    <string name="settings_ai_gateway_desc">Endpoint for cloud AI tools. Provider keys live on the server, never on this phone.</string>
+    <string name="settings_ai_gateway_url_label">Gateway URL (https://…)</string>
+    <string name="settings_ai_gateway_save">Save</string>
+    <string name="settings_ai_gateway_saved">Saved</string>
+    <string name="settings_ai_gateway_test">Test &amp; connect</string>
+    <string name="settings_ai_gateway_connecting">Connecting…</string>
+    <string name="settings_ai_gateway_connected">Connected • quota %1$d/%2$d</string>
+    <string name="settings_ai_gateway_connect_failed">Connection failed</string>
+    <string name="settings_ai_gateway_forget">Forget token</string>
+    <string name="settings_ai_gateway_forgotten">Token forgotten</string>
+    <string name="settings_ai_gateway_allow_upload">Allow upload consent</string>
+    <string name="settings_ai_gateway_revoke_upload">Revoke upload consent</string>
+    <string name="settings_ai_gateway_upload_allowed">Cloud upload allowed</string>
+    <string name="settings_ai_gateway_upload_revoked">Cloud upload revoked</string>
+    <string name="action_pick_pdf_watermark_image">Pick watermark image</string>
+    <string name="perspective_preview_title">Drag 4 document corners (preview)</string>
+    <string name="perspective_preview_hint">Handles track image percentages; fine coordinates can also be adjusted with sliders.</string>
+    <string name="cd_undo">Undo</string>
+    <string name="cd_redo">Redo</string>
+    <string name="cd_mixer">Toggle mixer panel</string>
 </resources>
+

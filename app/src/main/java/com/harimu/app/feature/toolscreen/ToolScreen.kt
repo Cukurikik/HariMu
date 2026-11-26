@@ -1,6 +1,8 @@
 package com.harimu.app.feature.toolscreen
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
@@ -16,6 +18,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,11 +65,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -81,6 +84,7 @@ import com.harimu.app.core.design.EngineBadge
 import com.harimu.app.core.design.ErrorState
 import com.harimu.app.core.design.FilePickerField
 import com.harimu.app.core.design.HariMuColors
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamDropdown
 import com.harimu.app.core.design.ParamSlider
@@ -97,7 +101,7 @@ import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ToolScreen(
     toolId: String,
@@ -108,7 +112,8 @@ fun ToolScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val spacing = HariMuThemeTokens.spacing
+    val layout = HariMuThemeTokens.layout
     val scope = rememberCoroutineScope()
     var showUploadConsent by remember { mutableStateOf(false) }
     val vm: ToolViewModel = viewModel(factory = ToolViewModel.Factory(toolId, container))
@@ -215,7 +220,13 @@ fun ToolScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(tool.title(isEnglish), maxLines = 1) },
+                title = {
+                    Text(
+                        text = tool.title(isEnglish),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("tool_back_button")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
@@ -242,17 +253,20 @@ fun ToolScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 640.dp)
+                    .widthIn(max = layout.formMaxWidth)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.md)
             ) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = layout.cardBorderAlpha))
                 ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(spacing.xxs)
+                        ) {
                             ToolIdBadge(id = tool.id, accent = tool.group.accentColor())
                             EngineBadge(engine = tool.engineLabel)
                             if (tool.isStub) {
@@ -521,7 +535,7 @@ fun ToolScreen(
                                                 .fillMaxWidth()
                                                 .testTag("pick_pdf_watermark_image_btn")
                                         ) {
-                                            Text(if (isEnglish) "Pick watermark image" else "Pilih gambar watermark")
+                                            Text(stringResource(R.string.action_pick_pdf_watermark_image))
                                         }
                                         state.secondaryUri?.let { wmImage ->
                                             Row(
@@ -952,7 +966,8 @@ fun ToolScreen(
                                         ) {
                                             Text(stringResource(R.string.label_output), style = MaterialTheme.typography.labelMedium)
                                             IconButton(onClick = {
-                                                clipboard.setText(AnnotatedString(txt))
+                                                context.getSystemService(ClipboardManager::class.java)
+                                                    ?.setPrimaryClip(ClipData.newPlainText("HariMu", txt))
                                                 Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
                                             }) {
                                                 Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.action_copy), modifier = Modifier.size(18.dp))

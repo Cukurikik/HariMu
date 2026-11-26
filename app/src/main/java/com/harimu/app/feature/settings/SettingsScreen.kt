@@ -10,6 +10,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.data.AppSettings
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamSlider
 import com.harimu.app.core.design.ParamToggle
@@ -68,6 +71,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     container: AppContainer,
@@ -100,13 +104,15 @@ fun SettingsScreen(
         }
     }
 
+    val spacing = HariMuThemeTokens.spacing
+    val layout = HariMuThemeTokens.layout
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 640.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .widthIn(max = layout.formMaxWidth),
+            contentPadding = PaddingValues(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             item {
                 Card(
@@ -301,78 +307,83 @@ fun SettingsScreen(
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = layout.cardBorderAlpha))
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         Text(
-                            text = "AI Gateway",
+                            text = stringResource(R.string.settings_ai_gateway_title),
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = if (settings.isEnglish) {
-                                "Endpoint for cloud AI tools. Provider keys live on the server, never on this phone."
-                            } else {
-                                "Endpoint untuk tool AI cloud. Kunci provider disimpan di server, bukan di HP ini."
-                            },
-                            style = MaterialTheme.typography.bodySmall
+                            text = stringResource(R.string.settings_ai_gateway_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         var gatewayUrl by remember(settings.aiGatewayUrl) { mutableStateOf(settings.aiGatewayUrl) }
                         var aiStatus by remember { mutableStateOf("") }
                         OutlinedTextField(
                             value = gatewayUrl,
                             onValueChange = { gatewayUrl = it },
-                            label = { Text("URL Gateway (https://…)") },
+                            label = { Text(stringResource(R.string.settings_ai_gateway_url_label)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(spacing.xxs)
+                        ) {
                             TextButton(onClick = {
                                 scope.launch {
                                     container.settings.setAiGatewayUrl(gatewayUrl)
-                                    aiStatus = if (settings.isEnglish) "Saved" else "Tersimpan"
+                                    aiStatus = resources.getString(R.string.settings_ai_gateway_saved)
                                 }
-                            }) { Text(if (settings.isEnglish) "Save" else "Simpan") }
+                            }) { Text(stringResource(R.string.settings_ai_gateway_save)) }
                             TextButton(onClick = {
                                 scope.launch {
                                     container.settings.setAiGatewayUrl(gatewayUrl)
-                                    aiStatus = if (settings.isEnglish) "Connecting…" else "Menghubungkan…"
+                                    aiStatus = resources.getString(R.string.settings_ai_gateway_connecting)
                                     runCatching {
                                         container.aiClient.ensureToken(forceRefresh = true)
                                         val quota = container.aiClient.quota()
-                                        aiStatus = if (settings.isEnglish) {
-                                            "Connected • quota ${quota.used}/${quota.limit}"
-                                        } else {
-                                            "Terhubung • kuota ${quota.used}/${quota.limit}"
-                                        }
+                                        aiStatus = resources.getString(
+                                            R.string.settings_ai_gateway_connected,
+                                            quota.used,
+                                            quota.limit
+                                        )
                                     }.onFailure { error ->
-                                        aiStatus = error.localizedMessage ?: "Gagal terhubung"
+                                        aiStatus = error.localizedMessage
+                                            ?: resources.getString(R.string.settings_ai_gateway_connect_failed)
                                     }
                                 }
-                            }) { Text(if (settings.isEnglish) "Test & connect" else "Uji & hubungkan") }
+                            }) { Text(stringResource(R.string.settings_ai_gateway_test)) }
                             TextButton(onClick = {
                                 scope.launch {
                                     container.aiClient.forgetToken()
-                                    aiStatus = if (settings.isEnglish) "Token forgotten" else "Token dilupakan"
+                                    aiStatus = resources.getString(R.string.settings_ai_gateway_forgotten)
                                 }
-                            }) { Text(if (settings.isEnglish) "Forget token" else "Lupakan token") }
+                            }) { Text(stringResource(R.string.settings_ai_gateway_forget)) }
                         }
                         TextButton(onClick = {
                             scope.launch {
                                 val granted = container.settings.aiUploadConsent()
                                 container.settings.setAiUploadConsent(!granted)
-                                aiStatus = if (!granted) {
-                                    if (settings.isEnglish) "Cloud upload allowed" else "Unggahan cloud diizinkan"
-                                } else {
-                                    if (settings.isEnglish) "Cloud upload revoked" else "Izin unggah dicabut"
-                                }
+                                aiStatus = resources.getString(
+                                    if (!granted) {
+                                        R.string.settings_ai_gateway_upload_allowed
+                                    } else {
+                                        R.string.settings_ai_gateway_upload_revoked
+                                    }
+                                )
                             }
                         }) {
                             Text(
-                                if (settings.aiUploadConsent) {
-                                    if (settings.isEnglish) "Revoke upload consent" else "Cabut izin unggah"
-                                } else {
-                                    if (settings.isEnglish) "Allow upload consent" else "Izinkan unggah"
-                                }
+                                stringResource(
+                                    if (settings.aiUploadConsent) {
+                                        R.string.settings_ai_gateway_revoke_upload
+                                    } else {
+                                        R.string.settings_ai_gateway_allow_upload
+                                    }
+                                )
                             )
                         }
                         if (aiStatus.isNotBlank()) {

@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,10 +38,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.harimu.app.R
 import com.harimu.app.core.design.EmptyState
 import com.harimu.app.core.design.GroupHeader
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.ToolRowCard
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.design.icon
@@ -58,6 +61,8 @@ fun CatalogScreen(
     onToggleFavorite: (String) -> Unit,
     onBack: () -> Unit
 ) {
+    val spacing = HariMuThemeTokens.spacing
+    val layout = HariMuThemeTokens.layout
     var selectedGroup by remember(initialGroup) { mutableStateOf(initialGroup) }
     var query by remember { mutableStateOf("") }
 
@@ -70,8 +75,10 @@ fun CatalogScreen(
             TopAppBar(
                 title = {
                     Text(
-                        selectedGroup?.let { stringResource(it.titleRes) }
-                            ?: stringResource(R.string.nav_catalog)
+                        text = selectedGroup?.let { stringResource(it.titleRes) }
+                            ?: stringResource(R.string.nav_catalog),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
@@ -91,18 +98,24 @@ fun CatalogScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 760.dp)
+                    .widthIn(max = layout.catalogMaxWidth)
             ) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = spacing.md, vertical = spacing.xs)
                     .testTag("catalog_search_input"),
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                placeholder = { Text(stringResource(R.string.search_hint)) },
+                shape = MaterialTheme.shapes.medium,
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.search_hint),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
@@ -118,18 +131,20 @@ fun CatalogScreen(
             )
 
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(horizontal = spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs)
             ) {
                 item {
                     FilterChip(
                         selected = selectedGroup == null,
                         onClick = { selectedGroup = null },
                         label = { Text(stringResource(R.string.catalog_all_count, ToolRegistry.allTools.size)) },
-                        modifier = Modifier.testTag("filter_all")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("filter_all")
                     )
                 }
-                items(ToolGroup.entries) { group ->
+                items(ToolGroup.entries, key = { it.name }) { group ->
                     val accent = group.accentColor()
                     FilterChip(
                         selected = selectedGroup == group,
@@ -139,15 +154,17 @@ fun CatalogScreen(
                             selectedContainerColor = accent.copy(alpha = 0.18f),
                             selectedLabelColor = accent
                         ),
-                        modifier = Modifier.testTag("filter_${group.name}")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("filter_${group.name}")
                     )
                 }
             }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm)
             ) {
                 selectedGroup?.let { group ->
                     item {

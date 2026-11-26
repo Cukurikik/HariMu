@@ -3,8 +3,8 @@ package com.harimu.app.feature.tools
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.BlurCircular
-import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.HighQuality
@@ -444,7 +444,7 @@ private fun stemSplitterTool(): Tool = object : Tool {
     override val id = "AUD-20"
     override val group = ToolGroup.AUDIO
     override val engineLabel = "DSP"
-    override val icon = Icons.Filled.CallSplit
+    override val icon = Icons.AutoMirrored.Filled.CallSplit
     override val inputSpec = InputSpec.SingleAudio
     override val params = listOf(
         ToolParam.DropdownParam(

@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.harimu.app.R
+import com.harimu.app.core.design.HariMuColors
 import kotlin.math.sqrt
 
 /**
@@ -66,7 +67,7 @@ fun PerspectivePointsCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Geser 4 titik sudut dokumen (pratinjau)",
+                text = stringResource(R.string.perspective_preview_title),
                 style = MaterialTheme.typography.titleSmall
             )
             Box(
@@ -142,11 +143,11 @@ fun PerspectivePointsCard(
                         lineTo(offsets[3].x, offsets[3].y)
                         close()
                     }
-                    drawPath(path, Color(0xFF00BFA5), style = Stroke(width = 3f))
+                    drawPath(path, HariMuColors.TealEmerald, style = Stroke(width = 3f))
                     offsets.forEachIndexed { index, offset ->
-                        drawCircle(Color(0xFF00BFA5), radius = 10f, center = offset)
+                        drawCircle(HariMuColors.TealEmerald, radius = 10f, center = offset)
                         drawCircle(
-                            if (index == activeHandle) Color.White else Color(0xFF0F1219),
+                            if (index == activeHandle) HariMuColors.CrispWhite else HariMuColors.CanvasHandleDark,
                             radius = 6f,
                             center = offset
                         )
@@ -154,7 +155,7 @@ fun PerspectivePointsCard(
                 }
             }
             Text(
-                text = "Titik mengikuti persen gambar; nilai presisi juga bisa diatur lewat slider.",
+                text = stringResource(R.string.perspective_preview_hint),
                 style = MaterialTheme.typography.bodySmall
             )
         }

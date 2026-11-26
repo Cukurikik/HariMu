@@ -101,7 +101,7 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .widthIn(max = 1040.dp),
+                .widthIn(max = HariMuThemeTokens.layout.dashboardMaxWidth),
             contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
@@ -117,7 +117,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .testTag("home_search_input"),
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     placeholder = {
                         Text(
                             text = stringResource(R.string.search_hint),
@@ -285,9 +285,9 @@ private fun HeroStudioBanner() {
                 .background(
                     Brush.horizontalGradient(
                         listOf(
-                            Color(0xEE0E1119),
-                            Color(0xCC0E1119),
-                            Color(0x660E1119)
+                            HariMuColors.HeroScrimStart,
+                            HariMuColors.HeroScrimMid,
+                            HariMuColors.HeroScrimEnd
                         )
                     )
                 )
@@ -298,29 +298,29 @@ private fun HeroStudioBanner() {
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = HariMuColors.ElectricOrange.copy(alpha = 0.2f),
-                    border = BorderStroke(1.dp, HariMuColors.ElectricOrange.copy(alpha = 0.6f))
-                ) {
-                    Text(
-                        text = stringResource(R.string.hero_badge),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFFFB596),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = HariMuColors.ElectricOrange.copy(alpha = 0.2f),
+                border = BorderStroke(1.dp, HariMuColors.ElectricOrange.copy(alpha = 0.6f))
+            ) {
                 Text(
-                    text = stringResource(R.string.hero_title),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    text = stringResource(R.string.hero_badge),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = HariMuColors.HeroBadgeText,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
+            }
+            Text(
+                text = stringResource(R.string.hero_title),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                color = HariMuColors.CrispWhite,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(
                 text = stringResource(R.string.hero_subtitle),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFFD1D5DB),
+                color = HariMuColors.HeroSubtitleText,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )

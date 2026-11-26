@@ -14,6 +14,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -156,7 +157,7 @@ class MainActivity : ComponentActivity() {
 
             val baseContext = LocalContext.current
             val baseConfig = LocalConfiguration.current
-            val targetLocale = if (settings.isEnglish) Locale.ENGLISH else Locale("id")
+            val targetLocale = if (settings.isEnglish) Locale.ENGLISH else Locale.forLanguageTag("id")
             val localizedConfig = remember(baseConfig, targetLocale) {
                 Configuration(baseConfig).apply { setLocale(targetLocale) }
             }
@@ -348,7 +349,11 @@ private fun HariMuRoot(
                 }
             }
         ) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding)) {
+            Box(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+            ) {
                 NavHost(
                     navController = navController,
                     startDestination = HomeRoute

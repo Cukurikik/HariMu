@@ -14,30 +14,35 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.data.AudioTrackSpec
 import com.harimu.app.core.design.ErrorState
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.ProgressSheet
 import com.harimu.app.core.design.ResultCard
 import com.harimu.app.core.toolapi.ToolProgress
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AudioStudioScreen(
     container: AppContainer,
@@ -45,13 +50,14 @@ fun AudioStudioScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val spacing = HariMuThemeTokens.spacing
     val vm: AudioStudioViewModel = viewModel(factory = AudioStudioViewModel.Factory(container))
     val state by vm.state.collectAsState()
     val savedProjects by vm.savedProjects.collectAsState()
 
     var showProjectsDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
-    var showMixerPanel by remember { mutableStateOf(true) }
+    var showMixerPanel by rememberSaveable { mutableStateOf(false) }
     var showAddTrackDialog by remember { mutableStateOf(false) }
     var newTrackName by remember { mutableStateOf("") }
     var exportFormat by remember { mutableStateOf("wav") }
@@ -91,7 +97,12 @@ fun AudioStudioScreen(
                 title = {
                     Column(modifier = Modifier.clickable { showProjectsDialog = true }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(state.title, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(
+                                state.title,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             Icon(
                                 Icons.Filled.ArrowDropDown,
                                 contentDescription = stringResource(R.string.cd_switch_audio_project),
@@ -101,13 +112,18 @@ fun AudioStudioScreen(
                         Text(
                             text = if (isEnglish) "${state.tracks.size} Tracks • Tap to switch" else "${state.tracks.size} Track • Ketuk untuk beralih",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = if (isEnglish) "Back" else "Kembali")
+                    IconButton(onClick = onBack, modifier = Modifier.minimumInteractiveComponentSize()) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back)
+                        )
                     }
                 },
                 actions = {
@@ -126,144 +142,188 @@ fun AudioStudioScreen(
                 tonalElevation = 8.dp,
                 color = MaterialTheme.colorScheme.surface
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { vm.seekPlayhead(0L) }) {
-                                Icon(Icons.Filled.FirstPage, contentDescription = "Rewind")
-                            }
-                            FilledIconButton(
-                                onClick = { vm.togglePlay() },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = if (state.isPlaying) "Pause" else "Play"
-                                )
-                            }
-                            IconButton(
-                                onClick = { showMixerPanel = !showMixerPanel }
-                            ) {
-                                Icon(Icons.Filled.Tune, contentDescription = "Mixer")
-                            }
-                        }
-
-                        Text(
-                            text = formatTimeMs(state.playheadPositionMs) + " / " + formatTimeMs(state.totalDurationMs),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(140.dp)) {
-                            Icon(Icons.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Slider(
-                                value = state.masterVolume,
-                                onValueChange = { vm.setMasterVolume(it) },
-                                valueRange = 0f..2f,
-                                modifier = Modifier.fillMaxWidth()
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.sm, vertical = spacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalArrangement = Arrangement.spacedBy(spacing.xxs, Alignment.CenterVertically)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { vm.seekPlayhead(0L) }) {
+                            Icon(
+                                Icons.Filled.FirstPage,
+                                contentDescription = if (isEnglish) "Rewind to start" else "Kembali ke awal"
                             )
                         }
+                        FilledIconButton(
+                            onClick = { vm.togglePlay() },
+                            modifier = Modifier.minimumInteractiveComponentSize()
+                        ) {
+                            Icon(
+                                if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = stringResource(R.string.audio_cd_play_pause)
+                            )
+                        }
+                        IconButton(
+                            onClick = { showMixerPanel = !showMixerPanel },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("audio_studio_mixer_toggle")
+                        ) {
+                            Icon(
+                                Icons.Filled.Tune,
+                                contentDescription = stringResource(R.string.cd_mixer),
+                                tint = if (showMixerPanel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = formatTimeMs(state.playheadPositionMs) + " / " + formatTimeMs(state.totalDurationMs),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterVertically)
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.widthIn(min = 120.dp, max = 160.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = if (isEnglish) "Master volume" else "Volume utama",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Slider(
+                            value = state.masterVolume,
+                            onValueChange = { vm.setMasterVolume(it) },
+                            valueRange = 0f..2f,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
         }
     ) { padding ->
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (showMixerPanel) {
-                Surface(
-                    modifier = Modifier.width(280.dp).fillMaxHeight(),
-                    tonalElevation = 4.dp,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow
-                ) {
-                    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(if (isEnglish) "Tracks Mixer" else "Mixer Track", fontWeight = FontWeight.Bold)
-                            IconButton(onClick = { showAddTrackDialog = true }) {
-                                Icon(Icons.Filled.Add, contentDescription = "Add Track")
+            val isWide = maxWidth >= 600.dp
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (showMixerPanel) {
+                    Surface(
+                        modifier = Modifier
+                            .then(if (isWide) Modifier.width(280.dp) else Modifier.fillMaxWidth())
+                            .fillMaxHeight()
+                            .testTag("audio_studio_mixer_panel"),
+                        tonalElevation = 4.dp,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize().padding(spacing.sm)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    if (isEnglish) "Tracks Mixer" else "Mixer Track",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                IconButton(
+                                    onClick = { showAddTrackDialog = true },
+                                    modifier = Modifier.minimumInteractiveComponentSize()
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Add,
+                                        contentDescription = if (isEnglish) "Add Track" else "Tambah Track"
+                                    )
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = spacing.xs))
+
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(spacing.xs)
+                            ) {
+                                items(state.tracks, key = { it.trackId }) { track ->
+                                    TrackMixerCard(
+                                        track = track,
+                                        isSelected = track.trackId == state.selectedTrackId,
+                                        isEnglish = isEnglish,
+                                        onSelect = { vm.selectTrack(track.trackId) },
+                                        onUpdate = { vol, pan, mute, solo ->
+                                            vm.updateTrackSettings(track.trackId, vol, pan, mute, solo)
+                                        },
+                                        onAddClip = {
+                                            vm.selectTrack(track.trackId)
+                                            audioPickerLauncher.launch(arrayOf("audio/*"))
+                                        },
+                                        onDeleteTrack = { vm.deleteTrack(track.trackId) }
+                                    )
+                                }
                             }
                         }
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                }
 
-                        LazyColumn(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                if (isWide || !showMixerPanel) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(spacing.xs)
+                            .testTag("audio_studio_timeline_pane")
+                    ) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalArrangement = Arrangement.spacedBy(spacing.xxs, Alignment.CenterVertically)
                         ) {
-                            items(state.tracks) { track ->
-                                TrackMixerCard(
-                                    track = track,
-                                    isSelected = track.trackId == state.selectedTrackId,
-                                    isEnglish = isEnglish,
-                                    onSelect = { vm.selectTrack(track.trackId) },
-                                    onUpdate = { vol, pan, mute, solo ->
-                                        vm.updateTrackSettings(track.trackId, vol, pan, mute, solo)
-                                    },
-                                    onAddClip = {
-                                        vm.selectTrack(track.trackId)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (isEnglish) "Timeline" else "Linimasa", fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.width(spacing.xs))
+                                IconButton(onClick = { vm.setZoomLevel(state.zoomLevel - 0.25f) }) {
+                                    Icon(
+                                        Icons.Filled.ZoomOut,
+                                        contentDescription = if (isEnglish) "Zoom Out" else "Perkecil"
+                                    )
+                                }
+                                Text(String.format(Locale.US, "%.1fx", state.zoomLevel), style = MaterialTheme.typography.bodySmall)
+                                IconButton(onClick = { vm.setZoomLevel(state.zoomLevel + 0.25f) }) {
+                                    Icon(
+                                        Icons.Filled.ZoomIn,
+                                        contentDescription = if (isEnglish) "Zoom In" else "Perbesar"
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    state.selectedTrackId?.let {
                                         audioPickerLauncher.launch(arrayOf("audio/*"))
-                                    },
-                                    onDeleteTrack = { vm.deleteTrack(track.trackId) }
+                                    } ?: run {
+                                        state.tracks.firstOrNull()?.trackId?.let {
+                                            vm.selectTrack(it)
+                                            audioPickerLauncher.launch(arrayOf("audio/*"))
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
+                                Icon(Icons.Filled.AudioFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    if (isEnglish) "+ Add Audio" else "+ Tambah Audio",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
-                    }
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (isEnglish) "Timeline" else "Linimasa", fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        IconButton(onClick = { vm.setZoomLevel(state.zoomLevel - 0.25f) }) {
-                            Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom Out")
-                        }
-                        Text(String.format(Locale.US, "%.1fx", state.zoomLevel), style = MaterialTheme.typography.bodySmall)
-                        IconButton(onClick = { vm.setZoomLevel(state.zoomLevel + 0.25f) }) {
-                            Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom In")
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            state.selectedTrackId?.let { trackId ->
-                                audioPickerLauncher.launch(arrayOf("audio/*"))
-                            } ?: run {
-                                state.tracks.firstOrNull()?.trackId?.let {
-                                    vm.selectTrack(it)
-                                    audioPickerLauncher.launch(arrayOf("audio/*"))
-                                }
-                            }
-                        },
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Icon(Icons.Filled.AudioFile, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isEnglish) "+ Add Audio" else "+ Tambah Audio")
-                    }
-                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -309,6 +369,8 @@ fun AudioStudioScreen(
                             .background(MaterialTheme.colorScheme.error)
                     )
                 }
+                    }
+                }
             }
         }
     }
@@ -333,7 +395,7 @@ fun AudioStudioScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    items(savedProjects) { proj ->
+                    items(savedProjects, key = { it.id }) { proj ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -350,14 +412,18 @@ fun AudioStudioScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(proj.title, fontWeight = FontWeight.Bold)
+                                    Text(proj.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(
                                         text = "ID: ${proj.id.take(6)} • Updated: ${android.text.format.DateFormat.format("yyyy-MM-dd HH:mm", proj.updatedAt)}",
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                                 IconButton(onClick = { vm.deleteSavedProject(proj.id) }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = if (isEnglish) "Delete project" else "Hapus proyek",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
@@ -512,11 +578,26 @@ fun TrackMixerCard(
             ) {
                 Text(track.name, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onAddClip, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
+                    IconButton(
+                        onClick = onAddClip,
+                        modifier = Modifier.minimumInteractiveComponentSize()
+                    ) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = if (isEnglish) "Add clip" else "Tambah klip",
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                    IconButton(onClick = onDeleteTrack, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    IconButton(
+                        onClick = onDeleteTrack,
+                        modifier = Modifier.minimumInteractiveComponentSize()
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = if (isEnglish) "Delete track" else "Hapus track",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -527,14 +608,14 @@ fun TrackMixerCard(
                 FilterChip(
                     selected = track.mute,
                     onClick = { onUpdate(track.volume, track.pan, !track.mute, track.solo) },
-                    label = { Text("M", fontSize = 11.sp) },
-                    modifier = Modifier.height(28.dp)
+                    label = { Text("M", style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.minimumInteractiveComponentSize()
                 )
                 FilterChip(
                     selected = track.solo,
                     onClick = { onUpdate(track.volume, track.pan, track.mute, !track.solo) },
-                    label = { Text("S", fontSize = 11.sp) },
-                    modifier = Modifier.height(28.dp)
+                    label = { Text("S", style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.minimumInteractiveComponentSize()
                 )
             }
 
@@ -544,16 +625,14 @@ fun TrackMixerCard(
             Slider(
                 value = track.volume,
                 onValueChange = { onUpdate(it, track.pan, track.mute, track.solo) },
-                valueRange = 0f..2f,
-                modifier = Modifier.height(24.dp)
+                valueRange = 0f..2f
             )
 
             Text("Pan: ${String.format(Locale.US, "%.1f", track.pan)}", style = MaterialTheme.typography.bodySmall)
             Slider(
                 value = track.pan,
                 onValueChange = { onUpdate(track.volume, it, track.mute, track.solo) },
-                valueRange = -1f..1f,
-                modifier = Modifier.height(24.dp)
+                valueRange = -1f..1f
             )
         }
     }

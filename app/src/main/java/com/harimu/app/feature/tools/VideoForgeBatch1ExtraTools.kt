@@ -4,14 +4,14 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.BurstMode
-import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Transform
-import androidx.compose.material.icons.filled.VolumeUp
 import com.harimu.app.core.media.MediaJob
 import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.media.MediaUriUtils
@@ -275,7 +275,7 @@ fun videoForgeBatch1ExtraTools(
         override val id = "VID-13"
         override val group = ToolGroup.VIDEO
         override val engineLabel = "FF"
-        override val icon = Icons.Filled.VolumeUp
+        override val icon = Icons.AutoMirrored.Filled.VolumeUp
         override val inputSpec = InputSpec.SingleVideo
         override val params = listOf(
             ToolParam.SliderParam("vol", "Volume", "Volume", 0f, 200f, 120f, 10f, "%")
@@ -587,7 +587,7 @@ fun videoForgeBatch1ExtraTools(
         override val id = "VID-21"
         override val group = ToolGroup.VIDEO
         override val engineLabel = "M3/FF"
-        override val icon = Icons.Filled.CallSplit
+        override val icon = Icons.AutoMirrored.Filled.CallSplit
         override val inputSpec = InputSpec.SingleVideo
         override val params = listOf(
             ToolParam.DropdownParam("mode", "Mode Pemecahan", "Split Mode", listOf("Bagian Sama", "Rentang Pilihan"), "Bagian Sama"),

@@ -1,6 +1,8 @@
 package com.harimu.app.feature.studios
 
 import android.app.KeyguardManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
@@ -50,10 +52,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
@@ -87,7 +87,9 @@ fun KeyVaultScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = remember(context) {
+        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    }
     val scope = rememberCoroutineScope()
     val keys by container.workspace.vaultKeysFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -133,7 +135,7 @@ fun KeyVaultScreen(
         if (result.resultCode == android.app.Activity.RESULT_OK && entity != null) {
             runCatching { VaultCryptoEngine.exportPrivatePem(entity) }
                 .onSuccess { pem ->
-                    clipboard.setText(AnnotatedString(pem))
+                    clipboard.setPrimaryClip(ClipData.newPlainText("private_pem", pem))
                     status = if (isEnglish) {
                         "Private PEM copied. Store it safely — anyone with it controls this key."
                     } else {
@@ -440,8 +442,12 @@ fun KeyVaultScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
                                     onClick = {
-                                        clipboard.setText(AnnotatedString(item.publicKeyPem))
-                                        Toast.makeText(context, "Public key disalin", Toast.LENGTH_SHORT).show()
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("public_pem", item.publicKeyPem))
+                                        Toast.makeText(
+                                            context,
+                                            if (isEnglish) "Public key copied" else "Public key disalin",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     },
                                     modifier = Modifier.weight(1f)
                                 ) {

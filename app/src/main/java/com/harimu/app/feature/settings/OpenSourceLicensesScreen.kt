@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.harimu.app.R
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 
 private data class LibraryLicenseEntry(
@@ -181,6 +182,8 @@ fun OpenSourceLicensesScreen(
     onBack: () -> Unit
 ) {
     val policyNotes = if (isEnglish) LICENSE_POLICY_NOTES_EN else LICENSE_POLICY_NOTES_ID
+    val spacing = HariMuThemeTokens.spacing
+    val layout = HariMuThemeTokens.layout
 
     Scaffold(
         topBar = {
@@ -209,10 +212,10 @@ fun OpenSourceLicensesScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 760.dp)
+                    .widthIn(max = layout.catalogMaxWidth)
                     .testTag("open_source_licenses_list"),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm)
             ) {
                 item {
                     Card(
@@ -241,7 +244,7 @@ fun OpenSourceLicensesScreen(
                 items(OPEN_SOURCE_LICENSES, key = { it.component }) { entry ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = layout.cardBorderAlpha))
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
@@ -274,7 +277,7 @@ fun OpenSourceLicensesScreen(
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = layout.cardBorderAlpha))
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),

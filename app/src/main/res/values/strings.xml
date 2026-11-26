@@ -11,7 +11,11 @@
     <string name="nav_catalog">Katalog</string>
     <string name="cd_back">Kembali</string>
     <string name="cd_clear">Bersihkan</string>
+    <string name="cd_close">Tutup</string>
     <string name="cd_toggle_favorite">Tandai favorit</string>
+    <string name="status_info">Informasi</string>
+    <string name="status_warning">Peringatan</string>
+    <string name="status_success">Berhasil</string>
 
     <!-- Beranda -->
     <string name="search_hint">Cari tool (video, audio, gambar, PDF, konverter)…</string>
@@ -261,4 +265,28 @@
     <string name="licenses_screen_title">Lisensi Open Source</string>
     <string name="licenses_intro">Semua library dan aset pada HariMu memakai lisensi permisif (tanpa dependensi GPL/AGPL yang dibundel di APK).</string>
     <string name="licenses_policy_title">Catatan Kebijakan Lisensi</string>
+
+    <!-- Pengaturan AI Gateway, Watermark PDF, Perspektif, & Studio (UI Hardening) -->
+    <string name="settings_ai_gateway_title">AI Gateway</string>
+    <string name="settings_ai_gateway_desc">Endpoint untuk tool AI cloud. Kunci provider disimpan di server, bukan di HP ini.</string>
+    <string name="settings_ai_gateway_url_label">URL Gateway (https://…)</string>
+    <string name="settings_ai_gateway_save">Simpan</string>
+    <string name="settings_ai_gateway_saved">Tersimpan</string>
+    <string name="settings_ai_gateway_test">Uji &amp; hubungkan</string>
+    <string name="settings_ai_gateway_connecting">Menghubungkan…</string>
+    <string name="settings_ai_gateway_connected">Terhubung • kuota %1$d/%2$d</string>
+    <string name="settings_ai_gateway_connect_failed">Gagal terhubung</string>
+    <string name="settings_ai_gateway_forget">Lupakan token</string>
+    <string name="settings_ai_gateway_forgotten">Token dilupakan</string>
+    <string name="settings_ai_gateway_allow_upload">Izinkan unggah</string>
+    <string name="settings_ai_gateway_revoke_upload">Cabut izin unggah</string>
+    <string name="settings_ai_gateway_upload_allowed">Unggahan cloud diizinkan</string>
+    <string name="settings_ai_gateway_upload_revoked">Izin unggah dicabut</string>
+    <string name="action_pick_pdf_watermark_image">Pilih gambar watermark</string>
+    <string name="perspective_preview_title">Geser 4 titik sudut dokumen (pratinjau)</string>
+    <string name="perspective_preview_hint">Titik mengikuti persen gambar; nilai presisi juga bisa diatur lewat slider.</string>
+    <string name="cd_undo">Urungkan</string>
+    <string name="cd_redo">Ulangi</string>
+    <string name="cd_mixer">Tampilkan atau sembunyikan mixer</string>
 </resources>
+

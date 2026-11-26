@@ -1,5 +1,8 @@
 package com.harimu.app.feature.nusantara
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,9 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,7 +47,10 @@ fun RegionsScreen(
 ) {
     val vm: RegionsViewModel = viewModel(factory = RegionsViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
-    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val clipboard = remember(context) {
+        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    }
 
     LaunchedEffect(isEnglish) { vm.loadProvinces(isEnglish) }
 
@@ -133,7 +138,9 @@ fun RegionsScreen(
                 }
                 items(count = villages.itemCount) { index ->
                     villages[index]?.let { region ->
-                        RegionRow(region = region) { clipboard.setText(AnnotatedString(region.id)) }
+                        RegionRow(region = region) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("region_code", region.id))
+                        }
                     }
                 }
                 if (villages.loadState.refresh is LoadState.Loading) {

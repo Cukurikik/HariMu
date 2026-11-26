@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,15 +45,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.data.HistoryEntity
 import com.harimu.app.core.design.EmptyState
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.accentColor
@@ -60,13 +64,17 @@ import com.harimu.app.core.toolapi.ToolGroup
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
 fun HistoryScreen(container: AppContainer) {
     val context = LocalContext.current
-    val currentLocale = LocalLocale.current.platformLocale
+    val configuration = LocalConfiguration.current
+    val currentLocale = remember(configuration) {
+        if (!configuration.locales.isEmpty) configuration.locales[0] else Locale.forLanguageTag("id")
+    }
     val scope = rememberCoroutineScope()
     val items by container.workspace.historyFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     var pendingSave by remember { mutableStateOf<HistoryEntity?>(null) }
@@ -85,13 +93,19 @@ fun HistoryScreen(container: AppContainer) {
         }
     }
 
+    val spacing = HariMuThemeTokens.spacing
+    val layout = HariMuThemeTokens.layout
+    val dateFormatter = remember(currentLocale) {
+        SimpleDateFormat("dd MMM HH:mm", currentLocale)
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 760.dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .widthIn(max = layout.catalogMaxWidth),
+            contentPadding = PaddingValues(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
             if (items.isNotEmpty()) {
                 item {
@@ -102,9 +116,17 @@ fun HistoryScreen(container: AppContainer) {
                     ) {
                         Text(
                             text = stringResource(R.string.history_count_title, items.size),
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        TextButton(onClick = { scope.launch(Dispatchers.IO) { container.workspace.clearHistory() } }) {
+                        TextButton(
+                            onClick = { scope.launch(Dispatchers.IO) { container.workspace.clearHistory() } },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("clear_history_button")
+                        ) {
                             Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(stringResource(R.string.action_clear))
@@ -126,23 +148,40 @@ fun HistoryScreen(container: AppContainer) {
                     val group = ToolGroup.entries.firstOrNull { it.name == item.groupName } ?: ToolGroup.CORE
                     val file = File(item.outputPath)
                     val fileExists = item.outputPath.isNotEmpty() && file.exists()
-                    val timeStr = SimpleDateFormat("dd MMM HH:mm", currentLocale).format(Date(item.createdAt))
+                    val timeStr = dateFormatter.format(Date(item.createdAt))
 
                     Card(
+                        modifier = Modifier.testTag("history_card_${item.id}"),
+                        shape = MaterialTheme.shapes.medium,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = layout.cardBorderAlpha))
                     ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.padding(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(spacing.xs)
+                                ) {
                                     ToolIdBadge(id = item.toolId, accent = group.accentColor())
-                                    Text(item.toolTitle, style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        text = item.toolTitle,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
-                                IconButton(onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteHistory(item.id) } }) {
+                                IconButton(
+                                    onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteHistory(item.id) } },
+                                    modifier = Modifier
+                                        .testTag("delete_history_${item.id}")
+                                        .size(48.dp)
+                                ) {
                                     Icon(
                                         Icons.Filled.Delete,
                                         contentDescription = stringResource(R.string.action_delete),
@@ -161,7 +200,7 @@ fun HistoryScreen(container: AppContainer) {
 
                             if (fileExists) {
                                 Spacer(Modifier.height(2.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs), modifier = Modifier.fillMaxWidth()) {
                                     OutlinedButton(
                                         onClick = {
                                             runCatching {
@@ -170,11 +209,13 @@ fun HistoryScreen(container: AppContainer) {
                                                 )
                                             }
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .minimumInteractiveComponentSize()
                                     ) {
                                         Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
-                                        Text(stringResource(R.string.action_open))
+                                        Text(stringResource(R.string.action_open), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     OutlinedButton(
                                         onClick = {
@@ -182,22 +223,26 @@ fun HistoryScreen(container: AppContainer) {
                                                 Intent.createChooser(container.storage.buildShareIntent(file, item.mimeType), item.outputName)
                                             )
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .minimumInteractiveComponentSize()
                                     ) {
                                         Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
-                                        Text(stringResource(R.string.action_share))
+                                        Text(stringResource(R.string.action_share), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     Button(
                                         onClick = {
                                             pendingSave = item
                                             safLauncher.launch(item.outputName)
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .minimumInteractiveComponentSize()
                                     ) {
                                         Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
-                                        Text(stringResource(R.string.action_save))
+                                        Text(stringResource(R.string.action_save), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }

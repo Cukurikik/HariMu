@@ -33,6 +33,7 @@ fun FavoritesScreen(
     onToggleFavorite: (String) -> Unit
 ) {
     val spacing = HariMuThemeTokens.spacing
+    val layout = HariMuThemeTokens.layout
     val favoriteTools = remember(favoriteIds) {
         ToolRegistry.allTools.filter { it.id in favoriteIds }
     }
@@ -41,7 +42,7 @@ fun FavoritesScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 760.dp),
+                .widthIn(max = layout.catalogMaxWidth),
             contentPadding = PaddingValues(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {

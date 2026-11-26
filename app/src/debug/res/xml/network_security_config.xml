@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Debug / emulator: izinkan http://10.0.2.2 dan localhost untuk AI Gateway lokal (workerd dev). -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">harimu-ai-gateway.njirlah.workers.dev</domain>
+        <domain includeSubdomains="true">workers.dev</domain>
+    </domain-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>

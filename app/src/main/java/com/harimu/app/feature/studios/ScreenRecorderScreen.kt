@@ -24,9 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ScreenShare
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.ScreenShare
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -53,10 +53,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamSlider
 import com.harimu.app.core.recording.ScreenRecorderEngine
@@ -168,7 +170,7 @@ fun ScreenRecorderScreen(
                 title = { Text(if (isEnglish) "Screen Recorder Studio" else "Studio Perekam Layar") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 }
             )
@@ -337,7 +339,7 @@ fun ScreenRecorderScreen(
                             onClick = { if (state.running) ScreenRecordingController.stop() else startCapture() },
                             modifier = Modifier.weight(1f).testTag("screen_record_toggle")
                         ) {
-                            Icon(if (state.running) Icons.Filled.Stop else Icons.Filled.ScreenShare, contentDescription = null)
+                            Icon(if (state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.ScreenShare, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 if (state.running) "Stop" else if (isEnglish) "Start recording" else "Mulai rekam"

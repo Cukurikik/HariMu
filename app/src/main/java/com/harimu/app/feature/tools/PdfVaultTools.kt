@@ -1,6 +1,8 @@
 package com.harimu.app.feature.tools
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MergeType
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Compare
@@ -13,10 +15,8 @@ import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Reorder
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Splitscreen
 import androidx.compose.material.icons.filled.TextFields
@@ -114,7 +114,7 @@ fun pdfVaultTools(): List<Tool> = listOf(
     // ---------------------------------------------------------------- dasar
     PdfVaultTool(
         id = "PDF-01",
-        icon = Icons.Filled.MergeType,
+        icon = Icons.AutoMirrored.Filled.MergeType,
         inputSpec = InputSpec.MultiplePdfs,
         params = emptyList(),
         titleId = "Gabung PDF",
@@ -156,7 +156,7 @@ fun pdfVaultTools(): List<Tool> = listOf(
     ),
     PdfVaultTool(
         id = "PDF-03",
-        icon = Icons.Filled.RotateRight,
+        icon = Icons.AutoMirrored.Filled.RotateRight,
         inputSpec = InputSpec.SinglePdf,
         params = listOf(
             ToolParam.DropdownParam("angle", "Sudut", "Angle", listOf("90", "180", "270"), "90"),
