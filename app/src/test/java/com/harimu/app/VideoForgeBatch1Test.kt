@@ -179,7 +179,7 @@ class VideoForgeBatch1Test {
 
     @Test
     fun registryContainsAll17ActiveBatch1ToolsAndKeepsOtherVideoStubsIntact() {
-        assertEquals(170, ToolRegistry.allTools.size)
+        assertEquals(176, ToolRegistry.allTools.size)
         val videoTools = ToolRegistry.byGroup(ToolGroup.VIDEO)
         assertEquals(30, videoTools.size)
 

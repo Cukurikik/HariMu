@@ -15,6 +15,11 @@ import com.harimu.app.core.ai.AiClient
 import com.harimu.app.core.files.ModelManager
 import com.harimu.app.core.jobs.JobManager
 import com.harimu.app.core.area.AreaLookupRepository
+import com.harimu.app.core.nusantara.DoaRepository
+import com.harimu.app.core.nusantara.EarthquakeRepository
+import com.harimu.app.core.nusantara.ReferenceRepository
+import com.harimu.app.core.nusantara.RegionRepository
+import com.harimu.app.core.nusantara.WeatherRepository
 import com.harimu.app.core.prayer.PrayerTimesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +38,11 @@ class AppContainer(app: Application) {
     val aiClient: AiClient by lazy { AiClient(settings) }
     val prayerTimes: PrayerTimesRepository by lazy { PrayerTimesRepository() }
     val areaLookup: AreaLookupRepository by lazy { AreaLookupRepository() }
+    val earthquakes: EarthquakeRepository by lazy { EarthquakeRepository() }
+    val weather: WeatherRepository by lazy { WeatherRepository() }
+    val regions: RegionRepository by lazy { RegionRepository() }
+    val references: ReferenceRepository by lazy { ReferenceRepository() }
+    val doas: DoaRepository by lazy { DoaRepository() }
     val jobManager: JobManager by lazy {
         JobManager(
             context = app,

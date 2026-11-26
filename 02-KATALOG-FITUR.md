@@ -209,6 +209,21 @@
 | CNV-27 | GeoJSON to KML | NAT | P13 | ✅ Point/LineString/Polygon (termasuk lubang), Multi*, GeometryCollection |
 | CNV-28 | STL to OBJ | NAT | P13 | ✅ ASCII + binary (deteksi ukuran `84+50n`), normal diabaikan |
 
+## 7. Nusantara (data publik Indonesia)
+
+Semua tool di grup ini memakai API publik Indonesia tanpa autentikasi dari `docs/DATA_PUBLIC_API_INDONESIA_NONE.json`, tersusun atas data source → repository → ViewModel → layar Compose.
+
+| ID | Tool | Tipe | Fase | Status | Terverifikasi | Catatan |
+|---|---|---|---|---|---|---|
+| NUS-01 | Gempa Terkini | REST | P18 | 🟢 | ✅ | BMKG `data.bmkg.go.id` (`autogempa.json` + `gempaterkini.json`, tanpa kunci). Kartu gempa terbaru tetap tampil bila feed daftar gagal. Bukan pengganti peringatan resmi BMKG |
+| NUS-02 | Cuaca BMKG | REST | P18 | 🟢 | ✅ | `api.bmkg.go.id/publik/prakiraan-cuaca?adm4=…`; pemilih provinsi→kab/kota→kecamatan→desa memakai data emsifa. Slot 3 jam, suhu, kelembapan, ikon BMKG (Coil) |
+| NUS-03 | Wilayah Indonesia | STATIC | P18 | 🟢 | ✅ | emsifa `api-wilayah-indonesia` (statis). Daftar desa dimuat bertahap dengan Paging; kode adm4 bisa disalin |
+| NUS-04 | Pahlawan Nasional | STATIC | P18 | 🟢 | ✅ | `indonesia-public-static-api/api/heroes`; pencarian lokal, tahun lahir/wafat/penetapan |
+| NUS-05 | Gunung Berapi Indonesia | STATIC | P18 | 🟢 | ✅ | `indonesia-public-static-api/api/volcanoes`; bentuk, tinggi, letusan terakhir, koordinat |
+| NUS-06 | Doa Harian | REST | P18 | 🟢 | ✅ | `doa-doa-api-ahmadramadhan.fly.dev/api`; daftar + pencarian, teks Arab/latin/arti |
+
+Status sweep seluruh 102 entri katalog ada di `docs/PUBLIC_API_STATUS.md`.
+
 ---
 
 ## Ringkasan beban
@@ -221,7 +236,8 @@
 | Image Forge/Matrix | 47 | P9, P10, P11 |
 | PDF Vault | 21 | P12 |
 | Universal Converter | 28 | P13 |
-| **Total entri** | **170** (±150 implementasi unik setelah alias digabung) | |
+| Nusantara | 6 | P18 |
+| **Total entri** | **176** (±150 implementasi unik setelah alias digabung) | |
 
 ## Item yang butuh keputusan Andikaa sebelum dikerjakan
 

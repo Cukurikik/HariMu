@@ -146,6 +146,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
+    implementation(libs.androidx.paging.compose)
     implementation(libs.pdfbox.android)
     implementation(libs.tesseract4android)
     implementation(libs.androidsvg)

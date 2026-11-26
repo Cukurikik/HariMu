@@ -65,6 +65,14 @@ enum class ToolGroup(
         "Universal Converter",
         "Arsip ZIP/AES, JSON/XML, 3D & kode",
         "ZIP/AES archives, JSON/XML, 3D & code"
+    ),
+    NUSANTARA(
+        R.string.group_nusantara_title,
+        R.string.group_nusantara_subtitle,
+        "Nusantara",
+        "Nusantara",
+        "Gempa, cuaca & data publik Indonesia",
+        "Indonesian quake, weather & public data"
     )
 }
 
@@ -199,6 +207,12 @@ enum class DedicatedScreenRoute {
     WORKSPACE_BACKUP,
     PRAYER_TIMES,
     AREA_LOOKUP,
+    EARTHQUAKE,
+    BMKG_WEATHER,
+    REGIONS,
+    HEROES,
+    VOLCANOES,
+    DUAS,
     SETTINGS
 }
 

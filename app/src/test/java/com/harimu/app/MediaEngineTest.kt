@@ -390,7 +390,7 @@ class MediaEngineTest {
 
     @Test
     fun internalRemuxToolIsResolvableWithoutBreaking163CatalogCount() {
-        assertEquals(170, ToolRegistry.allTools.size)
+        assertEquals(176, ToolRegistry.allTools.size)
         val internal = ToolRegistry.findById(InternalMediaTestTool.ID)
         assertNotNull(internal)
         assertFalse(internal!!.isStub)

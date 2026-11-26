@@ -22,6 +22,7 @@ Semua library dan aset di proyek ini diverifikasi memakai lisensi permisif (tanp
 | `org.tukaani:xz:1.10` | Public Domain | Dekoder LZMA2 untuk 7Z (dibutuhkan commons-compress) |
 | `com.github.junrar:junrar:7.5.5` | UnRAR License (freeware, no-fee) | **Baca** arsip RAR/CBR saja (CNV-17/CNV-20). Encoder RAR proprietary tidak dipakai |
 | `net.lingala.zip4j:zip4j:2.11.5` | Apache-2.0 | ZIP AES-256 standar (CNV-18): enkripsi/dekripsi, kata sandi tidak disimpan |
+| `androidx.paging:paging-compose:3.3.2` | Apache-2.0 | Memuat bertahap daftar desa/kelurahan (`NUS-03`) agar daftar besar tidak dimuat sekaligus |
 | Robolectric (`4.16.1`), AndroidX Test (`1.7.0` / `1.3.0`), `work-testing` (`2.10.1`) | MIT / Apache-2.0 | Pengujian JVM lokal (`testImplementation`, tidak masuk APK) |
 
 ## Sumber Data Pihak Ketiga (Fase 15)
@@ -33,6 +34,10 @@ Tidak ada library baru di APK. Data berikut diambil lewat `backend/ai-gateway` d
 | Open-Meteo (forecast + geocoding) | Data CC BY 4.0; API gratis **hanya non-komersial** (< 10.000 panggilan/hari, 5.000/jam, 600/menit) | `CORE-12` | Atribusi wajib. Bila HariMu dipasarkan/monetisasi, wajib langganan Open-Meteo atau ganti provider |
 | Frankfurter (kurs referensi bank sentral) | Gratis termasuk komersial, tanpa kunci, tanpa kuota; cache dianjurkan | `CORE-13` | Bukan kuotasi pasar langsung; tanggal kurs ditampilkan |
 | Wiktionary via dictionaryapi.dev | Data CC BY-SA, API tanpa kunci, tanpa SLA | `CORE-14` | Kegagalan provider ditampilkan sebagai kegagalan, bukan definisi kosong |
+| BMKG (`data.bmkg.go.id`, `api.bmkg.go.id`) | Data publik pemerintah, API tanpa kunci, tanpa SLA | `NUS-01`, `NUS-02` | Atribusi "Sumber: BMKG" ditampilkan; keputusan keselamatan tetap mengikuti kanal resmi BMKG |
+| emsifa `api-wilayah-indonesia` | Data wilayah publik, API statis tanpa kunci (MIT pada repositori) | `NUS-02`, `NUS-03` | Kode hierarkis dipakai langsung sebagai `adm4` BMKG |
+| yogski `indonesia-public-static-api` | Data referensi statis, tanpa kunci | `NUS-04`, `NUS-05` | Daftar pahlawan nasional & gunung berapi |
+| doa-doa-api (Ahmad Ramadhan) | Dataset doa terbuka, tanpa kunci | `NUS-06` | Teks Arab/latin/arti; pengguna diminta mencocokkan dengan guru |
 | LibreTranslate (bila `TRANSLATE_BASE_URL` diisi) | Server AGPL-3.0; instance publik butuh kunci berbayar | `CORE-11` | Dijalankan sebagai layanan terpisah di server, tidak ditautkan ke APK |
 
 ## Catatan Kebijakan Lisensi (`01-ARSITEKTUR.md` & `SKILL.md`)

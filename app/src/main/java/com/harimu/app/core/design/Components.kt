@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -78,6 +79,7 @@ fun ToolGroup.accentColor(): Color = when (this) {
     ToolGroup.IMAGE -> HariMuColors.GroupImage
     ToolGroup.PDF -> HariMuColors.GroupPdf
     ToolGroup.CONVERTER -> HariMuColors.GroupConverter
+    ToolGroup.NUSANTARA -> HariMuColors.GroupNusantara
 }
 
 fun ToolGroup.icon(): ImageVector = when (this) {
@@ -87,6 +89,7 @@ fun ToolGroup.icon(): ImageVector = when (this) {
     ToolGroup.IMAGE -> Icons.Filled.Image
     ToolGroup.PDF -> Icons.Filled.PictureAsPdf
     ToolGroup.CONVERTER -> Icons.Filled.SwapHoriz
+    ToolGroup.NUSANTARA -> Icons.Filled.Public
 }
 
 @Composable

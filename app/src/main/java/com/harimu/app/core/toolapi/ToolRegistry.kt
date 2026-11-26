@@ -8,6 +8,7 @@ import com.harimu.app.feature.tools.converterSuiteTools
 import com.harimu.app.feature.tools.converterTools
 import com.harimu.app.feature.tools.coreTools
 import com.harimu.app.feature.tools.imageTools
+import com.harimu.app.feature.tools.nusantaraTools
 import com.harimu.app.feature.tools.pdfVaultTools
 import com.harimu.app.feature.tools.stubAudioTools
 import com.harimu.app.feature.tools.stubImageTools
@@ -25,7 +26,8 @@ object ToolRegistry {
             audioTools() + stubAudioTools() +
             imageTools() + stubImageTools() +
             pdfVaultTools() +
-            converterTools() + converterSuiteTools()
+            converterTools() + converterSuiteTools() +
+            nusantaraTools()
     }
 
     /**

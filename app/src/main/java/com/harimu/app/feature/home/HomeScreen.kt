@@ -233,7 +233,7 @@ fun HomeScreen(
                     }
                 }
 
-                // 6 Grup Tool
+                // 7 Grup Tool
                 item {
                     Text(
                         text = stringResource(R.string.groups_title),

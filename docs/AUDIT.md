@@ -38,6 +38,7 @@ Dari `gradle/libs.versions.toml` dan `app/build.gradle.kts`:
 - Navigasi & Serialisasi: `androidx-navigation-compose` (`2.8.9`), `kotlinx-serialization-json` (`1.7.3`)
 - Data & Async: `androidx-room-runtime` / `room-ktx` / `room-compiler` KSP (`2.7.0`), `androidx-datastore-preferences` (`1.1.7`), `kotlinx-coroutines-android` (`1.10.2`)
 - Media/Metadata: `androidx-exifinterface` (`1.3.7`)
+- Daftar besar: `androidx-paging-compose` (`3.3.2`) untuk daftar desa grup Nusantara (`NUS-03`)
 - Unit Test: `junit` (`4.13.2`)
 
 ### 3. Audit `AndroidManifest.xml`

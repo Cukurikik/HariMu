@@ -68,6 +68,7 @@ object HariMuColors {
     val GroupImage = Color(0xFF06B6D4)
     val GroupPdf = Color(0xFFEF4444)
     val GroupConverter = Color(0xFF10B981)
+    val GroupNusantara = Color(0xFFF97316)
 }
 
 val PlusJakartaSans = FontFamily(

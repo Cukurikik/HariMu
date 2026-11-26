@@ -7,6 +7,7 @@
     <string name="nav_history">Riwayat</string>
     <string name="nav_favorites">Favorit</string>
     <string name="nav_settings">Pengaturan</string>
+    <string name="nav_nusantara">Nusantara</string>
     <string name="nav_catalog">Katalog</string>
     <string name="cd_back">Kembali</string>
     <string name="cd_clear">Bersihkan</string>
@@ -37,6 +38,8 @@
     <string name="group_pdf_subtitle">Gabung, pisah, putar, watermark &amp; banding</string>
     <string name="group_converter_title">Universal Converter</string>
     <string name="group_converter_subtitle">Arsip, EPUB/komik, font, JSON/XML, 3D &amp; kode</string>
+    <string name="group_nusantara_title">Nusantara</string>
+    <string name="group_nusantara_subtitle">Gempa, cuaca &amp; data publik Indonesia</string>
 
     <!-- Komponen Bersama & Aksi -->
     <string name="catalog_all_count">Semua (%1$d)</string>

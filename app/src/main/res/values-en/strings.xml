@@ -7,6 +7,7 @@
     <string name="nav_history">History</string>
     <string name="nav_favorites">Favorites</string>
     <string name="nav_settings">Settings</string>
+    <string name="nav_nusantara">Nusantara</string>
     <string name="nav_catalog">Catalog</string>
     <string name="cd_back">Back</string>
     <string name="cd_clear">Clear</string>
@@ -37,6 +38,8 @@
     <string name="group_pdf_subtitle">Merge, split, rotate, watermark &amp; compare</string>
     <string name="group_converter_title">Universal Converter</string>
     <string name="group_converter_subtitle">Archives, EPUB/comics, fonts, JSON/XML, 3D &amp; code</string>
+    <string name="group_nusantara_title">Nusantara</string>
+    <string name="group_nusantara_subtitle">Indonesian quake, weather &amp; public data</string>
 
     <!-- Shared Components & Actions -->
     <string name="catalog_all_count">All (%1$d)</string>

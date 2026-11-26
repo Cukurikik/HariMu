@@ -20,10 +20,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,6 +72,13 @@ import com.harimu.app.feature.catalog.CatalogScreen
 import com.harimu.app.feature.favorites.FavoritesScreen
 import com.harimu.app.feature.history.HistoryScreen
 import com.harimu.app.feature.home.HomeScreen
+import com.harimu.app.feature.nusantara.DoasScreen
+import com.harimu.app.feature.nusantara.EarthquakeScreen
+import com.harimu.app.feature.nusantara.HeroesScreen
+import com.harimu.app.feature.nusantara.NusantaraHubScreen
+import com.harimu.app.feature.nusantara.RegionsScreen
+import com.harimu.app.feature.nusantara.VolcanoesScreen
+import com.harimu.app.feature.nusantara.WeatherScreen
 import com.harimu.app.feature.prayer.PrayerTimesScreen
 import com.harimu.app.feature.settings.OpenSourceLicensesScreen
 import com.harimu.app.feature.settings.SettingsScreen
@@ -103,6 +112,13 @@ import java.util.Locale
 @Serializable data object BackupRoute
 @Serializable data object PrayerTimesRoute
 @Serializable data object AreaLookupRoute
+@Serializable data object NusantaraRoute
+@Serializable data object EarthquakeRoute
+@Serializable data object BmkgWeatherRoute
+@Serializable data object RegionsRoute
+@Serializable data object HeroesRoute
+@Serializable data object VolcanoesRoute
+@Serializable data object DoasRoute
 @Serializable data object OpenSourceLicensesRoute
 
 
@@ -192,13 +208,21 @@ private fun HariMuRoot(
 
     val topLevels = listOf(
         TopLevelNav(HomeRoute, R.string.nav_home, Icons.Filled.Home, Icons.Outlined.Home, "nav_home"),
+        TopLevelNav(
+            NusantaraRoute,
+            R.string.nav_nusantara,
+            Icons.Filled.Public,
+            Icons.Outlined.Public,
+            "nav_nusantara"
+        ),
         TopLevelNav(HistoryRoute, R.string.nav_history, Icons.Filled.History, Icons.Outlined.History, "nav_history"),
         TopLevelNav(FavoritesRoute, R.string.nav_favorites, Icons.Filled.Star, Icons.Outlined.StarOutline, "nav_favorites"),
         TopLevelNav(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings, Icons.Outlined.Settings, "nav_settings")
     )
 
     val isTopLevel = currentDest?.let { d ->
-        d.hasRoute<HomeRoute>() || d.hasRoute<HistoryRoute>() || d.hasRoute<FavoritesRoute>() || d.hasRoute<SettingsRoute>()
+        d.hasRoute<HomeRoute>() || d.hasRoute<HistoryRoute>() || d.hasRoute<NusantaraRoute>() ||
+            d.hasRoute<FavoritesRoute>() || d.hasRoute<SettingsRoute>()
     } ?: true
 
     val useRail = widthSizeClass != WindowWidthSizeClass.Compact
@@ -215,6 +239,12 @@ private fun HariMuRoot(
             DedicatedScreenRoute.WORKSPACE_BACKUP -> navController.navigate(BackupRoute)
             DedicatedScreenRoute.PRAYER_TIMES -> navController.navigate(PrayerTimesRoute)
             DedicatedScreenRoute.AREA_LOOKUP -> navController.navigate(AreaLookupRoute)
+            DedicatedScreenRoute.EARTHQUAKE -> navController.navigate(EarthquakeRoute)
+            DedicatedScreenRoute.BMKG_WEATHER -> navController.navigate(BmkgWeatherRoute)
+            DedicatedScreenRoute.REGIONS -> navController.navigate(RegionsRoute)
+            DedicatedScreenRoute.HEROES -> navController.navigate(HeroesRoute)
+            DedicatedScreenRoute.VOLCANOES -> navController.navigate(VolcanoesRoute)
+            DedicatedScreenRoute.DUAS -> navController.navigate(DoasRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
         }
     }
@@ -236,6 +266,7 @@ private fun HariMuRoot(
                         is HomeRoute -> currentDest?.hasRoute<HomeRoute>() == true
                         is HistoryRoute -> currentDest?.hasRoute<HistoryRoute>() == true
                         is FavoritesRoute -> currentDest?.hasRoute<FavoritesRoute>() == true
+                        is NusantaraRoute -> currentDest?.hasRoute<NusantaraRoute>() == true
                         is SettingsRoute -> currentDest?.hasRoute<SettingsRoute>() == true
                         else -> false
                     }
@@ -277,6 +308,7 @@ private fun HariMuRoot(
                                 is HomeRoute -> currentDest?.hasRoute<HomeRoute>() == true
                                 is HistoryRoute -> currentDest?.hasRoute<HistoryRoute>() == true
                                 is FavoritesRoute -> currentDest?.hasRoute<FavoritesRoute>() == true
+                                is NusantaraRoute -> currentDest?.hasRoute<NusantaraRoute>() == true
                                 is SettingsRoute -> currentDest?.hasRoute<SettingsRoute>() == true
                                 else -> false
                             }
@@ -395,6 +427,27 @@ private fun HariMuRoot(
                     }
                     composable<AreaLookupRoute> {
                         AreaLookupScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<NusantaraRoute> {
+                        NusantaraHubScreen(container, settings.isEnglish) { tool -> openTool(tool) }
+                    }
+                    composable<EarthquakeRoute> {
+                        EarthquakeScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<BmkgWeatherRoute> {
+                        WeatherScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<RegionsRoute> {
+                        RegionsScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<HeroesRoute> {
+                        HeroesScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<VolcanoesRoute> {
+                        VolcanoesScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<DoasRoute> {
+                        DoasScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<OpenSourceLicensesRoute> {
                         OpenSourceLicensesScreen(
