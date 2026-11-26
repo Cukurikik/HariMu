@@ -301,5 +301,58 @@
     <string name="action_resume">Resume</string>
     <string name="action_details">Details</string>
     <string name="fallback_file_name">file_%1$d</string>
+
+    <!-- Video Forge (P6) -->
+    <string name="video_forge_title">Video Forge</string>
+    <string name="video_forge_results_count">%1$d tools found</string>
+    <string name="video_forge_category_core">Core Editing</string>
+    <string name="video_forge_category_audio">Audio</string>
+    <string name="video_forge_category_transform">Transform & Convert</string>
+    <string name="video_forge_category_effects">Overlays & Effects</string>
+    <string name="video_forge_category_creative">Creative</string>
+    <string name="video_forge_category_other">Other</string>
+
+    <!-- Pro Video Editor Enhancements (P6) -->
+    <string name="editor_advanced_tools_label">Advanced Tools (Open in Tool)</string>
+    <string name="editor_tool_trim_precise">Precise Trim (VID-01)</string>
+    <string name="editor_tool_speed">Speed (VID-05)</string>
+    <string name="editor_tool_rotate_flip">Rotate & Flip (VID-09/10)</string>
+    <string name="editor_tool_color_grade">Color Grading (VID-26)</string>
+    <string name="editor_tool_text_overlay">Text Overlay (VID-15)</string>
+    <string name="editor_tool_image_overlay">Image Overlay (VID-17)</string>
+    <string name="editor_tool_stabilize">Stabilize (VID-11)</string>
+    <string name="editor_tool_face_blur">Face Blur (VID-25)</string>
+    <string name="editor_tool_logo_blur">Logo Blur (VID-14)</string>
+    <string name="editor_tool_subtitles">Subtitles (VID-23)</string>
+    <string name="editor_tool_volume">Volume (VID-13)</string>
+    <string name="editor_tool_add_audio">Add Audio (VID-16)</string>
+    <string name="editor_tool_reverse">Reverse (VID-19)</string>
+    <string name="editor_tool_loop">Loop (VID-12)</string>
+    <string name="editor_tool_chroma_key">Chroma Key (VID-28)</string>
+    <string name="editor_clip_trim_detail">Start: %1$s • End: %2$s • Effective: %3$s</string>
+    <string name="editor_timeline_zoom">Timeline Zoom</string>
+    <string name="editor_clips_count">%1$d clips</string>
+    <string name="editor_estimated_duration">Est. Duration</string>
+    <string name="editor_estimated_size">Est. Size</string>
+    <string name="editor_output_format">Format: MP4 (H.264/AAC)</string>
+    <string name="editor_export_dialog_title">Export Timeline</string>
+    <string name="editor_export_ready_desc">Ready to export %1$d clips at %2$s</string>
+    <string name="video_cd_play_pause">Play or pause</string>
+    <string name="video_cd_rewind_10">Rewind 10s</string>
+    <string name="video_cd_rewind_5">Rewind 5s</string>
+    <string name="video_cd_forward_5">Forward 5s</string>
+    <string name="video_cd_forward_10">Forward 10s</string>
+    <string name="editor_cd_drag">Drag to reorder</string>
+
+    <!-- Export Dialog -->
+    <string name="export_dialog_title">Export Video</string>
+    <string name="export_estimated_duration">Duration: %1$s</string>
+    <string name="export_estimated_size">Size: %1$s</string>
+    <string name="export_clips_count">%1$d clips</string>
+    <string name="export_output_format">MP4 (H.264/AAC)</string>
+    <string name="editor_last_saved">Saved %1$s ago</string>
+    <string name="editor_export_btn_short">Export</string>
+    <string name="editor_preview_no_clip">No clip selected</string>
+    <string name="editor_preview_select_clip">Select a clip from the timeline to preview</string>
 </resources>
 

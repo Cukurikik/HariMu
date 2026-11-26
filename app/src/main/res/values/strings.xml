@@ -301,5 +301,58 @@
     <string name="action_resume">Lanjut</string>
     <string name="action_details">Detail</string>
     <string name="fallback_file_name">berkas_%1$d</string>
+
+    <!-- Video Forge (P6) -->
+    <string name="video_forge_title">Video Forge</string>
+    <string name="video_forge_results_count">%1$d alat ditemukan</string>
+    <string name="video_forge_category_core">Pemotongan & Dasar</string>
+    <string name="video_forge_category_audio">Audio</string>
+    <string name="video_forge_category_transform">Transformasi & Konversi</string>
+    <string name="video_forge_category_effects">Overlay & Efek</string>
+    <string name="video_forge_category_creative">Kreatif</string>
+    <string name="video_forge_category_other">Lainnya</string>
+
+    <!-- Pro Video Editor Enhancements (P6) -->
+    <string name="editor_advanced_tools_label">Alat Lanjutan (Buka di Tool)</string>
+    <string name="editor_tool_trim_precise">Trim Presisi (VID-01)</string>
+    <string name="editor_tool_speed">Kecepatan (VID-05)</string>
+    <string name="editor_tool_rotate_flip">Rotasi & Flip (VID-09/10)</string>
+    <string name="editor_tool_color_grade">Color Grading (VID-26)</string>
+    <string name="editor_tool_text_overlay">Teks Overlay (VID-15)</string>
+    <string name="editor_tool_image_overlay">Gambar Overlay (VID-17)</string>
+    <string name="editor_tool_stabilize">Stabilisasi (VID-11)</string>
+    <string name="editor_tool_face_blur">Blur Wajah (VID-25)</string>
+    <string name="editor_tool_logo_blur">Blur Logo (VID-14)</string>
+    <string name="editor_tool_subtitles">Subtitle (VID-23)</string>
+    <string name="editor_tool_volume">Volume (VID-13)</string>
+    <string name="editor_tool_add_audio">Tambah Audio (VID-16)</string>
+    <string name="editor_tool_reverse">Balik (VID-19)</string>
+    <string name="editor_tool_loop">Loop (VID-12)</string>
+    <string name="editor_tool_chroma_key">Chroma Key (VID-28)</string>
+    <string name="editor_clip_trim_detail">Mulai: %1$s • Selesai: %2$s • Efektif: %3$s</string>
+    <string name="editor_timeline_zoom">Zoom Linimasa</string>
+    <string name="editor_clips_count">%1$d klip</string>
+    <string name="editor_estimated_duration">Durasi Estimasi</string>
+    <string name="editor_estimated_size">Ukuran Estimasi</string>
+    <string name="editor_output_format">Format: MP4 (H.264/AAC)</string>
+    <string name="editor_export_dialog_title">Ekspor Timeline</string>
+    <string name="editor_export_ready_desc">Siap mengekspor %1$d klip ke resolusi %2$s</string>
+    <string name="video_cd_play_pause">Putar atau jeda</string>
+    <string name="video_cd_rewind_10">Mundur 10 detik</string>
+    <string name="video_cd_rewind_5">Mundur 5 detik</string>
+    <string name="video_cd_forward_5">Maju 5 detik</string>
+    <string name="video_cd_forward_10">Maju 10 detik</string>
+    <string name="editor_cd_drag">Seret untuk mengurutkan</string>
+
+    <!-- Export Dialog -->
+    <string name="export_dialog_title">Ekspor Video</string>
+    <string name="export_estimated_duration">Durasi: %1$s</string>
+    <string name="export_estimated_size">Ukuran: %1$s</string>
+    <string name="export_clips_count">%1$d klip</string>
+    <string name="export_output_format">MP4 (H.264/AAC)</string>
+    <string name="editor_last_saved">Tersimpan %1$s lalu</string>
+    <string name="editor_export_btn_short">Ekspor</string>
+    <string name="editor_preview_no_clip">Belum ada klip dipilih</string>
+    <string name="editor_preview_select_clip">Pilih klip dari linimasa untuk pratinjau</string>
 </resources>
 

@@ -69,6 +69,7 @@ import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
 import com.harimu.app.feature.studios.ScreenRecorderScreen
 import com.harimu.app.feature.studios.VideoEditorScreen
+import com.harimu.app.feature.studios.VideoForgeScreen
 import com.harimu.app.feature.studios.VoiceRecorderScreen
 import com.harimu.app.feature.toolscreen.ToolScreen
 import com.harimu.app.navigation.HariMuAppShell
@@ -89,6 +90,7 @@ import java.util.Locale
 @Serializable data object VoiceRecorderRoute
 @Serializable data object ScreenRecorderRoute
 @Serializable data object VideoEditorRoute
+@Serializable data object VideoForgeRoute
 @Serializable data object ImageMatrixRoute
 @Serializable data object EqualizerRoute
 @Serializable data object AudioStudioRoute
@@ -346,6 +348,9 @@ private fun HariMuRoot(
                 }
                 composable<VideoEditorRoute> {
                     VideoEditorScreen(container, settings.isEnglish) { navController.popBackStack() }
+                }
+                composable<VideoForgeRoute> {
+                    VideoForgeScreen(container, settings.isEnglish) { navController.popBackStack() }
                 }
                 composable<ImageMatrixRoute> {
                     ImageMatrixScreen(container, settings.isEnglish) { navController.popBackStack() }

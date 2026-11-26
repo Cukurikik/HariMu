@@ -38,6 +38,30 @@ data class ToolUiState(
     val activeJobId: String? = null
 )
 
+/**
+ * Pre-fill data for "Open in Tool" flow from Pro Video Editor.
+ * Stores clip URI and parameters to pre-populate the tool screen.
+ */
+object ToolPrefillData {
+    private var _pendingPrefill: Map<String, Any>? = null
+    private var _pendingUri: Uri? = null
+
+    fun setPrefill(uri: Uri, params: Map<String, Any>) {
+        _pendingUri = uri
+        _pendingPrefill = params
+    }
+
+    fun consumePrefill(): Pair<Uri?, Map<String, Any>?> {
+        val uri = _pendingUri
+        val params = _pendingPrefill
+        _pendingUri = null
+        _pendingPrefill = null
+        return uri to params
+    }
+
+    fun hasPending(): Boolean = _pendingUri != null || _pendingPrefill != null
+}
+
 class ToolViewModel(
     private val toolId: String,
     private val container: AppContainer
@@ -60,11 +84,18 @@ class ToolViewModel(
                 is ToolParam.TextParam -> initialParams[p.key] = p.defaultValue
             }
         }
+
+        // Check for pre-fill data from "Open in Tool" flow
+        val (prefillUri, prefillParams) = ToolPrefillData.consumePrefill()
+        if (prefillUri != null) {
+            initialParams.putAll(prefillParams ?: emptyMap())
+        }
         val initialText = (tool?.inputSpec as? InputSpec.TextInput)?.sample ?: ""
         _state.value = ToolUiState(
             tool = tool,
-            textInput = initialText,
-            paramValues = initialParams
+            selectedUris = prefillUri?.let { listOf(it) } ?: emptyList(),
+            paramValues = initialParams,
+            textInput = initialText
         )
 
         viewModelScope.launch {
@@ -262,6 +293,22 @@ class ToolViewModel(
 
     fun bindContext(context: Context) {
         appContextRef = context.applicationContext
+    }
+
+    /**
+     * Pre-fill the tool with a clip URI and parameters from the Pro Video Editor.
+     * Called when user taps "Open in Tool" from ClipInspector.
+     */
+    fun preFillFromClip(uri: Uri, params: Map<String, Any>) {
+        _state.update { current ->
+            val newUris = if (current.selectedUris.contains(uri)) current.selectedUris else listOf(uri)
+            val newParams = current.paramValues + params
+            current.copy(
+                selectedUris = newUris,
+                paramValues = newParams,
+                progress = null
+            )
+        }
     }
 
     class Factory(
