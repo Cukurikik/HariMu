@@ -71,9 +71,9 @@ object SchoolJson {
                 longitude = item.longitude.orEmpty().trim()
             )
         }
-        val page = dto.page?.intOrNull() ?: 1
-        val perPage = (dto.perPage?.intOrNull() ?: schools.size).coerceAtLeast(1)
-        val total = dto.total?.intOrNull() ?: schools.size
+        val page = dto.page?.intOrNull ?: 1
+        val perPage = (dto.perPage?.intOrNull ?: schools.size).coerceAtLeast(1)
+        val total = dto.total?.intOrNull ?: schools.size
         return SchoolPage(schools = schools, page = page, perPage = perPage, total = total)
     }
 }

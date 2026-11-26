@@ -12,6 +12,7 @@ class DoaRepository(
     }
 }
 
+@JvmName("filterDoasByQuery")
 internal fun List<Doa>.filterByQuery(query: String): List<Doa> {
     val q = query.trim()
     if (q.isEmpty()) return this

@@ -50,12 +50,12 @@ object TtsJson {
             TtsAnswer(
                 word = word,
                 clue = item.clue.orEmpty().trim(),
-                stars = item.stars?.intOrNull() ?: 0
+                stars = item.stars?.intOrNull ?: 0
             )
         }
         return TtsResult(
             title = dto.title.orEmpty().trim(),
-            total = dto.total?.intOrNull() ?: answers.size,
+            total = dto.total?.intOrNull ?: answers.size,
             answers = answers
         )
     }

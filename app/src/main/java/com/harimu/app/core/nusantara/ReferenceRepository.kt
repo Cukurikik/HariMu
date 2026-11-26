@@ -16,12 +16,14 @@ class ReferenceRepository(
     }
 }
 
+@JvmName("filterHeroesByQuery")
 internal fun List<Hero>.filterByQuery(query: String): List<Hero> {
     val q = query.trim()
     if (q.isEmpty()) return this
     return filter { it.name.contains(q, ignoreCase = true) || it.description.contains(q, ignoreCase = true) }
 }
 
+@JvmName("filterVolcanoesByQuery")
 internal fun List<Volcano>.filterByQuery(query: String): List<Volcano> {
     val q = query.trim()
     if (q.isEmpty()) return this

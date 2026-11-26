@@ -60,7 +60,7 @@ class HttpPesantrenApi(
 object PesantrenJson {
 
     fun parseRegions(body: String): List<PesantrenRegion> =
-        decodeNusantara<List<RegionDto>>(body, HttpPesantrenApi.SERVICE)
+        decodeNusantara<List<PesantrenRegionDto>>(body, HttpPesantrenApi.SERVICE)
             .mapNotNull { dto ->
                 val id = dto.id.orEmpty().trim()
                 val name = dto.name.orEmpty().trim()
@@ -85,7 +85,7 @@ object PesantrenJson {
 }
 
 @Serializable
-private data class RegionDto(
+private data class PesantrenRegionDto(
     @SerialName("id") val id: String? = null,
     @SerialName("nama") val name: String? = null
 )

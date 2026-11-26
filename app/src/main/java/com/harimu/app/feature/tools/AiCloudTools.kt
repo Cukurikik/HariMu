@@ -530,7 +530,7 @@ private fun weatherTool(): Tool = object : Tool {
         sample = "Jakarta"
     )
     override val requiresNetwork = true
-    override val params = emptyList()
+    override val params: List<ToolParam> = emptyList()
 
     override fun title(isEnglish: Boolean) = if (isEnglish) "AI Weather" else "Cuaca AI"
     override fun description(isEnglish: Boolean) = if (isEnglish) {
