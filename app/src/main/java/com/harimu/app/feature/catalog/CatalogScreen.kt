@@ -59,7 +59,7 @@ fun CatalogScreen(
     favoriteIds: Set<String>,
     onOpenTool: (Tool) -> Unit,
     onToggleFavorite: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: (() -> Unit)? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
     val layout = HariMuThemeTokens.layout
@@ -82,8 +82,13 @@ fun CatalogScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                    if (onBack != null) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.testTag("catalog_back_button")
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                        }
                     }
                 }
             )

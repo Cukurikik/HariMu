@@ -65,8 +65,10 @@ class HariMuUiAndNavigationTest {
     fun mainActivityCompactLaunchesAndNavigatesBetweenTopLevelAndLicenses() {
         withMainActivity { activity ->
             val initialNodes = collectSemanticsNodes(activity.window.decorView)
+            assertNotNull(findByTag(initialNodes, "shell_bottom_navigation"))
+            assertNull(findByTag(initialNodes, "shell_navigation_rail"))
             assertNotNull(findByTag(initialNodes, "nav_home"))
-            assertNotNull(findByTag(initialNodes, "nav_nusantara"))
+            assertNotNull(findByTag(initialNodes, "nav_catalog"))
             assertNotNull(findByTag(initialNodes, "nav_history"))
             assertNotNull(findByTag(initialNodes, "nav_favorites"))
             assertNotNull(findByTag(initialNodes, "nav_settings"))
@@ -112,7 +114,9 @@ class HariMuUiAndNavigationTest {
         withMainActivity { activity ->
             val density = activity.resources.displayMetrics.density
             val nodes = collectSemanticsNodes(activity.window.decorView)
-            listOf("nav_home", "nav_nusantara", "nav_history", "nav_favorites", "nav_settings").forEach { tag ->
+            assertNotNull(findByTag(nodes, "shell_navigation_rail"))
+            assertNull(findByTag(nodes, "shell_bottom_navigation"))
+            listOf("nav_home", "nav_catalog", "nav_history", "nav_favorites", "nav_settings").forEach { tag ->
                 val node = findByTag(nodes, tag)
                 assertNotNull("Expected NavigationRail item $tag", node)
                 val bounds = node!!.boundsInRoot
@@ -351,6 +355,71 @@ class HariMuUiAndNavigationTest {
             clickNode(findByTag(licenseNodes, "licenses_back_button")!!)
             flushMainUi()
             assertTrue(licenseBackTriggered)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w400dp-h360dp")
+    fun shortWindowUsesNavigationRailInsteadOfBottomBar() {
+        withMainActivity { activity ->
+            val nodes = collectSemanticsNodes(activity.window.decorView)
+            assertNotNull(findByTag(nodes, "shell_navigation_rail"))
+            assertNull(findByTag(nodes, "shell_bottom_navigation"))
+            assertNotNull(findByTag(nodes, "nav_catalog"))
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun catalogTabOpensCatalogAndReselectingItDoesNotDuplicateBackStack() {
+        withMainActivity { activity ->
+            clickNode(findByTag(collectSemanticsNodes(activity.window.decorView), "nav_catalog")!!)
+            flushMainUi(activity, frames = 12)
+            val catalogNodes = waitUntilNodes(activity) { nodes ->
+                findByTag(nodes, "catalog_search_input") != null
+            }
+            assertNotNull(findByTag(catalogNodes, "catalog_search_input"))
+            // The catalog tab is a root destination, so it must not offer an in-app back arrow.
+            assertNull(findByTag(catalogNodes, "catalog_back_button"))
+
+            // Re-selecting the active tab must not push a second copy onto the back stack.
+            repeat(2) {
+                clickNode(findByTag(collectSemanticsNodes(activity.window.decorView), "nav_catalog")!!)
+                flushMainUi(activity, frames = 8)
+            }
+            activity.onBackPressedDispatcher.onBackPressed()
+            flushMainUi(activity, frames = 12)
+            val homeNodes = waitUntilNodes(activity) { nodes ->
+                findByTag(nodes, "home_search_input") != null
+            }
+            assertNotNull(findByTag(homeNodes, "home_search_input"))
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun groupEntryKeepsRouteParameterAndBackReturnsHome() {
+        withMainActivity { activity ->
+            val groupCard = scrollUntilTag(activity, "group_card_IMAGE")
+            assertNotNull("Expected group_card_IMAGE on Home", groupCard)
+            clickNode(groupCard!!)
+            flushMainUi(activity, frames = 12)
+            val catalogNodes = waitUntilNodes(activity) { nodes ->
+                findByTag(nodes, "catalog_search_input") != null
+            }
+            assertNotNull(findByTag(catalogNodes, "catalog_search_input"))
+            // Deep entries into a group keep an explicit back affordance.
+            val backNode = findByTag(
+                collectSemanticsNodes(activity.window.decorView, mergingEnabled = true),
+                "catalog_back_button"
+            )
+            assertNotNull(backNode)
+            clickNode(backNode!!)
+            flushMainUi(activity, frames = 12)
+            val homeNodes = waitUntilNodes(activity) { nodes ->
+                findByTag(nodes, "home_search_input") != null
+            }
+            assertNotNull(findByTag(homeNodes, "home_search_input"))
         }
     }
 
