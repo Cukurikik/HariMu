@@ -10,10 +10,10 @@ import org.junit.Test
 class ToolRegistryTest {
 
     @Test
-    fun registryContainsAll176CatalogEntriesAcrossSevenGroups() {
+    fun registryContainsAll182CatalogEntriesAcrossSevenGroups() {
         val all = ToolRegistry.allTools
-        assertEquals("Catalog must register all 176 tools", 176, all.size)
-        assertEquals("All tool IDs must be unique", 176, all.map { it.id }.toSet().size)
+        assertEquals("Catalog must register all 182 tools", 182, all.size)
+        assertEquals("All tool IDs must be unique", 182, all.map { it.id }.toSet().size)
 
         assertEquals(16, ToolRegistry.countByGroup(ToolGroup.CORE))
         assertEquals(30, ToolRegistry.countByGroup(ToolGroup.VIDEO))
@@ -21,7 +21,7 @@ class ToolRegistryTest {
         assertEquals(47, ToolRegistry.countByGroup(ToolGroup.IMAGE))
         assertEquals(21, ToolRegistry.countByGroup(ToolGroup.PDF))
         assertEquals(28, ToolRegistry.countByGroup(ToolGroup.CONVERTER))
-        assertEquals(6, ToolRegistry.countByGroup(ToolGroup.NUSANTARA))
+        assertEquals(12, ToolRegistry.countByGroup(ToolGroup.NUSANTARA))
     }
 
     @Test
@@ -44,9 +44,9 @@ class ToolRegistryTest {
             (1..47).forEach { add("IMG-%02d".format(it)) }
             (1..21).forEach { add("PDF-%02d".format(it)) }
             (1..28).forEach { add("CNV-%02d".format(it)) }
-            (1..6).forEach { add("NUS-%02d".format(it)) }
+            (1..12).forEach { add("NUS-%02d".format(it)) }
         }
-        assertEquals(176, expectedIds.size)
+        assertEquals(182, expectedIds.size)
         expectedIds.forEach { id ->
             val tool = ToolRegistry.findById(id)
             assertNotNull("Missing tool $id in ToolRegistry", tool)

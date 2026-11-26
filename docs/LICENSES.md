@@ -38,6 +38,12 @@ Tidak ada library baru di APK. Data berikut diambil lewat `backend/ai-gateway` d
 | emsifa `api-wilayah-indonesia` | Data wilayah publik, API statis tanpa kunci (MIT pada repositori) | `NUS-02`, `NUS-03` | Kode hierarkis dipakai langsung sebagai `adm4` BMKG |
 | yogski `indonesia-public-static-api` | Data referensi statis, tanpa kunci | `NUS-04`, `NUS-05` | Daftar pahlawan nasional & gunung berapi |
 | doa-doa-api (Ahmad Ramadhan) | Dataset doa terbuka, tanpa kunci | `NUS-06` | Teks Arab/latin/arti; pengguna diminta mencocokkan dengan guru |
+| api-sekolah-indonesia (wanrabbae) | Dataset sekolah publik, API tanpa kunci | `NUS-07` | Data referensi Kemendikdasmen; tidak ada SLA |
+| hibersunda (Hiberin Labs) | Kamus Sunda terbuka, API tanpa kunci | `NUS-08` | Kamus undak usuk basa; hasil kosong bukan error |
+| kunci-tts-api (nasrul21) | Bank jawaban TTS komunitas, API tanpa kunci | `NUS-09` | Jawaban komunitas, bukan kamus resmi |
+| Quran API ID (renomureza) | Teks Kemenag + terjemahan, API tanpa kunci | `NUS-10` | Pengguna diminta mencocokkan bacaan dengan mushaf tercetak |
+| football-standings-api (azharimm) | Data ESPN, API tanpa kunci | `NUS-11` | Atribusi sumber ditampilkan; bukan layanan resmi liga |
+| api-pesantren-indonesia (nasrul21) | Data Kemenag, API tanpa kunci | `NUS-12` | Hasil scraper publik; verifikasi ke kanal Kemenag |
 | LibreTranslate (bila `TRANSLATE_BASE_URL` diisi) | Server AGPL-3.0; instance publik butuh kunci berbayar | `CORE-11` | Dijalankan sebagai layanan terpisah di server, tidak ditautkan ke APK |
 
 ## Catatan Kebijakan Lisensi (`01-ARSITEKTUR.md` & `SKILL.md`)

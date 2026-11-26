@@ -129,7 +129,7 @@ class VideoForgeBatch2AndEditorTest {
 
     @Test
     fun registryHasCore01AndAllBatch2VideoToolsAndLeavesVid07Stub() {
-        assertEquals(176, ToolRegistry.allTools.size)
+        assertEquals(182, ToolRegistry.allTools.size)
         assertEquals(16, ToolRegistry.countByGroup(ToolGroup.CORE))
         assertEquals(30, ToolRegistry.countByGroup(ToolGroup.VIDEO))
 

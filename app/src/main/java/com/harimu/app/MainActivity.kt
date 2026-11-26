@@ -74,9 +74,15 @@ import com.harimu.app.feature.history.HistoryScreen
 import com.harimu.app.feature.home.HomeScreen
 import com.harimu.app.feature.nusantara.DoasScreen
 import com.harimu.app.feature.nusantara.EarthquakeScreen
+import com.harimu.app.feature.nusantara.FootballScreen
 import com.harimu.app.feature.nusantara.HeroesScreen
 import com.harimu.app.feature.nusantara.NusantaraHubScreen
+import com.harimu.app.feature.nusantara.PesantrenScreen
+import com.harimu.app.feature.nusantara.QuranScreen
 import com.harimu.app.feature.nusantara.RegionsScreen
+import com.harimu.app.feature.nusantara.SchoolScreen
+import com.harimu.app.feature.nusantara.SundaneseScreen
+import com.harimu.app.feature.nusantara.TtsScreen
 import com.harimu.app.feature.nusantara.VolcanoesScreen
 import com.harimu.app.feature.nusantara.WeatherScreen
 import com.harimu.app.feature.prayer.PrayerTimesScreen
@@ -119,6 +125,12 @@ import java.util.Locale
 @Serializable data object HeroesRoute
 @Serializable data object VolcanoesRoute
 @Serializable data object DoasRoute
+@Serializable data object SchoolRoute
+@Serializable data object SundaneseRoute
+@Serializable data object TtsRoute
+@Serializable data object QuranRoute
+@Serializable data object FootballRoute
+@Serializable data object PesantrenRoute
 @Serializable data object OpenSourceLicensesRoute
 
 
@@ -245,6 +257,12 @@ private fun HariMuRoot(
             DedicatedScreenRoute.HEROES -> navController.navigate(HeroesRoute)
             DedicatedScreenRoute.VOLCANOES -> navController.navigate(VolcanoesRoute)
             DedicatedScreenRoute.DUAS -> navController.navigate(DoasRoute)
+            DedicatedScreenRoute.SCHOOLS -> navController.navigate(SchoolRoute)
+            DedicatedScreenRoute.SUNDANESE -> navController.navigate(SundaneseRoute)
+            DedicatedScreenRoute.CROSSWORD -> navController.navigate(TtsRoute)
+            DedicatedScreenRoute.QURAN -> navController.navigate(QuranRoute)
+            DedicatedScreenRoute.FOOTBALL -> navController.navigate(FootballRoute)
+            DedicatedScreenRoute.PESANTREN -> navController.navigate(PesantrenRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
         }
     }
@@ -448,6 +466,24 @@ private fun HariMuRoot(
                     }
                     composable<DoasRoute> {
                         DoasScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<SchoolRoute> {
+                        SchoolScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<SundaneseRoute> {
+                        SundaneseScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<TtsRoute> {
+                        TtsScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<QuranRoute> {
+                        QuranScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<FootballRoute> {
+                        FootballScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<PesantrenRoute> {
+                        PesantrenScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<OpenSourceLicensesRoute> {
                         OpenSourceLicensesScreen(

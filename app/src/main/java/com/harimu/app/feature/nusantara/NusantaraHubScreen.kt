@@ -65,10 +65,12 @@ fun NusantaraHubScreen(
                     )
                     Text(
                         text = if (isEnglish) {
-                            "Earthquakes, BMKG weather, regions, heroes, volcanoes, and daily duas — " +
+                            "Earthquakes, BMKG weather, regions, heroes, volcanoes, daily duas, schools, " +
+                                "a Sundanese dictionary, Qur'an, football tables, and pesantren — " +
                                 "all from keyless Indonesian public APIs."
                         } else {
-                            "Gempa, cuaca BMKG, wilayah, pahlawan, gunung berapi, dan doa harian — " +
+                            "Gempa, cuaca BMKG, wilayah, pahlawan, gunung berapi, doa harian, sekolah, " +
+                                "kamus Sunda, Al-Qur'an, klasemen bola, dan pesantren — " +
                                 "semuanya dari API publik Indonesia tanpa kunci."
                         },
                         style = MaterialTheme.typography.bodyMedium
@@ -172,11 +174,13 @@ fun NusantaraHubScreen(
         item(key = "source") {
             NusantaraSourceNote(
                 if (isEnglish) {
-                    "Sources: BMKG, emsifa, indonesia-public-static-api, doa-doa-api. " +
-                        "Every call is keyless and free."
+                    "Sources: BMKG, emsifa, indonesia-public-static-api, doa-doa-api, " +
+                        "api-sekolah-indonesia, hibersunda, kunci-tts-api, Quran API ID, " +
+                        "football-standings-api, api-pesantren-indonesia. All keyless and free."
                 } else {
-                    "Sumber: BMKG, emsifa, indonesia-public-static-api, doa-doa-api. " +
-                        "Semua panggilan tanpa kunci dan gratis."
+                    "Sumber: BMKG, emsifa, indonesia-public-static-api, doa-doa-api, " +
+                        "api-sekolah-indonesia, hibersunda, kunci-tts-api, Quran API ID, " +
+                        "football-standings-api, api-pesantren-indonesia. Semua tanpa kunci dan gratis."
                 }
             )
         }

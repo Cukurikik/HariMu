@@ -213,6 +213,12 @@ enum class DedicatedScreenRoute {
     HEROES,
     VOLCANOES,
     DUAS,
+    SCHOOLS,
+    SUNDANESE,
+    CROSSWORD,
+    QURAN,
+    FOOTBALL,
+    PESANTREN,
     SETTINGS
 }
 

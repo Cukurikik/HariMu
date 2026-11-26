@@ -169,7 +169,13 @@ class NusantaraTest {
             "NUS-03" to DedicatedScreenRoute.REGIONS,
             "NUS-04" to DedicatedScreenRoute.HEROES,
             "NUS-05" to DedicatedScreenRoute.VOLCANOES,
-            "NUS-06" to DedicatedScreenRoute.DUAS
+            "NUS-06" to DedicatedScreenRoute.DUAS,
+            "NUS-07" to DedicatedScreenRoute.SCHOOLS,
+            "NUS-08" to DedicatedScreenRoute.SUNDANESE,
+            "NUS-09" to DedicatedScreenRoute.CROSSWORD,
+            "NUS-10" to DedicatedScreenRoute.QURAN,
+            "NUS-11" to DedicatedScreenRoute.FOOTBALL,
+            "NUS-12" to DedicatedScreenRoute.PESANTREN
         )
         expected.forEach { (id, route) ->
             val registered = ToolRegistry.findById(id)
@@ -184,7 +190,7 @@ class NusantaraTest {
             assertTrue(tool.description(isEnglish = false).isNotBlank())
             assertTrue(tool.description(isEnglish = true).isNotBlank())
         }
-        assertEquals(6, ToolRegistry.byGroup(ToolGroup.NUSANTARA).size)
+        assertEquals(12, ToolRegistry.byGroup(ToolGroup.NUSANTARA).size)
     }
 
     private class FakeEarthquakeApi(

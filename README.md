@@ -6,9 +6,9 @@
 
 Aplikasi Android (Kotlin + Jetpack Compose + Material 3) berbasis arsitektur **Registry-Driven** untuk kebutuhan utilitas harian secara lokal (on-device). Semua tool berjalan tanpa akun; AI dan koneksi cloud bersifat opsional dan memakai gateway/akun milik pengguna.
 
-## Fitur Utama (176 Tool, 7 Grup)
+## Fitur Utama (182 Tool, 7 Grup)
 
-`ToolRegistry` mendaftarkan **176 tool unik** dalam 7 grup (16/30/28/47/21/28/6); judul, deskripsi, dan parameter tiap tool berasal dari kode di `app/src/main/java/com/harimu/app/feature/tools/*.kt`. Daftar lengkap 176 judul ada di `02-KATALOG-FITUR.md`.
+`ToolRegistry` mendaftarkan **182 tool unik** dalam 7 grup (16/30/28/47/21/28/12); judul, deskripsi, dan parameter tiap tool berasal dari kode di `app/src/main/java/com/harimu/app/feature/tools/*.kt`. Daftar lengkap 182 judul ada di `02-KATALOG-FITUR.md`.
 
 | Grup | Jumlah | Contoh tool (ID terverifikasi di registry) |
 |---|---|---|
@@ -17,10 +17,10 @@ Aplikasi Android (Kotlin + Jetpack Compose + Material 3) berbasis arsitektur **R
 | Audio Forge & Studio | 28 | Pro 10-Band Equalizer live + ekspor (`AUD-02`), Audio Studio Pro multitrack (`AUD-21`), potong audio (`AUD-09`), hapus bagian hening (`AUD-16`), fade in/out (`AUD-26`), visualizer audio (`AUD-28`) |
 | Image Forge & Matrix | 47 | Image Matrix Studio (`IMG-47`), crop (`IMG-01`), konversi format (`IMG-23`), hapus EXIF (`IMG-29`), AI enhancer (`IMG-14`), AI object remover (`IMG-13`) |
 | PDF Vault | 21 | Gabung (`PDF-01`), pisah ke ZIP (`PDF-02`), gambar ke PDF (`PDF-08`), enkripsi (`PDF-10`), dekripsi (`PDF-11`), watermark (`PDF-12`), redaksi permanen (`PDF-14`), penomoran halaman (`PDF-18`), editor metadata (`PDF-19`), perbandingan dokumen (`PDF-20`) |
-| Nusantara | 6 | Gempa terkini BMKG (`NUS-01`), cuaca BMKG per desa (`NUS-02`), wilayah + adm4 (`NUS-03`), pahlawan nasional (`NUS-04`), gunung berapi (`NUS-05`), doa harian (`NUS-06`) |
+| Nusantara | 12 | Gempa terkini BMKG (`NUS-01`), cuaca BMKG per desa (`NUS-02`), wilayah + adm4 (`NUS-03`), pahlawan nasional (`NUS-04`), gunung berapi (`NUS-05`), doa harian (`NUS-06`), cari sekolah (`NUS-07`), kamus Sunda (`NUS-08`), bantu TTS (`NUS-09`), Al-Qur'an (`NUS-10`), klasemen sepak bola (`NUS-11`), data pesantren (`NUS-12`) |
 | Universal Converter | 28 | ZIP AES-256 (`CNV-18`), ekstraksi aman zip-slip (`CNV-16`), JSON ⇄ XML (`CNV-23`), CSV ⇄ TSV (`CNV-24`), formatter kode/JSON (`CNV-25`), Markdown → HTML (`CNV-26`), GeoJSON → KML (`CNV-27`), STL → OBJ (`CNV-28`) |
 
-Catatan status: seluruh 176 ID teregistrasi dan dapat dicari; tidak ada `StubTool` yang diinstansiasi (`stubVideoTools()`/`stubAudioTools()`/`stubImageTools()` mengembalikan daftar kosong). VID-07 menghasilkan MP4/H.264 lewat Media3 (jalur FFmpeg hanya untuk penajaman, encoder `mpeg4`). Fitur PDF→Word/Excel/PowerPoint dan OCR tetap versi "Basic" seperti tertulis di katalog.
+Catatan status: seluruh 182 ID teregistrasi dan dapat dicari; tidak ada `StubTool` yang diinstansiasi (`stubVideoTools()`/`stubAudioTools()`/`stubImageTools()` mengembalikan daftar kosong). VID-07 menghasilkan MP4/H.264 lewat Media3 (jalur FFmpeg hanya untuk penajaman, encoder `mpeg4`). Fitur PDF→Word/Excel/PowerPoint dan OCR tetap versi "Basic" seperti tertulis di katalog.
 
 ## Dokumentasi Proyek
 

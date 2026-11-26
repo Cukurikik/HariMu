@@ -9,8 +9,8 @@ Status di bawah adalah hasil uji itu, bukan asumsi dari dokumentasi.
 
 | Hasil sapuan | Jumlah | Arti |
 |---|---|---|
-| API hidup dan sudah dipakai aplikasi | 6 entri | Sudah jadi tool `NUS-01..06` dan `CORE-16` |
-| API hidup dan layak jadi tool baru | 13 entri | Kandidat Tahap 3 (lihat bawah) |
+| API hidup dan sudah dipakai aplikasi | 12 entri | Sudah jadi tool `NUS-01..12` dan `CORE-16` |
+| API hidup dan layak jadi tool baru | 7 entri | Kandidat Tahap 3 (lihat bawah) |
 | API hidup tetapi tidak dipakai | 11 entri | Duplikat, di luar tema, atau datanya kedaluwarsa |
 | Dokumentasi hidup, endpoint API tidak terbukti | 48 entri | README tidak menyebut host API atau API harus di-self-host |
 | API/host mati | 19 entri | 4xx/5xx permanen, DNS hilang, atau deployment Vercel dimatikan |
@@ -31,10 +31,16 @@ Angka di tabel ini menjumlah tepat 102 entri.
 | Gunung Berapi di Indonesia | `indonesia-public-static-api.vercel.app/api/volcanoes` | 2026-11-26 | 200 | `NUS-05` |
 | Doa Doa API | `doa-doa-api-ahmadramadhan.fly.dev/api` | 2026-11-26 | 200 | `NUS-06` |
 | API alamat Desa/Kelurahan | `alamat.thecloudalert.com/api/cari/index/?keyword=…` | 2026-11-26 | 200 | `CORE-16` |
+| API Data Sekolah Indonesia | `api-sekolah-indonesia.vercel.app/sekolah?nama=sman%201&page=1` | 2026-11-26 | 200 | `NUS-07` |
+| Hibersunda Undak Usuk Basa Sunda | `hibersunda.vercel.app/undakusukbasa/lebet` | 2026-11-26 | 200 | `NUS-08` |
+| Kunci Jawaban TTS API | `kunci-tts-api.vercel.app/api/answers?question=tidak` | 2026-11-26 | 200 | `NUS-09` |
+| Quran API ID | `quran-api-id.vercel.app/surah/18` dan `/surah/18/1` | 2026-11-26 | 200 | `NUS-10` |
+| Klasemen Sepak Bola | `football-standings-api-azharimm.vercel.app/leagues` dan `/leagues/eng.1/standings?season=2024` | 2026-11-26 | 200 | `NUS-11` |
+| Pesantren se Indonesia | `api-pesantren-indonesia.vercel.app/provinsi.json` | 2026-11-26 | 200 | `NUS-12` |
 
 Tambahan di luar katalog: `api.myquran.com/v2/sholat/...` (200, 2026-11-26) dipakai `CORE-15`.
-Entri katalog **Quran API ID** menunjuk host lain (`quran-api-id.vercel.app`) dan dicatat terpisah
-di bawah karena isinya Al-Qur'an, bukan jadwal sholat.
+Entri katalog **Quran API ID** sekarang dipakai untuk tool `NUS-10` (Al-Qur'an); host
+`quran-api-id.vercel.app` tidak sama dengan `api.myquran.com` yang dipakai `CORE-15`.
 
 ## API hidup dan layak jadi tool baru
 
@@ -42,14 +48,8 @@ Semua baris sudah diuji dengan contoh permintaan nyata dan mengembalikan JSON be
 
 | API | Endpoint uji | Status | Isi respons | Catatan |
 |---|---|---|---|---|
-| API Data Sekolah Indonesia | `api-sekolah-indonesia.vercel.app/sekolah?nama=sman%201&page=1` | 200 | `dataSekolah[]`: npsn, sekolah, bentuk, status, alamat, provinsi–kecamatan, lintang/bujur | Ada paging; detail per NPSN di `/sekolah/{npsn}` |
-| API Data Sekolah Seluruh Indonesia | `sekolah.devapi.id/sekolah?nama=madani` | 200 | `data[]` sekolah negeri/swasta | Duplikat fungsi dengan baris di atas; pilih satu |
-| Hibersunda Undak Usuk Basa Sunda | `hibersunda.vercel.app/undakusukbasa/lebet` | 200 | `sorangan`, `batur`, `loma`, `bindo`, `english` | Pencarian per kata, cocok untuk kamus bahasa daerah |
-| Kunci Jawaban TTS API | `kunci-tts-api.vercel.app/api/answers?question=tidak` | 200 | `answers[]`: word, clue, stars | Tanpa paging |
-| Quran API ID | `quran-api-id.vercel.app/surah/18` dan `/surah/18/1` | 200 | surah: nama, arti, jumlah ayat, tafsir; ayat: arab, transliterasi, terjemahan id/en, audio | Data lengkap satu ayat per permintaan |
-| Klasemen Sepak Bola | `football-standings-api-azharimm.vercel.app/leagues` dan `/leagues/eng.1/standings?season=2024` | 200 | daftar liga; klasemen per tim dengan statistik | Sumber ESPN, tanpa kunci |
+| API Data Sekolah Seluruh Indonesia | `sekolah.devapi.id/sekolah?nama=madani` | 200 | `data[]` sekolah negeri/swasta | Duplikat fungsi dengan API Data Sekolah Indonesia; pilih satu |
 | Lirik lagu | `song-lyrics-api-azharimm.vercel.app/search?q=Kala%20cinta%20menggoda` | 200 | `songId`, artist, songTitle, URL lirik | Detail di `/lyrics/{songId}` |
-| Pesantren se Indonesia | `api-pesantren-indonesia.vercel.app/provinsi.json` | 200 | provinsi; `/kabupaten/{id}.json`; daftar pesantren per kabupaten | Statis, cepat |
 | Alquran ID (bachors) | `al-quran-8d642.firebaseio.com/data.json` | 200 | 114 surah: arti, asma, audio, jumlah ayat | Duplikat Quran API ID, data lebih tua |
 | Jadwal Sholat (lakuapik) | `cdn.statically.io/gh/lakuapik/jadwalsholatorg/master/adzan/semarang/2026/11.json` | 200 | jadwal harian per kota per tahun | Duplikat `CORE-15`; berguna sebagai cadangan luring |
 | Kode Pos (nbc.vanmason) | `nbc.vanmason.web.id/service/kodepos/42173` | 200 | kelurahan + kecamatan per kode pos | Duplikat `CORE-16` |

@@ -221,6 +221,12 @@ Semua tool di grup ini memakai API publik Indonesia tanpa autentikasi dari `docs
 | NUS-04 | Pahlawan Nasional | STATIC | P18 | 🟢 | ✅ | `indonesia-public-static-api/api/heroes`; pencarian lokal, tahun lahir/wafat/penetapan |
 | NUS-05 | Gunung Berapi Indonesia | STATIC | P18 | 🟢 | ✅ | `indonesia-public-static-api/api/volcanoes`; bentuk, tinggi, letusan terakhir, koordinat |
 | NUS-06 | Doa Harian | REST | P18 | 🟢 | ✅ | `doa-doa-api-ahmadramadhan.fly.dev/api`; daftar + pencarian, teks Arab/latin/arti |
+| NUS-07 | Cari Sekolah | REST | P19 | 🟢 | ✅ | `api-sekolah-indonesia.vercel.app/sekolah?nama=…&page=…`; paging per 5 baris + "Muat lagi", NPSN, jenjang, status negeri/swasta, alamat, kecamatan–provinsi, koordinat |
+| NUS-08 | Kamus Basa Sunda | REST | P19 | 🟢 | ✅ | `hibersunda.vercel.app/undakusukbasa/{kata}`; lima tingkat (sorangan, batur, loma, Indonesia, Inggris). Hasil kosong ditampilkan sebagai "belum ada", bukan error |
+| NUS-09 | Bantu TTS | REST | P19 | 🟢 | ✅ | `kunci-tts-api.vercel.app/api/answers?question=…`; kata jawaban + bintang kecocokan (dibaca toleran dari angka atau teks) |
+| NUS-10 | Al-Qur'an | REST | P19 | 🟢 | ✅ | `quran-api-id.vercel.app/surah` dan `/surah/{n}`; 114 surah, teks Arab, transliterasi, terjemahan id/en, audio per ayat. Peringatan mencocokkan dengan mushaf |
+| NUS-11 | Klasemen Sepak Bola | REST | P19 | 🟢 | ✅ | `football-standings-api-azharimm.vercel.app/leagues` + `/leagues/{id}/standings?season=`; pilih liga, musim 2026/2025/2024, statistik main–menang–seri–kalah–SG–poin |
+| NUS-12 | Data Pesantren | REST | P19 | 🟢 | ✅ | `api-pesantren-indonesia.vercel.app/provinsi.json` → `/kabupaten/{id}.json` → `/pesantren/{id}.json`; nama, NSPP, alamat, kiai, dengan penyaring lokal |
 
 Status sweep seluruh 102 entri katalog ada di `docs/PUBLIC_API_STATUS.md`.
 
@@ -236,8 +242,8 @@ Status sweep seluruh 102 entri katalog ada di `docs/PUBLIC_API_STATUS.md`.
 | Image Forge/Matrix | 47 | P9, P10, P11 |
 | PDF Vault | 21 | P12 |
 | Universal Converter | 28 | P13 |
-| Nusantara | 6 | P18 |
-| **Total entri** | **176** (±150 implementasi unik setelah alias digabung) | |
+| Nusantara | 12 | P18, P19 |
+| **Total entri** | **182** (±156 implementasi unik setelah alias digabung) | |
 
 ## Item yang butuh keputusan Andikaa sebelum dikerjakan
 

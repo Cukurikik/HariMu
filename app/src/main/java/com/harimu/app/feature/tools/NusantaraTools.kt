@@ -1,11 +1,16 @@
 package com.harimu.app.feature.tools
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Warning
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.Tool
@@ -84,5 +89,77 @@ fun nusantaraTools(): List<Tool> = listOf(
         titleEn = "Daily Duas",
         descId = "Kumpulan doa harian beserta teks Arab, latin, dan artinya; bisa dicari.",
         descEn = "Everyday duas with Arabic text, transliteration, and meaning; searchable."
+    ),
+    DedicatedTool(
+        id = "NUS-07",
+        group = ToolGroup.NUSANTARA,
+        engineLabel = "SEKOLAH",
+        icon = Icons.Filled.School,
+        dedicatedRoute = DedicatedScreenRoute.SCHOOLS,
+        requiresNetwork = true,
+        titleId = "Cari Sekolah",
+        titleEn = "Find a School",
+        descId = "Cari sekolah se-Indonesia berdasarkan nama: NPSN, jenjang, status, alamat, dan koordinat.",
+        descEn = "Search Indonesian schools by name: NPSN, level, status, address, and coordinates."
+    ),
+    DedicatedTool(
+        id = "NUS-08",
+        group = ToolGroup.NUSANTARA,
+        engineLabel = "SUNDA",
+        icon = Icons.Filled.Translate,
+        dedicatedRoute = DedicatedScreenRoute.SUNDANESE,
+        requiresNetwork = true,
+        titleId = "Kamus Basa Sunda",
+        titleEn = "Sundanese Dictionary",
+        descId = "Arti kata Sunda dalam undak usuk basa: sorangan, batur, loma, Indonesia, dan Inggris.",
+        descEn = "Sundanese word meanings across speech levels: sorangan, batur, loma, Indonesian, English."
+    ),
+    DedicatedTool(
+        id = "NUS-09",
+        group = ToolGroup.NUSANTARA,
+        engineLabel = "TTS",
+        icon = Icons.Filled.Extension,
+        dedicatedRoute = DedicatedScreenRoute.CROSSWORD,
+        requiresNetwork = true,
+        titleId = "Bantu TTS",
+        titleEn = "Crossword Helper",
+        descId = "Cari kemungkinan jawaban TTS dari petunjuknya, lengkap dengan tingkat kecocokan.",
+        descEn = "Find possible crossword answers from a clue, ranked by how well they fit."
+    ),
+    DedicatedTool(
+        id = "NUS-10",
+        group = ToolGroup.NUSANTARA,
+        engineLabel = "QURAN",
+        icon = Icons.Filled.MenuBook,
+        dedicatedRoute = DedicatedScreenRoute.QURAN,
+        requiresNetwork = true,
+        titleId = "Al-Qur'an",
+        titleEn = "Qur'an Reader",
+        descId = "Baca 114 surah: teks Arab, transliterasi, terjemahan Indonesia dan Inggris.",
+        descEn = "Read all 114 surahs with Arabic text, transliteration, and Indonesian/English translation."
+    ),
+    DedicatedTool(
+        id = "NUS-11",
+        group = ToolGroup.NUSANTARA,
+        engineLabel = "BOLA",
+        icon = Icons.Filled.EmojiEvents,
+        dedicatedRoute = DedicatedScreenRoute.FOOTBALL,
+        requiresNetwork = true,
+        titleId = "Klasemen Sepak Bola",
+        titleEn = "Football Standings",
+        descId = "Klasemen liga sepak bola dunia per musim: main, menang, seri, kalah, selisih gol, poin.",
+        descEn = "World football league tables by season: played, wins, draws, losses, goal difference, points."
+    ),
+    DedicatedTool(
+        id = "NUS-12",
+        group = ToolGroup.NUSANTARA,
+        engineLabel = "PESANTREN",
+        icon = Icons.Filled.AccountBalance,
+        dedicatedRoute = DedicatedScreenRoute.PESANTREN,
+        requiresNetwork = true,
+        titleId = "Data Pesantren",
+        titleEn = "Pesantren Directory",
+        descId = "Telusuri pesantren per provinsi dan kabupaten/kota: nama, NSPP, alamat, dan kiai.",
+        descEn = "Browse pesantren by province and regency: name, NSPP, address, and cleric."
     )
 )

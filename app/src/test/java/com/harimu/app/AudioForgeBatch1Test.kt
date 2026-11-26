@@ -85,7 +85,7 @@ class AudioForgeBatch1Test {
 
     @Test
     fun registryActivatesAll15Batch1AudioToolsAndKeepsP7P8P11Stubs() {
-        assertEquals(176, ToolRegistry.allTools.size)
+        assertEquals(182, ToolRegistry.allTools.size)
         assertEquals(28, ToolRegistry.byGroup(ToolGroup.AUDIO).size)
 
         val batch1Ids = listOf(

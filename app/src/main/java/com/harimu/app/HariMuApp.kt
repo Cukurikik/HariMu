@@ -17,8 +17,14 @@ import com.harimu.app.core.jobs.JobManager
 import com.harimu.app.core.area.AreaLookupRepository
 import com.harimu.app.core.nusantara.DoaRepository
 import com.harimu.app.core.nusantara.EarthquakeRepository
+import com.harimu.app.core.nusantara.FootballRepository
+import com.harimu.app.core.nusantara.PesantrenRepository
+import com.harimu.app.core.nusantara.QuranRepository
 import com.harimu.app.core.nusantara.ReferenceRepository
 import com.harimu.app.core.nusantara.RegionRepository
+import com.harimu.app.core.nusantara.SchoolRepository
+import com.harimu.app.core.nusantara.SundaneseRepository
+import com.harimu.app.core.nusantara.TtsRepository
 import com.harimu.app.core.nusantara.WeatherRepository
 import com.harimu.app.core.prayer.PrayerTimesRepository
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +49,12 @@ class AppContainer(app: Application) {
     val regions: RegionRepository by lazy { RegionRepository() }
     val references: ReferenceRepository by lazy { ReferenceRepository() }
     val doas: DoaRepository by lazy { DoaRepository() }
+    val schools: SchoolRepository by lazy { SchoolRepository() }
+    val sundanese: SundaneseRepository by lazy { SundaneseRepository() }
+    val tts: TtsRepository by lazy { TtsRepository() }
+    val quran: QuranRepository by lazy { QuranRepository() }
+    val football: FootballRepository by lazy { FootballRepository() }
+    val pesantren: PesantrenRepository by lazy { PesantrenRepository() }
     val jobManager: JobManager by lazy {
         JobManager(
             context = app,
