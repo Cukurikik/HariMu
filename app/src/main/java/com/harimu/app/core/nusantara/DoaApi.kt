@@ -36,23 +36,23 @@ object DoaJson {
     fun parse(body: String): List<Doa> =
         decodeNusantara<List<DoaDto>>(body, HttpDoaApi.SERVICE)
             .mapNotNull { dto ->
-                val title = dto.title.trim()
+                val title = dto.title.orEmpty().trim()
                 if (title.isBlank()) return@mapNotNull null
                 Doa(
-                    id = dto.id.trim(),
+                    id = dto.id.orEmpty().trim(),
                     title = title,
-                    arabic = dto.arabic.trim(),
-                    latin = dto.latin.trim(),
-                    meaning = dto.meaning.trim()
+                    arabic = dto.arabic.orEmpty().trim(),
+                    latin = dto.latin.orEmpty().trim(),
+                    meaning = dto.meaning.orEmpty().trim()
                 )
             }
 }
 
 @Serializable
 private data class DoaDto(
-    @SerialName("id") val id: String = "",
-    @SerialName("doa") val title: String = "",
-    @SerialName("ayat") val arabic: String = "",
-    @SerialName("latin") val latin: String = "",
-    @SerialName("artinya") val meaning: String = ""
+    @SerialName("id") val id: String? = null,
+    @SerialName("doa") val title: String? = null,
+    @SerialName("ayat") val arabic: String? = null,
+    @SerialName("latin") val latin: String? = null,
+    @SerialName("artinya") val meaning: String? = null
 )

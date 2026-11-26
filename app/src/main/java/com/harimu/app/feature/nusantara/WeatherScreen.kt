@@ -223,7 +223,7 @@ private fun WeatherSlotRow(slot: WeatherSlot, isEnglish: Boolean) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = slot.conditionEn.ifBlank { slot.conditionId }.ifBlank { "—" },
+                    text = slot.conditionEn.ifBlank { "—" },
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

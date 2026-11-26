@@ -54,13 +54,13 @@ object ReferenceJson {
     fun parseHeroes(body: String): List<Hero> =
         decodeNusantara<List<HeroDto>>(body, HttpReferenceApi.SERVICE)
             .mapNotNull { dto ->
-                val name = dto.name.trim()
+                val name = dto.name.orEmpty().trim()
                 if (name.isBlank()) return@mapNotNull null
                 Hero(
                     name = name,
                     birthYear = dto.birthYear.text(),
                     deathYear = dto.deathYear.text(),
-                    description = dto.description.trim(),
+                    description = dto.description.orEmpty().trim(),
                     ascensionYear = dto.ascensionYear.text()
                 )
             }
@@ -68,14 +68,14 @@ object ReferenceJson {
     fun parseVolcanoes(body: String): List<Volcano> =
         decodeNusantara<List<VolcanoDto>>(body, HttpReferenceApi.SERVICE)
             .mapNotNull { dto ->
-                val name = dto.name.trim()
+                val name = dto.name.orEmpty().trim()
                 if (name.isBlank()) return@mapNotNull null
                 Volcano(
                     name = name,
-                    form = dto.form.trim(),
-                    height = dto.height.trim(),
+                    form = dto.form.orEmpty().trim(),
+                    height = dto.height.orEmpty().trim(),
                     lastEruption = dto.lastEruption.text(),
-                    geolocation = dto.geolocation.trim()
+                    geolocation = dto.geolocation.orEmpty().trim()
                 )
             }
 
@@ -84,18 +84,18 @@ object ReferenceJson {
 
 @Serializable
 private data class HeroDto(
-    @SerialName("name") val name: String = "",
+    @SerialName("name") val name: String? = null,
     @SerialName("birth_year") val birthYear: JsonPrimitive? = null,
     @SerialName("death_year") val deathYear: JsonPrimitive? = null,
-    @SerialName("description") val description: String = "",
+    @SerialName("description") val description: String? = null,
     @SerialName("ascension_year") val ascensionYear: JsonPrimitive? = null
 )
 
 @Serializable
 private data class VolcanoDto(
-    @SerialName("nama") val name: String = "",
-    @SerialName("bentuk") val form: String = "",
-    @SerialName("tinggi_meter") val height: String = "",
+    @SerialName("nama") val name: String? = null,
+    @SerialName("bentuk") val form: String? = null,
+    @SerialName("tinggi_meter") val height: String? = null,
     @SerialName("estimasi_letusan_terakhir") val lastEruption: JsonPrimitive? = null,
-    @SerialName("geolokasi") val geolocation: String = ""
+    @SerialName("geolokasi") val geolocation: String? = null
 )

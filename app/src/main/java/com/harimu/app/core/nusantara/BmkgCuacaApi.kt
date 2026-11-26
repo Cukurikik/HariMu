@@ -2,6 +2,9 @@ package com.harimu.app.core.nusantara
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 
 /** Lokasi adm4 yang dikenali BMKG (provinsi → kab/kota → kecamatan → desa). */
 data class WeatherLocation(
@@ -70,17 +73,19 @@ object BmkgCuacaJson {
             .flatMap { block -> block.cuaca.flatten() }
             .map { slot ->
                 WeatherSlot(
-                    localTime = slot.localDateTime.trim(),
-                    temperatureC = slot.temperature,
-                    humidityPercent = slot.humidity,
-                    conditionId = slot.conditionId.trim(),
-                    conditionEn = slot.conditionEn.trim(),
-                    windSpeed = slot.windSpeed.toString(),
-                    iconUrl = slot.icon.trim()
+                    localTime = slot.localDateTime.orEmpty().trim(),
+                    temperatureC = slot.temperature?.intOrNull ?: 0,
+                    humidityPercent = slot.humidity?.intOrNull ?: 0,
+                    conditionId = slot.conditionCode.text(),
+                    conditionEn = slot.conditionEn.text(),
+                    windSpeed = slot.windSpeed.text(),
+                    iconUrl = slot.icon.text()
                 )
             }
         return WeatherForecast(location = location, slots = slots)
     }
+
+    private fun JsonPrimitive?.text(): String = this?.contentOrNull?.trim().orEmpty()
 }
 
 @Serializable
@@ -105,11 +110,13 @@ private data class LocationDto(
 
 @Serializable
 private data class SlotDto(
-    @SerialName("local_datetime") val localDateTime: String = "",
-    @SerialName("t") val temperature: Int = 0,
-    @SerialName("hu") val humidity: Int = 0,
-    @SerialName("weather") val conditionId: String = "",
-    @SerialName("weather_desc_en") val conditionEn: String = "",
-    @SerialName("ws") val windSpeed: Double = 0.0,
-    @SerialName("image") val icon: String = ""
+    // BMKG mengirim angka untuk t/hu/weather/ws dan null untuk sebagian field, jadi semuanya
+    // dibaca sebagai JsonPrimitive agar decoding tidak gagal.
+    @SerialName("local_datetime") val localDateTime: String? = null,
+    @SerialName("t") val temperature: JsonPrimitive? = null,
+    @SerialName("hu") val humidity: JsonPrimitive? = null,
+    @SerialName("weather") val conditionCode: JsonPrimitive? = null,
+    @SerialName("weather_desc_en") val conditionEn: JsonPrimitive? = null,
+    @SerialName("ws") val windSpeed: JsonPrimitive? = null,
+    @SerialName("image") val icon: JsonPrimitive? = null
 )

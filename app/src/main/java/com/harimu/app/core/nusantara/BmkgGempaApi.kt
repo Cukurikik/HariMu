@@ -64,18 +64,20 @@ object BmkgGempaJson {
         )
 
     private fun GempaDto.toDomainOrNull(): Earthquake? {
-        if (magnitude.isBlank() || region.isBlank()) return null
+        val magnitudeText = magnitude.orEmpty().trim()
+        val regionText = region.orEmpty().trim()
+        if (magnitudeText.isBlank() || regionText.isBlank()) return null
         return Earthquake(
-            magnitude = magnitude.trim(),
-            depth = depth.trim(),
-            region = region.trim(),
-            date = tanggal.trim(),
-            time = jam.trim(),
-            dateTime = dateTime.trim(),
-            coordinates = coordinates.trim(),
-            potential = potensi.trim(),
-            felt = dirasakan.trim(),
-            shakemap = shakemap.trim()
+            magnitude = magnitudeText,
+            depth = depth.orEmpty().trim(),
+            region = regionText,
+            date = tanggal.orEmpty().trim(),
+            time = jam.orEmpty().trim(),
+            dateTime = dateTime.orEmpty().trim(),
+            coordinates = coordinates.orEmpty().trim(),
+            potential = potensi.orEmpty().trim(),
+            felt = dirasakan.orEmpty().trim(),
+            shakemap = shakemap.orEmpty().trim()
         )
     }
 }
@@ -98,14 +100,14 @@ private data class RecentInfo(val gempa: List<GempaDto> = emptyList())
 
 @Serializable
 private data class GempaDto(
-    @SerialName("Tanggal") val tanggal: String = "",
-    @SerialName("Jam") val jam: String = "",
-    @SerialName("DateTime") val dateTime: String = "",
-    @SerialName("Coordinates") val coordinates: String = "",
-    @SerialName("Magnitude") val magnitude: String = "",
-    @SerialName("Kedalaman") val depth: String = "",
-    @SerialName("Wilayah") val region: String = "",
-    @SerialName("Potensi") val potensi: String = "",
-    @SerialName("Dirasakan") val dirasakan: String = "",
-    @SerialName("Shakemap") val shakemap: String = ""
+    @SerialName("Tanggal") val tanggal: String? = null,
+    @SerialName("Jam") val jam: String? = null,
+    @SerialName("DateTime") val dateTime: String? = null,
+    @SerialName("Coordinates") val coordinates: String? = null,
+    @SerialName("Magnitude") val magnitude: String? = null,
+    @SerialName("Kedalaman") val depth: String? = null,
+    @SerialName("Wilayah") val region: String? = null,
+    @SerialName("Potensi") val potensi: String? = null,
+    @SerialName("Dirasakan") val dirasakan: String? = null,
+    @SerialName("Shakemap") val shakemap: String? = null
 )
