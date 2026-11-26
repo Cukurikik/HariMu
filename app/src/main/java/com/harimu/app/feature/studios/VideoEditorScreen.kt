@@ -5,22 +5,28 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -46,6 +52,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -53,41 +60,29 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.rememberNavController
+import androidx.media3.common.util.UnstableApi
 import com.harimu.app.AppContainer
-import com.harimu.app.navigation.ToolRoute
-import com.harimu.app.feature.toolscreen.ToolPrefillData
 import com.harimu.app.R
 import com.harimu.app.core.data.AppSettings
 import com.harimu.app.core.data.EditorClipSpec
 import com.harimu.app.core.data.VideoProjectEntity
-import com.harimu.app.core.design.EmptyState
-import com.harimu.app.core.design.EngineBadge
-import com.harimu.app.core.design.ErrorState
-import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.MonoTextStyle
-import com.harimu.app.core.design.ParamToggle
-import com.harimu.app.core.design.ProgressSheet
-import com.harimu.app.core.design.ResultCard
 import com.harimu.app.core.design.video.ClipInspector
 import com.harimu.app.core.design.video.ExportDialog
 import com.harimu.app.core.design.video.TimelineTrack
 import com.harimu.app.core.design.video.VideoPreview
 import com.harimu.app.core.design.video.VideoPreviewPlaceholder
-import com.harimu.app.feature.toolscreen.ToolPrefillData
-import com.harimu.app.navigation.ToolRoute
 import com.harimu.app.core.media.FfmpegProgressParser
 import com.harimu.app.core.media.VideoEditorMath
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.feature.toolscreen.ToolPrefillData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,6 +90,7 @@ import java.util.Locale
 fun VideoEditorScreen(
     container: AppContainer,
     isEnglish: Boolean,
+    onOpenTool: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -110,7 +106,6 @@ fun VideoEditorScreen(
     val savedToast = stringResource(R.string.editor_project_saved_toast)
     val fileSavedToast = stringResource(R.string.toast_saved)
     val fileSaveFailedToast = stringResource(R.string.toast_save_failed)
-    val navController = androidx.navigation.compose.rememberNavController()
 
     LaunchedEffect(defaultTitle) {
         vm.initializeDefaultTitle(defaultTitle)
@@ -136,11 +131,10 @@ fun VideoEditorScreen(
     }
 
     // Handle "Open in Tool" from ClipInspector
-    val openInToolHandler = remember { (toolId: String, params: Map<String, Any>) ->
-        val clip = state.selectedClip
-        clip?.let {
+    val openInToolHandler: (String, Map<String, Any>) -> Unit = { toolId, params ->
+        state.selectedClip?.let {
             ToolPrefillData.setPrefill(it.uriString.toUri(), params)
-            navController.navigate(ToolRoute(toolId))
+            onOpenTool(toolId)
         }
     }
 
@@ -213,6 +207,9 @@ fun VideoEditorScreen(
             )
         }
     ) { padding ->
+        val onAddClipsClick = {
+            addClipsLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+        }
         if (isLandscape) {
             // Landscape: Split pane - Preview left, Timeline + Inspector right
             LandscapeLayout(
@@ -222,6 +219,7 @@ fun VideoEditorScreen(
                 state = state,
                 vm = vm,
                 isEnglish = isEnglish,
+                onAddClips = onAddClipsClick,
                 onOpenInTool = openInToolHandler
             )
         } else {
@@ -233,6 +231,7 @@ fun VideoEditorScreen(
                 state = state,
                 vm = vm,
                 isEnglish = isEnglish,
+                onAddClips = onAddClipsClick,
                 onOpenInTool = openInToolHandler
             )
         }
@@ -271,63 +270,54 @@ fun VideoEditorScreen(
         totalDurationMs = state.totalDurationMs,
         estimatedFileSizeBytes = estimateFileSize(state.clips, state.outputResolution),
         progress = state.progress,
-        result = state.progress?.let { if (it is ToolProgress.Done) it.result else null },
-        onOpenResult = state.progress?.let { if (it is ToolProgress.Done) {
-            val out = it.result.outputs.firstOrNull()
-            out?.let { o ->
-                {
-                    runCatching {
-                        context.startActivity(
-                            Intent.createChooser(
-                                container.storage.buildOpenIntent(o.file, o.mimeType),
-                                o.displayName
-                            )
-                        )
-                    }
-                }
-            }
-        }},
-        onShareResult = state.progress?.let { if (it is ToolProgress.Done) {
-            val out = it.result.outputs.firstOrNull()
-            out?.let { o ->
-                {
+        result = (state.progress as? ToolProgress.Done)?.result,
+        onOpenResult = (state.progress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()?.let { o ->
+            {
+                runCatching {
                     context.startActivity(
                         Intent.createChooser(
-                            container.storage.buildShareIntent(o.file, o.mimeType),
+                            container.storage.buildOpenIntent(o.file, o.mimeType),
                             o.displayName
                         )
                     )
                 }
             }
-        }},
-        onSaveResult = state.progress?.let { if (it is ToolProgress.Done) {
-            val out = it.result.outputs.firstOrNull()
-            out?.let { o ->
-                {
-                    val defaultTreeUri = settings.outputFolderUri
-                    if (defaultTreeUri.isNotBlank()) {
-                        scope.launch(Dispatchers.IO) {
-                            val savedUri = container.storage.saveToTreeUri(
-                                source = o.file,
-                                treeUri = defaultTreeUri.toUri(),
-                                mimeType = o.mimeType
-                            )
-                            withContext(Dispatchers.Main) {
-                                if (savedUri != null) {
-                                    Toast.makeText(context, fileSavedToast, Toast.LENGTH_SHORT).show()
-                                } else {
-                                    pendingExportFile = o
-                                    safSaveLauncher.launch(o.displayName)
-                                }
+        },
+        onShareResult = (state.progress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()?.let { o ->
+            {
+                context.startActivity(
+                    Intent.createChooser(
+                        container.storage.buildShareIntent(o.file, o.mimeType),
+                        o.displayName
+                    )
+                )
+            }
+        },
+        onSaveResult = (state.progress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()?.let { o ->
+            {
+                val defaultTreeUri = settings.outputFolderUri
+                if (defaultTreeUri.isNotBlank()) {
+                    scope.launch(Dispatchers.IO) {
+                        val savedUri = container.storage.saveToTreeUri(
+                            source = o.file,
+                            treeUri = defaultTreeUri.toUri(),
+                            mimeType = o.mimeType
+                        )
+                        withContext(Dispatchers.Main) {
+                            if (savedUri != null) {
+                                Toast.makeText(context, fileSavedToast, Toast.LENGTH_SHORT).show()
+                            } else {
+                                pendingExportFile = o
+                                safSaveLauncher.launch(o.displayName)
                             }
                         }
-                    } else {
-                        pendingExportFile = o
-                        safSaveLauncher.launch(o.displayName)
                     }
+                } else {
+                    pendingExportFile = o
+                    safSaveLauncher.launch(o.displayName)
                 }
             }
-        }}
+        }
     )
 }
 
@@ -335,9 +325,10 @@ fun VideoEditorScreen(
 @Composable
 private fun PortraitLayout(
     modifier: Modifier,
-    state: com.harimu.app.feature.studios.VideoEditorUiState,
+    state: VideoEditorUiState,
     vm: VideoEditorViewModel,
     isEnglish: Boolean,
+    onAddClips: () -> Unit,
     onOpenInTool: (String, Map<String, Any>) -> Unit
 ) {
     Column(
@@ -366,14 +357,7 @@ private fun PortraitLayout(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = {
-                    val launcher = rememberLauncherForActivityResult(
-                        ActivityResultContracts.PickMultipleVisualMedia(12)
-                    ) { uris ->
-                        if (uris.isNotEmpty()) vm.addClips(LocalContext.current, uris)
-                    }
-                    launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-                },
+                onClick = onAddClips,
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
@@ -448,7 +432,7 @@ private fun PortraitLayout(
                     .testTag("editor_inspector"),
                 clipIndex = activeIndex,
                 clip = activeClip,
-                onUpdate = vm::updateSelectedClip,
+                onUpdate = { updated -> vm.updateSelectedClip { updated } },
                 onOpenInTool = onOpenInTool,
                 showAdvancedActions = true
             )
@@ -460,19 +444,19 @@ private fun PortraitLayout(
 @Composable
 private fun LandscapeLayout(
     modifier: Modifier,
-    state: com.harimu.app.feature.studios.VideoEditorUiState,
+    state: VideoEditorUiState,
     vm: VideoEditorViewModel,
     isEnglish: Boolean,
+    onAddClips: () -> Unit,
     onOpenInTool: (String, Map<String, Any>) -> Unit
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopStart
+    Row(
+        modifier = modifier.fillMaxSize()
     ) {
         // Left pane: Preview (60% width)
         Box(
             modifier = Modifier
-                .width(0.6f, 0f)
+                .weight(0.6f)
                 .fillMaxHeight()
                 .padding(16.dp)
         ) {
@@ -484,7 +468,7 @@ private fun LandscapeLayout(
                     VideoPreview(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(0f, 1f)
+                            .weight(1f)
                             .testTag("editor_preview_landscape"),
                         clipUriString = state.selectedClip!!.uriString,
                         trimStartMs = state.selectedClip!!.trimStartMs,
@@ -498,7 +482,7 @@ private fun LandscapeLayout(
                     VideoPreviewPlaceholder(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(0f, 1f),
+                            .weight(1f),
                         title = stringResource(R.string.editor_preview_no_clip),
                         subtitle = stringResource(R.string.editor_preview_select_clip)
                     )
@@ -509,14 +493,14 @@ private fun LandscapeLayout(
         // Right pane: Timeline + Inspector (40% width)
         Box(
             modifier = Modifier
-                .width(0.4f, 0f)
+                .weight(0.4f)
                 .fillMaxHeight()
                 .padding(16.dp)
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Project title (compact)
@@ -530,14 +514,7 @@ private fun LandscapeLayout(
 
                 // Add clips
                 Button(
-                    onClick = {
-                        val launcher = rememberLauncherForActivityResult(
-                            ActivityResultContracts.PickMultipleVisualMedia(12)
-                        ) { uris ->
-                            if (uris.isNotEmpty()) vm.addClips(LocalContext.current, uris)
-                        }
-                        launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-                    },
+                    onClick = onAddClips,
                     modifier = Modifier.fillMaxWidth().height(40.dp)
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -585,7 +562,7 @@ private fun LandscapeLayout(
                             .testTag("editor_inspector_landscape"),
                         clipIndex = activeIndex,
                         clip = activeClip,
-                        onUpdate = vm::updateSelectedClip,
+                        onUpdate = { updated -> vm.updateSelectedClip { updated } },
                         onOpenInTool = onOpenInTool,
                         showAdvancedActions = true
                     )

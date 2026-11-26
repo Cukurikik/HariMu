@@ -4,19 +4,27 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.MovieCreation
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Transform
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,11 +39,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
@@ -45,7 +53,7 @@ import com.harimu.app.core.design.video.ToolCategorySection
 import com.harimu.app.core.design.video.ToolLauncherCard
 import com.harimu.app.core.design.video.ToolLauncherVariant
 import com.harimu.app.core.design.video.ToolSearchBar
-import com.harimu.app.feature.tools.CoreAndVideoTools
+import com.harimu.app.feature.tools.videoTools
 import com.harimu.app.feature.toolscreen.ToolScreen
 import kotlinx.coroutines.launch
 
@@ -61,7 +69,7 @@ fun VideoForgeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedToolId by remember { mutableStateOf<String?>(null) }
 
-    val allVideoTools = remember { CoreAndVideoTools.videoTools() }
+    val allVideoTools = remember { videoTools() }
     val filteredTools = remember(searchQuery, allVideoTools) {
         if (searchQuery.isBlank()) allVideoTools else allVideoTools.filter { tool ->
             tool.title(isEnglish).lowercase().contains(searchQuery.lowercase()) ||

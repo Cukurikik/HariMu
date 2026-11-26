@@ -9,8 +9,9 @@ import com.harimu.app.AppContainer
 import com.harimu.app.core.data.AudioClipSpec
 import com.harimu.app.core.data.AudioProjectEntity
 import com.harimu.app.core.data.AudioTrackSpec
-import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.media.AudioStudioEngine
+import com.harimu.app.core.media.AudioWaveformExtractor
+import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.toolapi.ToolProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,7 +44,8 @@ data class AudioStudioUiState(
     val isPlaying: Boolean = false,
     val isExporting: Boolean = false,
     val progress: ToolProgress? = null,
-    val lastSavedAt: Long? = null
+    val lastSavedAt: Long? = null,
+    val clipWaveforms: Map<String, List<Float>> = emptyMap()
 ) {
     val totalDurationMs: Long
         get() = tracks.maxOfOrNull { tr ->
@@ -130,12 +132,29 @@ class AudioStudioViewModel(
         _state.update { it.copy(isPlaying = !it.isPlaying) }
     }
 
+    fun setPlaying(playing: Boolean) {
+        _state.update { it.copy(isPlaying = playing) }
+    }
+
     fun addTrack(name: String) {
         _state.update { st ->
             if (st.tracks.size >= 8) return@update st
             val newId = "tr_${UUID.randomUUID().toString().take(6)}"
             val newTrack = AudioTrackSpec(trackId = newId, name = name.ifBlank { "Track ${st.tracks.size + 1}" })
             st.copy(tracks = st.tracks + newTrack, selectedTrackId = newId)
+        }
+        persistQuietly()
+    }
+
+    fun renameTrack(trackId: String, name: String) {
+        val cleaned = name.trim()
+        if (cleaned.isEmpty()) return
+        _state.update { st ->
+            st.copy(
+                tracks = st.tracks.map { tr ->
+                    if (tr.trackId == trackId) tr.copy(name = cleaned) else tr
+                }
+            )
         }
         persistQuietly()
     }
@@ -173,22 +192,29 @@ class AudioStudioViewModel(
         if (uris.isEmpty()) return
         val appCtx = context.applicationContext
         viewModelScope.launch {
-            val newClips = withContext(Dispatchers.IO) {
-                uris.mapIndexed { idx, uri ->
+            val (newClips, extractedWaves) = withContext(Dispatchers.IO) {
+                val waves = mutableMapOf<String, List<Float>>()
+                val clips = uris.mapIndexed { idx, uri ->
                     val probe = MediaProbe.probe(appCtx, uri)
                     val dur = probe.durationMs.coerceAtLeast(1_000L)
                     val name = container.storage.getDisplayName(uri) ?: "Audio_${idx + 1}"
+                    val clipId = UUID.randomUUID().toString()
+                    val wave = runCatching { AudioWaveformExtractor.extractPeaks(appCtx, uri, barCount = 72) }.getOrNull()
+                    if (wave != null && wave.peaks.isNotEmpty()) {
+                        waves[clipId] = wave.peaks
+                    }
                     AudioClipSpec(
-                        id = UUID.randomUUID().toString(),
+                        id = clipId,
                         uriString = uri.toString(),
                         displayName = name,
-                        durationMs = dur,
+                        durationMs = maxOf(dur, wave?.durationMs ?: 0L),
                         trimStartMs = 0L,
-                        trimEndMs = dur,
+                        trimEndMs = maxOf(dur, wave?.durationMs ?: 0L),
                         offsetMs = 0L,
                         gainDb = 0f
                     )
                 }
+                clips to waves
             }
 
             _state.update { st ->
@@ -201,9 +227,37 @@ class AudioStudioViewModel(
                         tr.copy(clips = tr.clips + adjusted)
                     } else tr
                 }
-                st.copy(tracks = updatedTracks, selectedClipId = newClips.firstOrNull()?.id)
+                st.copy(
+                    tracks = updatedTracks,
+                    selectedClipId = newClips.firstOrNull()?.id,
+                    clipWaveforms = st.clipWaveforms + extractedWaves
+                )
             }
             persistQuietly()
+        }
+    }
+
+    fun ensureClipWaveforms(context: Context) {
+        val appCtx = context.applicationContext
+        val current = _state.value
+        val missing = current.tracks.flatMap { it.clips }.filter { it.id !in current.clipWaveforms }
+        if (missing.isEmpty()) return
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                buildMap<String, List<Float>> {
+                    missing.forEach { clip ->
+                        val wave = runCatching {
+                            AudioWaveformExtractor.extractPeaks(appCtx, Uri.parse(clip.uriString), barCount = 72)
+                        }.getOrNull()
+                        if (wave != null && wave.peaks.isNotEmpty()) {
+                            put(clip.id, wave.peaks)
+                        }
+                    }
+                }
+            }
+            if (loaded.isNotEmpty()) {
+                _state.update { st -> st.copy(clipWaveforms = st.clipWaveforms + loaded) }
+            }
         }
     }
 
@@ -270,6 +324,8 @@ class AudioStudioViewModel(
 
     private fun persistQuietly() {
         val st = _state.value
+        val now = System.currentTimeMillis()
+        _state.update { it.copy(lastSavedAt = now) }
         viewModelScope.launch(Dispatchers.IO) {
             container.workspace.saveAudioProject(
                 id = st.projectId,
@@ -277,6 +333,18 @@ class AudioStudioViewModel(
                 tracks = st.tracks,
                 masterVolume = st.masterVolume
             )
+        }
+    }
+
+    fun cancelExport() {
+        exportJob?.cancel()
+        exportJob = null
+        _state.update { it.copy(isExporting = false, progress = null) }
+    }
+
+    fun dismissExportProgress() {
+        if (!_state.value.isExporting) {
+            _state.update { it.copy(progress = null) }
         }
     }
 

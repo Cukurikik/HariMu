@@ -32,6 +32,12 @@ android {
         ?: System.getenv("HARIMU_KEYSTORE_FILE")
 
     signingConfigs {
+        create("debugConfig") {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (!releaseStorePath.isNullOrBlank()) {
             create("releaseConfig") {
                 storeFile = rootProject.file(releaseStorePath)
@@ -45,6 +51,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debugConfig")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

@@ -2,48 +2,57 @@ package com.harimu.app.core.design.video
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.BlurOn
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.FaceRetouchingOff
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.FilterBAndW
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Loop
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Chip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,9 +63,9 @@ import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamToggle
 import com.harimu.app.core.media.VideoEditorMath
-import com.harimu.app.core.toolapi.ToolParam
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +73,7 @@ fun ClipInspector(
     modifier: Modifier = Modifier,
     clipIndex: Int,
     clip: EditorClipSpec,
-    onUpdate: (EditorClipSpec) -> EditorClipSpec,
+    onUpdate: (EditorClipSpec) -> Unit,
     onOpenInTool: ((String, Map<String, Any>) -> Unit)? = null,
     showAdvancedActions: Boolean = true
 ) {
@@ -106,16 +115,14 @@ fun ClipInspector(
             }
 
             // Trim section
-            InspectorSection(title = stringResource(R.string.editor_clip_trim_label)) {
-                Text(
-                    text = stringResource(
-                        R.string.editor_clip_trim_detail,
-                        formatDurationMs(clip.trimStartMs),
-                        formatDurationMs(clip.trimEndMs),
-                        formatDurationMs(VideoEditorMath.effectiveClipDurationMs(clip))
-                    ),
-                    style = MonoTextStyle.copy(color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+            InspectorSection(
+                title = stringResource(
+                    R.string.editor_clip_trim_label,
+                    formatDurationMs(clip.trimStartMs),
+                    formatDurationMs(clip.trimEndMs),
+                    formatDurationMs(VideoEditorMath.effectiveClipDurationMs(clip))
                 )
+            ) {
                 RangeSlider(
                     value = startSec..endSec,
                     onValueChange = { range ->
@@ -169,18 +176,19 @@ fun ClipInspector(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f).forEach { spd ->
-                        Chip(
+                        FilterChip(
                             selected = abs(clip.speed - spd) < 0.05f,
                             onClick = { onUpdate(clip.copy(speed = spd)) },
                             label = { Text("${spd}x") },
-                            modifier = Modifier.padding(0.dp),
-                            colors = androidx.compose.material3.ChipDefaults.colors(
-                                selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f)
                             )
                         )
                     }
@@ -195,14 +203,13 @@ fun ClipInspector(
                 ) {
                     listOf(0, 90, 180, 270).forEach { deg ->
                         val normalized = VideoEditorMath.normalizeRotation(clip.rotationDeg)
-                        Chip(
+                        FilterChip(
                             selected = normalized == deg,
                             onClick = { onUpdate(clip.copy(rotationDeg = deg)) },
                             label = { Text("${deg}°") },
-                            modifier = Modifier.padding(0.dp),
-                            colors = androidx.compose.material3.ChipDefaults.colors(
-                                selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f)
                             )
                         )
                     }
@@ -392,19 +399,17 @@ private fun InspectorSection(
 private fun QuickActionChip(
     label: String,
     onClick: () -> Unit,
-    icon: androidx.compose.material.icons.filled.ImageVector? = null
+    icon: ImageVector? = null
 ) {
-    Chip(
+    AssistChip(
         onClick = onClick,
+        leadingIcon = icon?.let {
+            { Icon(imageVector = it, contentDescription = null, modifier = Modifier.size(14.dp)) }
+        },
         label = {
-            if (icon != null) {
-                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(14.dp))
-                androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
-            }
             Text(text = label, style = MaterialTheme.typography.labelSmall)
         },
-        modifier = Modifier.padding(0.dp),
-        colors = androidx.compose.material3.ChipDefaults.colors(
+        colors = AssistChipDefaults.assistChipColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
         )
     )
@@ -412,19 +417,17 @@ private fun QuickActionChip(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ToolActionButton(
+fun RowScope.ToolActionButton(
     label: String,
-    icon: androidx.compose.material.icons.filled.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.material3.Card(
+    Card(
         modifier = modifier
             .weight(1f)
             .height(80.dp)
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(8.dp),
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
         ),

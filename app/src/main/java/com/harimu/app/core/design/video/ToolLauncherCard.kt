@@ -2,10 +2,13 @@ package com.harimu.app.core.design.video
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,13 +16,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Chip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,19 +40,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.harimu.app.R
 import com.harimu.app.core.design.EngineBadge
 import com.harimu.app.core.design.HariMuColors
-import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.toolapi.Tool
-import com.harimu.app.core.toolapi.ToolGroup
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +100,7 @@ private fun StandardCard(
     title: String,
     description: String,
     engineLabel: String,
-    icon: androidx.compose.material.icons.filled.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     isEnglish: Boolean
 ) {
@@ -186,7 +191,7 @@ private fun CompactCard(
     modifier: Modifier,
     title: String,
     engineLabel: String,
-    icon: androidx.compose.material.icons.filled.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     isEnglish: Boolean
 ) {
@@ -246,7 +251,7 @@ private fun ListItemCard(
     title: String,
     description: String,
     engineLabel: String,
-    icon: androidx.compose.material.icons.filled.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     isEnglish: Boolean
 ) {
@@ -333,7 +338,7 @@ enum class ToolLauncherVariant {
 fun ToolCategorySection(
     modifier: Modifier = Modifier,
     categoryTitle: String,
-    categoryIcon: androidx.compose.material.icons.filled.ImageVector,
+    categoryIcon: ImageVector,
     tools: List<Tool>,
     isEnglish: Boolean,
     onToolClick: (Tool) -> Unit,
@@ -351,10 +356,9 @@ fun ToolCategorySection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .fillMaxWidth()
-                .clickable(onClick = { expanded = !expanded })
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f))
                 .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f))
+                .clickable(onClick = { expanded = !expanded })
         ) {
             Row(
                 modifier = Modifier
@@ -377,13 +381,16 @@ fun ToolCategorySection(
                         text = categoryTitle,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
-                    Chip(
-                        label = { Text("${tools.size} tools") },
-                        modifier = Modifier.padding(0.dp),
-                        colors = androidx.compose.material3.ChipDefaults.colors(
-                            containerColor = HariMuColors.ElectricOrange.copy(alpha = 0.15f)
+                    Surface(
+                        shape = RoundedCornerShape(100.dp),
+                        color = HariMuColors.ElectricOrange.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "${tools.size} tools",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                    )
+                    }
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,

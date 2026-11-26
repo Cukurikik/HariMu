@@ -2,24 +2,30 @@ package com.harimu.app.core.design.video
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.rememberScroller
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,39 +33,34 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.res.getString
+import androidx.core.net.toUri
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.harimu.app.R
 import com.harimu.app.core.data.EditorClipSpec
 import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.media.VideoEditorMath
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.transform.RoundedCornersTransformation
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,12 +93,10 @@ fun TimelineTrack(
     }
 
     val scrollState = rememberScrollState()
-    val scroller = rememberScroller(scrollState)
 
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState),
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Zoom control
@@ -110,20 +109,18 @@ fun TimelineTrack(
         ) {
             Text(
                 text = stringResource(R.string.editor_timeline_zoom),
-                style = androidx.compose.material3.Typography().labelMedium
+                style = MaterialTheme.typography.labelMedium
             )
             Slider(
                 value = zoomLevel,
-                onValueChange = onZoomChanged,
+                onValueChange = { onZoomChanged?.invoke(it) },
                 valueRange = 0.25f..4.0f,
                 steps = 15,
                 colors = SliderDefaults.colors(
                     thumbColor = HariMuColors.ElectricOrange,
                     activeTrackColor = HariMuColors.ElectricOrange
                 ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(min = 120.dp)
+                modifier = Modifier.weight(1f)
             )
             Text(
                 text = String.format(Locale.US, "%.1fx", zoomLevel),
@@ -193,8 +190,7 @@ fun TimelineTrack(
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .horizontalScroll(scrollState),
+                        .padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp),
                     userScrollEnabled = true
@@ -260,9 +256,8 @@ private fun TimelineClipItem(
     Card(
         modifier = Modifier
             .width(clipWidth.dp.coerceAtLeast(80.dp).coerceAtMost(300.dp))
-            .height(80.dp)
-            .clickable(onClick = onSelect)
-            .fillMaxHeight(),
+            .heightIn(min = 100.dp)
+            .clickable(onClick = onSelect),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
                 androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
@@ -330,10 +325,7 @@ private fun TimelineClipItem(
                                 .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
-                            placeholder = { Box(modifier = Modifier.fillMaxSize().background(Color.Gray)) },
-                            error = { Box(modifier = Modifier.fillMaxSize().background(Color.DarkGray)) },
-                            transformation = RoundedCornersTransformation(6.dp)
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp))
                         )
                     }
                 } else {
@@ -354,7 +346,7 @@ private fun TimelineClipItem(
                 ) {
                     Text(
                         text = clip.displayName,
-                        style = androidx.compose.material3.Typography().bodySmall.copy(fontSize = 10.sp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -362,48 +354,42 @@ private fun TimelineClipItem(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        androidx.compose.material3.Chip(
-                            onClick = { /* handled by card click */ },
-                            label = {
-                                Text(
-                                    text = String.format(Locale.US, "%.2gx", clip.speed),
-                                    style = androidx.compose.material3.Typography().labelSmall.copy(fontSize = 9.sp)
-                                )
-                            },
-                            modifier = Modifier.padding(0.dp),
-                            colors = androidx.compose.material3.ChipDefaults.colors(
-                                containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer
-                            )
-                        )
-                        if (clip.rotationDeg != 0) {
-                            androidx.compose.material3.Chip(
-                                onClick = { /* handled by card click */ },
-                                label = {
-                                    Text(
-                                        text = "${clip.rotationDeg}°",
-                                        style = androidx.compose.material3.Typography().labelSmall.copy(fontSize = 9.sp)
-                                    )
-                                },
-                                modifier = Modifier.padding(0.dp),
-                                colors = androidx.compose.material3.ChipDefaults.colors(
-                                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.secondaryContainer
-                                )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = String.format(Locale.US, "%.2gx", clip.speed),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                             )
                         }
-                        if (clip.muteAudio) {
-                            androidx.compose.material3.Chip(
-                                onClick = { /* handled by card click */ },
-                                label = {
-                                    Text(
-                                        text = stringResource(R.string.editor_clip_muted),
-                                        style = androidx.compose.material3.Typography().labelSmall.copy(fontSize = 9.sp)
-                                    )
-                                },
-                                modifier = Modifier.padding(0.dp),
-                                colors = androidx.compose.material3.ChipDefaults.colors(
-                                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.errorContainer
+                        if (clip.rotationDeg != 0) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = "${clip.rotationDeg}°",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                 )
-                            )
+                            }
+                        }
+                        if (clip.muteAudio) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.editor_clip_muted),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }

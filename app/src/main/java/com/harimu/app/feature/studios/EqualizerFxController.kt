@@ -31,6 +31,20 @@ class EqualizerFxController {
     val isLoaded: Boolean
         get() = player != null
 
+    val currentPositionMs: Long
+        get() = runCatching { player?.currentPosition?.toLong()?.coerceAtLeast(0L) ?: 0L }.getOrDefault(0L)
+
+    val durationMs: Long
+        get() = runCatching { player?.duration?.toLong()?.coerceAtLeast(0L) ?: 0L }.getOrDefault(0L)
+
+    fun seekTo(positionMs: Long) {
+        runCatching {
+            val mp = player ?: return
+            val safePos = positionMs.coerceIn(0L, durationMs.coerceAtLeast(1L)).toInt()
+            mp.seekTo(safePos)
+        }
+    }
+
     fun prepareAndPlay(
         context: Context,
         uri: Uri,

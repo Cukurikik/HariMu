@@ -4,6 +4,10 @@ import com.harimu.app.core.design.ParamValidation
 import com.harimu.app.core.design.ParamValidators
 import com.harimu.app.core.design.ToolMimeTypes
 import com.harimu.app.core.design.ToolPickContracts
+import com.harimu.app.core.design.getPickerLabel
+import com.harimu.app.core.design.getSecondaryLabel
+import com.harimu.app.core.design.requiresSecondaryInput
+import com.harimu.app.core.design.toProgressState
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
@@ -13,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File

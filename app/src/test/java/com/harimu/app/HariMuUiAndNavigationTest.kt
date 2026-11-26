@@ -416,6 +416,19 @@ class HariMuUiAndNavigationTest {
             assertNotNull(backNode)
             clickNode(backNode!!)
             flushMainUi(activity, frames = 12)
+            val restoredNodes = waitUntilNodes(activity) { nodes ->
+                findByTag(nodes, "catalog_search_input") == null &&
+                    (findByTag(nodes, "home_search_input") != null || findByTag(nodes, "group_card_IMAGE") != null)
+            }
+            assertNull("Expected CatalogScreen to pop back to Home", findByTag(restoredNodes, "catalog_search_input"))
+            if (findByTag(restoredNodes, "home_search_input") == null) {
+                val scrollable = restoredNodes.lastOrNull { node ->
+                    node.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange) != null &&
+                        node.config.getOrNull(SemanticsActions.ScrollBy) != null
+                } ?: restoredNodes.lastOrNull { it.config.getOrNull(SemanticsActions.ScrollBy) != null }
+                scrollable?.config?.getOrNull(SemanticsActions.ScrollBy)?.action?.invoke(0f, -900f)
+                flushMainUi(activity, frames = 4)
+            }
             val homeNodes = waitUntilNodes(activity) { nodes ->
                 findByTag(nodes, "home_search_input") != null
             }

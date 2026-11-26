@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,15 +17,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -33,16 +37,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +57,9 @@ import coil.compose.AsyncImage
 import com.harimu.app.R
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.InputSpec
-import com.harimu.app.core.toolapi.ToolGroup
+import com.harimu.app.feature.toolscreen.WaveformView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Unified file selection component supporting all InputSpec types.
@@ -158,7 +167,7 @@ fun ToolFileSelector(
                             newUris.removeAt(index)
                             onUrisSelected(newUris)
                         }) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_remove_file))
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_delete))
                         }
                     }
                 }
@@ -171,7 +180,7 @@ fun ToolFileSelector(
                 title = stringResource(R.string.action_pick_audio_bg),
                 selectedName = secondaryName,
                 fallbackName = stringResource(R.string.fallback_audio_name),
-                onPickClick = onPickSecondaryAudio ?: { onPickSecondaryDocument?.invoke(arrayOf("audio/*")) },
+                onPickClick = { onPickSecondaryAudio?.invoke() ?: onPickSecondaryDocument?.invoke(arrayOf("audio/*")) },
                 onClearClick = { onSecondaryUriSelected(null) },
                 icon = Icons.Filled.MusicNote
             )
@@ -179,7 +188,7 @@ fun ToolFileSelector(
                 title = stringResource(R.string.action_pick_image_overlay),
                 selectedName = secondaryName,
                 fallbackName = stringResource(R.string.fallback_image_name),
-                onPickClick = onPickSecondaryImage ?: { onPickSingleImage?.invoke() },
+                onPickClick = { onPickSecondaryImage?.invoke() ?: onPickSingleImage?.invoke() },
                 onClearClick = { onSecondaryUriSelected(null) },
                 icon = Icons.Filled.Image
             )
@@ -203,7 +212,7 @@ fun ToolFileSelector(
                 title = stringResource(R.string.action_pick_cover_image),
                 selectedName = secondaryName,
                 fallbackName = stringResource(R.string.fallback_cover_name),
-                onPickClick = onPickSecondaryImage ?: { onPickSingleImage?.invoke() },
+                onPickClick = { onPickSecondaryImage?.invoke() ?: onPickSingleImage?.invoke() },
                 onClearClick = { onSecondaryUriSelected(null) },
                 icon = Icons.Filled.Image
             )
@@ -211,7 +220,7 @@ fun ToolFileSelector(
                 title = stringResource(R.string.action_pick_watermark_audio),
                 selectedName = secondaryName,
                 fallbackName = stringResource(R.string.fallback_audio_name),
-                onPickClick = onPickSecondaryAudio ?: { onPickSecondaryDocument?.invoke(arrayOf("audio/*")) },
+                onPickClick = { onPickSecondaryAudio?.invoke() ?: onPickSecondaryDocument?.invoke(arrayOf("audio/*")) },
                 onClearClick = { onSecondaryUriSelected(null) },
                 icon = Icons.Filled.MusicNote
             )
@@ -219,7 +228,7 @@ fun ToolFileSelector(
                 title = stringResource(R.string.action_pick_pdf_watermark_image),
                 selectedName = secondaryName,
                 fallbackName = stringResource(R.string.fallback_image_name),
-                onPickClick = onPickSecondaryImage ?: { onPickSingleImage?.invoke() },
+                onPickClick = { onPickSecondaryImage?.invoke() ?: onPickSingleImage?.invoke() },
                 onClearClick = { onSecondaryUriSelected(null) },
                 icon = Icons.Filled.Image
             )
@@ -241,9 +250,10 @@ private fun SecondaryFilePicker(
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         OutlinedButton(
             onClick = onPickClick,
-            modifier = Modifier.fillMaxWidth(),
-            icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) }
+            modifier = Modifier.fillMaxWidth()
         ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(spacing.xs))
             Text(title)
         }
         selectedName?.let { name ->
@@ -319,7 +329,7 @@ fun ToolInputPreview(
         }
         is InputSpec.TextInput -> {
             TextPreviewCard(
-                text = params["textInput"]?.toString() ?? "",
+                text = params["textInput"]?.toString() ?: "",
                 hint = if (isEnglish) inputSpec.hintEn else inputSpec.hintId,
                 modifier = modifier
             )
@@ -367,18 +377,20 @@ private fun VideoPreviewCard(
 ) {
     val context = LocalContext.current
     var probe by remember(uri) { mutableStateOf<com.harimu.app.core.media.MediaProbeResult?>(null) }
-    var exoPlayer by remember(uri) {
-        mutableStateOf(
-            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
-                prepare()
-            }
-        )
+    val exoPlayer = remember(uri) {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
+            prepare()
+        }
     }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
 
     DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+        }
+        exoPlayer.addListener(listener)
+        onDispose { exoPlayer.removeListener(listener); exoPlayer.release() }
     }
 
     LaunchedEffect(uri) {
@@ -441,13 +453,11 @@ private fun AudioPreviewCard(
     val context = LocalContext.current
     var probe by remember(uri) { mutableStateOf<com.harimu.app.core.media.MediaProbeResult?>(null) }
     var peaks by remember(uri) { mutableStateOf<List<Float>>(emptyList()) }
-    var exoPlayer by remember(uri) {
-        mutableStateOf(
-            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
-                prepare()
-            }
-        )
+    val exoPlayer = remember(uri) {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
+            prepare()
+        }
     }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
     var currentPosMs by remember(exoPlayer) { mutableStateOf(0L) }
@@ -579,16 +589,16 @@ private fun TextPreviewCard(
             if (text.isBlank()) {
                 Text(text = hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                androidx.compose.foundation.text.BasicTextField(
+                BasicTextField(
                     value = text,
                     onValueChange = {},
                     modifier = Modifier
                         .fillMaxWidth()
-                        .minLines(6)
-                        .maxLines(12)
-                        .padding(8.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .padding(8.dp),
+                    minLines = 6,
+                    maxLines = 12,
                     singleLine = false,
                     readOnly = true,
                     textStyle = MaterialTheme.typography.bodyMedium

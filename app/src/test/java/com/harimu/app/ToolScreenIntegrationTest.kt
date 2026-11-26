@@ -24,12 +24,14 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
+import androidx.compose.ui.semantics.getOrNull
 import com.harimu.app.core.data.AppSettings
 import com.harimu.app.core.design.HariMuTheme
 import com.harimu.app.core.design.ThemeMode
 import com.harimu.app.feature.toolscreen.ToolScreen
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -84,10 +86,10 @@ class ToolScreenIntegrationTest {
             assertNotNull("Expected run_tool_button in ToolScreen", runButton)
 
             // Verify ToolIdBadge and EngineBadge are present
-            val toolIdBadge = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("IMG-02") == true }
+            val toolIdBadge = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("IMG-02") == true }
             assertNotNull("Expected IMG-02 tool ID in UI", toolIdBadge)
 
-            val engineBadge = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("NAT") == true }
+            val engineBadge = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("NAT") == true }
             assertNotNull("Expected NAT engine badge in UI", engineBadge)
         }
     }
@@ -153,7 +155,7 @@ class ToolScreenIntegrationTest {
             // Verify parameters include startSec and endSec sliders
             // Note: VideoTrimPreviewCard is rendered when a video is selected
             // Without a video selected, we just check the parameter panel exists
-            val paramSection = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Parameters") == true }
+            val paramSection = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Parameters") == true }
             assertNotNull("Expected Parameters section", paramSection)
         }
     }
@@ -180,8 +182,8 @@ class ToolScreenIntegrationTest {
 
             // Verify secondary audio picker button
             val secondaryAudioBtn = nodes.firstOrNull {
-                it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Background Audio") == true ||
-                it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Audio Latar") == true
+                it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Background Audio") == true ||
+                it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Audio Latar") == true
             }
             assertNotNull("Expected secondary audio picker for VID-08", secondaryAudioBtn)
         }
@@ -268,16 +270,16 @@ class ToolScreenIntegrationTest {
             val nodes = collectSemanticsNodes(activity.window.decorView)
 
             // Verify parameter labels are present
-            val textParam = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Watermark Text") == true }
+            val textParam = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Watermark Text") == true }
             assertNotNull("Expected Watermark Text parameter", textParam)
 
-            val opacitySlider = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Opacity") == true }
+            val opacitySlider = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Opacity") == true }
             assertNotNull("Expected Opacity slider parameter", opacitySlider)
 
-            val positionDropdown = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Position") == true }
+            val positionDropdown = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Position") == true }
             assertNotNull("Expected Position dropdown parameter", positionDropdown)
 
-            val tiledToggle = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ").contains("Tiled") == true }
+            val tiledToggle = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Tiled") == true }
             assertNotNull("Expected Tiled Pattern toggle parameter", tiledToggle)
         }
     }

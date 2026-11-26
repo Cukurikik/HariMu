@@ -11,12 +11,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filed.Refresh
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +28,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +42,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.harimu.app.R
@@ -54,7 +60,7 @@ sealed interface ToolProgressState {
     data class Paused(val percent: Int, val message: String) : ToolProgressState
     data class Done(val result: ToolResultSummary) : ToolProgressState
     data class Failed(val error: String, val isRetryable: Boolean = true) : ToolProgressState
-    data class Cancelled : ToolProgressState
+    data object Cancelled : ToolProgressState
 }
 
 data class ToolResultSummary(
@@ -224,29 +230,30 @@ private fun PausedProgressCard(
 ) {
     val clampedPercent = percent.coerceIn(0, 100)
     val spacing = HariMuThemeTokens.spacing
+    val semantic = HariMuThemeTokens.semantic
 
     HariMuSectionCard(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.warningContainer,
-        borderColor = MaterialTheme.colorScheme.warning.copy(alpha = 0.5f)
+        containerColor = semantic.warningContainer,
+        borderColor = semantic.warning.copy(alpha = 0.5f)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = stringResource(R.string.progress_paused), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onWarningContainer)
-            Surface(shape = HariMuThemeTokens.shapes.badge, color = MaterialTheme.colorScheme.warning) {
-                Text(text = "$clampedPercent%", style = MonoTextStyle.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onWarning, modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp))
+            Text(text = stringResource(R.string.progress_paused), style = MaterialTheme.typography.titleSmall, color = semantic.onWarningContainer)
+            Surface(shape = HariMuThemeTokens.shapes.badge, color = semantic.warning) {
+                Text(text = "$clampedPercent%", style = MonoTextStyle.copy(fontWeight = FontWeight.Bold), color = semantic.onWarning, modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp))
             }
         }
-        LinearProgressIndicator(progress = { (clampedPercent / 100f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), strokeCap = StrokeCap.Round, color = MaterialTheme.colorScheme.warning)
+        LinearProgressIndicator(progress = { (clampedPercent / 100f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), strokeCap = StrokeCap.Round, color = semantic.warning)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onWarningContainer, modifier = Modifier.weight(1f))
+            Text(text = message, style = MaterialTheme.typography.bodySmall, color = semantic.onWarningContainer, modifier = Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 onResume?.let {
                     HariMuPrimaryButton(text = stringResource(R.string.action_resume), onClick = it, icon = Icons.Filled.PlayArrow, modifier = Modifier.minimumInteractiveComponentSize())
@@ -408,7 +415,7 @@ fun ToolStepProgress(
                         isCurrent -> MaterialTheme.colorScheme.primaryContainer
                         else -> MaterialTheme.colorScheme.surfaceContainerHigh
                     }
-                    Column(modifier = Modifier.weight(1f, fill = true), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.xxxs)) {
+                    Column(modifier = Modifier.weight(1f, fill = true), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                         Surface(shape = RoundedCornerShape(100.dp), color = containerColor) {
                             Text(text = "${index + 1}", style = MaterialTheme.typography.labelSmall.copy(color = textColor), modifier = Modifier.padding(10.dp))
                         }

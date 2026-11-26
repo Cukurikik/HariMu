@@ -4,11 +4,13 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import androidx.activity.result.ActivityResultContract
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.ToolInput
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
@@ -153,16 +155,12 @@ object ToolMimeTypes {
  * PickVisualMedia contract helpers for Compose.
  */
 object ToolPickContracts {
-    fun singleImage(): ActivityResultContracts.PickVisualMedia = ActivityResultContracts.PickVisualMedia(
-        ActivityResultContracts.PickVisualMedia.ImageOnly
-    )
+    fun singleImage(): ActivityResultContracts.PickVisualMedia = ActivityResultContracts.PickVisualMedia()
 
     fun multipleImages(maxItems: Int = 20): ActivityResultContracts.PickMultipleVisualMedia =
         ActivityResultContracts.PickMultipleVisualMedia(maxItems)
 
-    fun singleVideo(): ActivityResultContracts.PickVisualMedia = ActivityResultContracts.PickVisualMedia(
-        ActivityResultContracts.PickVisualMedia.VideoOnly
-    )
+    fun singleVideo(): ActivityResultContracts.PickVisualMedia = ActivityResultContracts.PickVisualMedia()
 
     fun multipleVideos(maxItems: Int = 8): ActivityResultContracts.PickMultipleVisualMedia =
         ActivityResultContracts.PickMultipleVisualMedia(maxItems)
@@ -177,14 +175,14 @@ object ToolPickContracts {
      * Creates the appropriate PickVisualMedia request for an InputSpec.
      */
     fun createPickRequest(spec: InputSpec): ActivityResultContracts.PickVisualMedia? = when (spec) {
-        InputSpec.SingleImage -> ActivityResultContracts.PickVisualMedia(ActivityResultContracts.PickVisualMedia.ImageOnly)
-        InputSpec.MultipleImages -> ActivityResultContracts.PickVisualMedia(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        InputSpec.SingleImage,
+        InputSpec.MultipleImages,
         InputSpec.SingleVideo,
+        InputSpec.MultipleVideos,
         InputSpec.VideoAndAudio,
         InputSpec.VideoAndImage,
         InputSpec.VideoAndSubtitle,
-        InputSpec.VideoAndMedia -> ActivityResultContracts.PickVisualMedia(ActivityResultContracts.PickVisualMedia.VideoOnly)
-        InputSpec.MultipleVideos -> ActivityResultContracts.PickVisualMedia(ActivityResultContracts.PickVisualMedia.VideoOnly)
+        InputSpec.VideoAndMedia -> ActivityResultContracts.PickVisualMedia()
         else -> null
     }
 

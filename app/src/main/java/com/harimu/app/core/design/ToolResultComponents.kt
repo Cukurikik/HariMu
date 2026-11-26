@@ -8,30 +8,39 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Image as FilledImage
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
@@ -63,16 +72,19 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.harimu.app.R
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolResult
+import com.harimu.app.feature.toolscreen.WaveformView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,18 +148,20 @@ private fun ImageResultPreview(output: ToolOutputFile, modifier: Modifier) {
 @Composable
 private fun VideoResultPreview(output: ToolOutputFile, modifier: Modifier) {
     val context = LocalContext.current
-    var exoPlayer by remember(output.file.toUri()) {
-        mutableStateOf(
-            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                setMediaItem(androidx.media3.common.MediaItem.fromUri(output.file.toUri()))
-                prepare()
-            }
-        )
+    val exoPlayer = remember(output.file.toUri()) {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(output.file.toUri()))
+            prepare()
+        }
     }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
 
     DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+        }
+        exoPlayer.addListener(listener)
+        onDispose { exoPlayer.removeListener(listener); exoPlayer.release() }
     }
 
     Card(
@@ -191,13 +205,11 @@ private fun VideoResultPreview(output: ToolOutputFile, modifier: Modifier) {
 private fun AudioResultPreview(output: ToolOutputFile, modifier: Modifier) {
     val context = LocalContext.current
     var peaks by remember(output.file.toUri()) { mutableStateOf<List<Float>>(emptyList()) }
-    var exoPlayer by remember(output.file.toUri()) {
-        mutableStateOf(
-            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                setMediaItem(androidx.media3.common.MediaItem.fromUri(output.file.toUri()))
-                prepare()
-            }
-        )
+    val exoPlayer = remember(output.file.toUri()) {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(output.file.toUri()))
+            prepare()
+        }
     }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
     var currentPosMs by remember(exoPlayer) { mutableStateOf(0L) }
@@ -314,16 +326,16 @@ private fun TextResultPreview(output: ToolOutputFile, modifier: Modifier) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.foundation.text.BasicTextField(
+            BasicTextField(
                 value = text,
                 onValueChange = {},
                 modifier = Modifier
                     .fillMaxWidth()
-                    .minLines(8)
-                    .maxLines(20)
-                    .padding(8.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .padding(8.dp),
+                minLines = 8,
+                maxLines = 20,
                 singleLine = false,
                 readOnly = true,
                 textStyle = MonoTextStyle
@@ -404,10 +416,11 @@ fun ToolResultCard(
         result.textOutput?.let { textOutput ->
             Spacer(modifier = Modifier.height(spacing.sm))
             OutlinedButton(
-                onClick = { actions.onCopyText?.invoke(textOutput) },
-                icon = { Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                onClick = { actions.onCopyText?.invoke(textOutput) }
             ) {
-                Text(stringResource(R.string.action_copy_text))
+                Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(spacing.xs))
+                Text(stringResource(R.string.action_copy))
             }
         }
 
@@ -438,7 +451,7 @@ fun ToolResultCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ResultActionBar(
     output: ToolOutputFile,
@@ -511,6 +524,8 @@ private fun ResultActionBar(
     }
 }
 
+enum class ResultAction { Open, Share, Save, Delete, Details }
+
 /**
  * Multi-file result card for tools producing multiple outputs.
  */
@@ -523,8 +538,6 @@ fun ToolMultiResultCard(
     onItemAction: ((ToolOutputFile, ResultAction) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    enum class ResultAction { Open, Share, Save, Delete, Details }
-
     HariMuSectionCard(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.sm)) {
             Text(text = stringResource(R.string.result_output_files, outputs.size), style = MaterialTheme.typography.titleSmall)
@@ -564,14 +577,12 @@ private fun ResultItemRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(12.dp),
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {

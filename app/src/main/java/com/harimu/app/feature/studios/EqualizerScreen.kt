@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -48,10 +49,13 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,16 +88,21 @@ import com.harimu.app.core.design.ParamDropdown
 import com.harimu.app.core.design.ProgressSheet
 import com.harimu.app.core.design.ResultCard
 import com.harimu.app.core.design.ThemeMode
+import com.harimu.app.core.design.audio.AudioTimelineMath
 import com.harimu.app.core.media.AudioBatch2Math
 import com.harimu.app.core.media.AudioToolMath
+import com.harimu.app.core.media.AudioWaveformExtractor
 import com.harimu.app.core.media.DefaultAudioEncoderCapabilities
 import com.harimu.app.core.media.MediaJob
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolResult
 import com.harimu.app.feature.toolscreen.AudioBeforeAfterPreviewCard
+import com.harimu.app.feature.toolscreen.WaveformView
+import com.harimu.app.feature.toolscreen.uploadToCloud
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -120,6 +129,9 @@ fun EqualizerScreen(
 
     val fxController = remember { EqualizerFxController() }
     var fxStatus by remember { mutableStateOf(EqLiveEngineStatus()) }
+    var waveformPeaks by remember { mutableStateOf<List<Float>>(emptyList()) }
+    var waveDurationMs by remember { mutableLongStateOf(0L) }
+    var currentPosMs by remember { mutableLongStateOf(0L) }
 
     var exportFormat by remember { mutableStateOf("MP3") }
     var exportJob by remember { mutableStateOf<Job?>(null) }
@@ -129,6 +141,29 @@ fun EqualizerScreen(
 
     val savedToast = stringResource(R.string.toast_saved)
     val saveFailedToast = stringResource(R.string.toast_save_failed)
+
+    LaunchedEffect(selectedUri) {
+        val uri = selectedUri
+        if (uri == null) {
+            waveformPeaks = emptyList()
+            waveDurationMs = 0L
+            currentPosMs = 0L
+        } else {
+            val wave = AudioWaveformExtractor.extractPeaks(context, uri, barCount = 96)
+            waveformPeaks = wave.peaks
+            waveDurationMs = wave.durationMs
+        }
+    }
+
+    LaunchedEffect(isPlaying, selectedUri) {
+        while (isPlaying) {
+            currentPosMs = fxController.currentPositionMs
+            if (fxController.durationMs > 0L) {
+                waveDurationMs = fxController.durationMs
+            }
+            delay(120L)
+        }
+    }
 
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -313,20 +348,16 @@ fun EqualizerScreen(
             )
         }
     ) { padding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
             contentAlignment = Alignment.TopCenter
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 680.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+            val isWide = maxWidth >= 720.dp
+            val totalDurMs = maxOf(fxController.durationMs, waveDurationMs, 1_000L)
+
+            val leftPaneContent: @Composable () -> Unit = {
                 Button(
                     onClick = { audioPicker.launch(arrayOf("audio/*")) },
                     modifier = Modifier
@@ -339,58 +370,74 @@ fun EqualizerScreen(
                     Text(if (selectedName.isEmpty()) stringResource(R.string.eq_pick_audio) else selectedName, maxLines = 1)
                 }
 
-                // Live Playback & Bypass Bar
+                // Live Playback, Waveform Scrubbing & Bypass Bar
                 if (selectedUri != null) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        if (fxController.isLoaded) {
-                                            isPlaying = fxController.togglePlayPause()
-                                        } else {
-                                            selectedUri?.let { uri ->
-                                                fxController.prepareAndPlay(context, uri, bandGains.toList(), preampDb, bypassEq)
-                                                    .onSuccess {
-                                                        fxStatus = it
-                                                        isPlaying = fxController.isPlaying
-                                                    }
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp)
-                                        .testTag("eq_play_pause_button")
-                                ) {
-                                    Icon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = null)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        if (isPlaying) stringResource(R.string.eq_pause_live)
-                                        else stringResource(R.string.eq_play_live)
-                                    )
-                                }
-                            }
+                            WaveformView(
+                                peaks = waveformPeaks,
+                                playheadFraction = (currentPosMs.toFloat() / totalDurMs.toFloat()).coerceIn(0f, 1f),
+                                activeColor = HariMuColors.GroupAudio,
+                                playedColor = HariMuColors.TealEmerald,
+                                onSeekFraction = { frac ->
+                                    val targetMs = (frac * totalDurMs).toLong()
+                                    fxController.seekTo(targetMs)
+                                    currentPosMs = targetMs
+                                },
+                                modifier = Modifier.testTag("eq_waveform_view")
+                            )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(stringResource(R.string.eq_bypass_label), style = MaterialTheme.typography.bodyMedium)
-                                Switch(
-                                    checked = bypassEq,
-                                    onCheckedChange = { checked ->
-                                        bypassEq = checked
-                                        pushLiveParameters()
-                                    },
-                                    modifier = Modifier.testTag("eq_bypass_switch")
+                                Text(
+                                    text = "${AudioTimelineMath.formatDurationMs(currentPosMs)} / ${AudioTimelineMath.formatDurationMs(totalDurMs)}",
+                                    style = MonoTextStyle,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(stringResource(R.string.eq_bypass_label), style = MaterialTheme.typography.bodyMedium)
+                                    Switch(
+                                        checked = bypassEq,
+                                        onCheckedChange = { checked ->
+                                            bypassEq = checked
+                                            pushLiveParameters()
+                                        },
+                                        modifier = Modifier.testTag("eq_bypass_switch")
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    if (fxController.isLoaded) {
+                                        isPlaying = fxController.togglePlayPause()
+                                    } else {
+                                        selectedUri?.let { uri ->
+                                            fxController.prepareAndPlay(context, uri, bandGains.toList(), preampDb, bypassEq)
+                                                .onSuccess {
+                                                    fxStatus = it
+                                                    isPlaying = fxController.isPlaying
+                                                }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("eq_play_pause_button")
+                            ) {
+                                Icon(if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    if (isPlaying) stringResource(R.string.eq_pause_live)
+                                    else stringResource(R.string.eq_play_live)
                                 )
                             }
                         }
@@ -420,12 +467,15 @@ fun EqualizerScreen(
                                     }
                                     pushLiveParameters()
                                 },
-                                label = { Text(if (isEnglish) preset.labelEn else preset.labelId) }
+                                label = { Text(if (isEnglish) preset.labelEn else preset.labelId) },
+                                modifier = Modifier.minimumInteractiveComponentSize()
                             )
                         }
                     }
                 }
+            }
 
+            val rightPaneContent: @Composable () -> Unit = {
                 // 10-Band EQ Sliders + Preamp
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -609,6 +659,9 @@ fun EqualizerScreen(
                                         safSaveLauncher.launch(out.displayName)
                                     }
                                 }
+                            },
+                            onUploadToCloud = outFile?.let { out ->
+                                { uploadToCloud(out, container, settings, scope, context, isEnglish) }
                             }
                         ) {
                             prog.result.textOutput?.let { txt ->
@@ -625,6 +678,44 @@ fun EqualizerScreen(
                         }
                     }
                     null -> Unit
+                }
+            }
+
+            if (isWide) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        leftPaneContent()
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        rightPaneContent()
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 680.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    leftPaneContent()
+                    rightPaneContent()
                 }
             }
         }

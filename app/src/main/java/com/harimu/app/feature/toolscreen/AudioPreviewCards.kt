@@ -51,6 +51,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -67,6 +71,7 @@ import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.HariMuTheme
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ThemeMode
+import com.harimu.app.core.design.audio.WaveformOverlaySpec
 import com.harimu.app.core.media.AudioWaveformExtractor
 import com.harimu.app.core.media.FfmpegProgressParser
 import com.harimu.app.core.media.MediaProbe
@@ -76,6 +81,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.sin
 
 @Composable
@@ -89,6 +95,8 @@ fun WaveformView(
     activeColor: Color = HariMuColors.ElectricOrange,
     playedColor: Color = HariMuColors.TealEmerald,
     inactiveColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f),
+    overlaySpec: WaveformOverlaySpec = WaveformOverlaySpec.None,
+    overlayDurationSec: Float = 30f,
     onSeekFraction: ((Float) -> Unit)? = null
 ) {
     val safePeaks = if (peaks.isEmpty()) List(64) { 0.2f } else peaks
@@ -169,6 +177,74 @@ fun WaveformView(
                 )
             }
 
+            when (overlaySpec) {
+                is WaveformOverlaySpec.FadeEnvelope -> {
+                    val safeDur = overlayDurationSec.coerceAtLeast(1f)
+                    val inFrac = (overlaySpec.fadeInSec / safeDur).coerceIn(0f, 0.45f)
+                    val outFrac = (overlaySpec.fadeOutSec / safeDur).coerceIn(0f, 0.45f)
+                    val inX = size.width * inFrac
+                    val outX = size.width * (1f - outFrac)
+                    val envPath = Path().apply {
+                        moveTo(0f, centerY)
+                        lineTo(inX, 4f)
+                        lineTo(outX, 4f)
+                        lineTo(size.width, centerY)
+                    }
+                    drawPath(
+                        path = envPath,
+                        color = HariMuColors.TealEmerald,
+                        style = Stroke(width = 3f, cap = StrokeCap.Round)
+                    )
+                }
+
+                is WaveformOverlaySpec.SilenceThreshold -> {
+                    val norm = 10.0.pow((overlaySpec.thresholdDb.coerceIn(-65f, -5f) / 20.0)).toFloat()
+                    val threshHalfH = (norm * maxHalfH * 2.2f).coerceIn(4f, maxHalfH)
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f)
+                    drawLine(
+                        color = HariMuColors.ElectricOrange,
+                        start = Offset(0f, centerY - threshHalfH),
+                        end = Offset(size.width, centerY - threshHalfH),
+                        strokeWidth = 2f,
+                        pathEffect = dash
+                    )
+                    drawLine(
+                        color = HariMuColors.ElectricOrange,
+                        start = Offset(0f, centerY + threshHalfH),
+                        end = Offset(size.width, centerY + threshHalfH),
+                        strokeWidth = 2f,
+                        pathEffect = dash
+                    )
+                }
+
+                is WaveformOverlaySpec.SplitMarkers -> {
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f)
+                    overlaySpec.splitFractions.forEach { frac ->
+                        val mx = (size.width * frac.coerceIn(0.02f, 0.98f))
+                        drawLine(
+                            color = HariMuColors.ElectricOrange,
+                            start = Offset(mx, 0f),
+                            end = Offset(mx, size.height),
+                            strokeWidth = 2.5f,
+                            pathEffect = dash
+                        )
+                    }
+                }
+
+                is WaveformOverlaySpec.NoiseFloor -> {
+                    val floorNorm = 10.0.pow((overlaySpec.noiseFloorDb.coerceIn(-75f, -15f) / 20.0)).toFloat()
+                    val floorHalfH = (floorNorm * maxHalfH * 2.0f).coerceIn(4f, maxHalfH * 0.7f)
+                    val alpha = (0.14f + (overlaySpec.strengthPct.coerceIn(0f, 100f) / 100f) * 0.18f)
+                    drawRect(
+                        color = HariMuColors.TealEmerald.copy(alpha = alpha),
+                        topLeft = Offset(0f, centerY - floorHalfH),
+                        size = Size(size.width, floorHalfH * 2f)
+                    )
+                }
+
+                WaveformOverlaySpec.None -> Unit
+            }
+
             val headX = (size.width * clampedPlayhead).coerceIn(1.5f, (size.width - 1.5f).coerceAtLeast(1.5f))
             drawLine(
                 color = playheadLineColor,
@@ -188,7 +264,8 @@ fun AudioBeforeAfterPreviewCard(
     startSec: Float,
     endSec: Float,
     onRangeChange: (Float, Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    overlaySpec: WaveformOverlaySpec = WaveformOverlaySpec.None
 ) {
     val context = LocalContext.current
     val outputUri = remember(outputFile) { outputFile?.toUri() }
@@ -358,6 +435,8 @@ fun AudioBeforeAfterPreviewCard(
                 showTrimWindow = isTrimActiveOnCurrent,
                 trimStartFraction = (clampedStart / totalSec).coerceIn(0f, 1f),
                 trimEndFraction = (effectiveEnd / totalSec).coerceIn(0f, 1f),
+                overlaySpec = if (selectedAfter) WaveformOverlaySpec.None else overlaySpec,
+                overlayDurationSec = totalSec,
                 onSeekFraction = { frac ->
                     val targetMs = (frac * totalDurationMs).toLong()
                     exoPlayer.seekTo(targetMs)

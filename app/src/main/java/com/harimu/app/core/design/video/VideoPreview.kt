@@ -3,17 +3,23 @@ package com.harimu.app.core.design.video
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -22,12 +28,16 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -41,19 +51,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.getCustomActions
-import androidx.compose.ui.semantics.onClickLabel
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.toDp
 import androidx.core.net.toUri
-import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -61,10 +64,9 @@ import androidx.media3.ui.compose.ContentFrame
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.MonoTextStyle
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,15 +97,14 @@ fun VideoPreview(
 
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
     var currentPosMs by remember(exoPlayer) { mutableLongStateOf(trimStartMs) }
-    var bufferedPercentage by remember { mutableStateOf(0f) }
+    var bufferedPercentage by remember { mutableFloatStateOf(0f) }
     var showControls by remember { mutableStateOf(true) }
-    var controlsHideJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val effectiveStartMs = trimStartMs.coerceAtLeast(0L)
     val effectiveEndMs = trimEndMs.coerceAtLeast(effectiveStartMs + 250L).coerceAtMost(durationMs)
     val effectiveDurationMs = (effectiveEndMs - effectiveStartMs).coerceAtLeast(250L)
 
-    androidx.compose.runtime.DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
@@ -114,13 +115,7 @@ fun VideoPreview(
                 // Speed changed
             }
 
-            override fun onBufferedPositionChanged(bufferedPosition: Long) {
-                if (durationMs > 0) {
-                    bufferedPercentage = (bufferedPosition.toFloat() / durationMs).coerceIn(0f, 1f)
-                }
-            }
-
-            override fun onPlayerError(error: com.harimu.app.core.media.MediaError) {
+            override fun onPlayerError(error: PlaybackException) {
                 // Error handling via UI state
             }
         }
@@ -131,13 +126,16 @@ fun VideoPreview(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(exoPlayer, speed) {
+    LaunchedEffect(exoPlayer, speed) {
         exoPlayer.playbackParameters = PlaybackParameters(speed.coerceIn(0.25f, 4.0f))
     }
 
-    androidx.compose.runtime.LaunchedEffect(exoPlayer, isPlaying, effectiveStartMs, effectiveEndMs) {
+    LaunchedEffect(exoPlayer, isPlaying, effectiveStartMs, effectiveEndMs) {
         while (true) {
             currentPosMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+            if (durationMs > 0) {
+                bufferedPercentage = (exoPlayer.bufferedPosition.toFloat() / durationMs).coerceIn(0f, 1f)
+            }
             val clampedPos = currentPosMs.coerceIn(effectiveStartMs, effectiveEndMs)
             if (clampedPos != currentPosMs) {
                 currentPosMs = clampedPos
@@ -152,15 +150,10 @@ fun VideoPreview(
     }
 
     // Auto-hide controls
-    androidx.compose.runtime.LaunchedEffect(isPlaying, showControls) {
+    LaunchedEffect(isPlaying, showControls) {
         if (isPlaying && showControls) {
-            controlsHideJob?.cancel()
-            controlsHideJob = kotlinx.coroutines.launch(lifecycleScope) {
-                delay(3000L)
-                showControls = false
-            }
-        } else {
-            controlsHideJob?.cancel()
+            delay(3000L)
+            showControls = false
         }
     }
 
@@ -193,7 +186,7 @@ fun VideoPreview(
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(bufferedPercentage)
+                        .fillMaxWidth(bufferedPercentage)
                         .background(Color.White.copy(alpha = 0.6f))
                 )
             }
@@ -206,7 +199,7 @@ fun VideoPreview(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.01f))
                     .clip(RoundedCornerShape(12.dp))
-                    .onClick { showControls = !showControls }
+                    .clickable { showControls = !showControls }
             ) {
                 // Bottom controls
                 Column(
@@ -214,17 +207,13 @@ fun VideoPreview(
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .padding(12.dp),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Seek bar with trim handles
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        androidx.compose.material3.Slider(
+                        Slider(
                             value = (currentPosMs / 1000f).coerceIn(startSec, endSec),
                             onValueChange = { newSec ->
-                                val newMs = (newSec * 1000f).roundToLong()
-                                exoPlayer.seekTo(newMs.coerceIn(effectiveStartMs, effectiveEndMs))
-                            },
-                            onValueChangeFinished = { newSec ->
                                 val newMs = (newSec * 1000f).roundToLong()
                                 exoPlayer.seekTo(newMs.coerceIn(effectiveStartMs, effectiveEndMs))
                             },
@@ -240,28 +229,29 @@ fun VideoPreview(
 
                         // Trim handle markers
                         if (showTrimHandles && effectiveDurationMs > 0) {
-                            val startX = (startSec / maxSec)
-                            val endX = (endSec / maxSec)
-                            Box(
+                            val startX = (startSec / maxSec).coerceIn(0f, 1f)
+                            val endX = (endSec / maxSec).coerceIn(0f, 1f)
+                            BoxWithConstraints(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(24.dp)
                                     .align(Alignment.TopCenter)
                             ) {
+                                val trackWidth = (maxWidth - 2.dp).coerceAtLeast(0.dp)
                                 // Start trim handle
                                 Box(
                                     modifier = Modifier
+                                        .offset(x = trackWidth * startX)
                                         .width(2.dp)
                                         .fillMaxHeight()
-                                        .graphicsLayer { translationX = (startX * this.width).coerceIn(0f, this.width - 2f) }
                                         .background(HariMuColors.ElectricOrange)
                                 )
                                 // End trim handle
                                 Box(
                                     modifier = Modifier
+                                        .offset(x = trackWidth * endX)
                                         .width(2.dp)
                                         .fillMaxHeight()
-                                        .graphicsLayer { translationX = (endX * this.width).coerceIn(0f, this.width - 2f) }
                                         .background(HariMuColors.ElectricOrange)
                                 )
                             }
@@ -286,7 +276,7 @@ fun VideoPreview(
                     // Playback controls
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -295,10 +285,9 @@ fun VideoPreview(
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
                                 contentColor = Color.White
-                            ),
-                            contentDescription = stringResource(R.string.video_cd_rewind_10)
+                            )
                         ) {
-                            androidx.compose.material.Icon(Icons.Filled.Replay10, contentDescription = null, tint = Color.White)
+                            Icon(Icons.Filled.Replay10, contentDescription = stringResource(R.string.video_cd_rewind_10), tint = Color.White)
                         }
                         IconButton(
                             onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 5_000).coerceAtLeast(effectiveStartMs)) },
@@ -306,10 +295,9 @@ fun VideoPreview(
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
                                 contentColor = Color.White
-                            ),
-                            contentDescription = stringResource(R.string.video_cd_rewind_5)
+                            )
                         ) {
-                            androidx.compose.material.Icon(Icons.Filled.SkipPrevious, contentDescription = null, tint = Color.White)
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = stringResource(R.string.video_cd_rewind_5), tint = Color.White)
                         }
                         IconButton(
                             onClick = {
@@ -326,12 +314,11 @@ fun VideoPreview(
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = HariMuColors.ElectricOrange.copy(alpha = 0.9f),
                                 contentColor = Color.White
-                            ),
-                            contentDescription = if (isPlaying) stringResource(R.string.video_cd_pause) else stringResource(R.string.video_cd_play)
+                            )
                         ) {
-                            androidx.compose.material.Icon(
+                            Icon(
                                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = null,
+                                contentDescription = if (isPlaying) stringResource(R.string.action_pause) else stringResource(R.string.action_resume),
                                 tint = Color.White
                             )
                         }
@@ -341,10 +328,9 @@ fun VideoPreview(
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
                                 contentColor = Color.White
-                            ),
-                            contentDescription = stringResource(R.string.video_cd_forward_5)
+                            )
                         ) {
-                            androidx.compose.material.Icon(Icons.Filled.SkipNext, contentDescription = null, tint = Color.White)
+                            Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.video_cd_forward_5), tint = Color.White)
                         }
                         IconButton(
                             onClick = { exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(effectiveEndMs)) },
@@ -352,10 +338,9 @@ fun VideoPreview(
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
                                 contentColor = Color.White
-                            ),
-                            contentDescription = stringResource(R.string.video_cd_forward_10)
+                            )
                         ) {
-                            androidx.compose.material.Icon(Icons.Filled.Replay10, contentDescription = null, tint = Color.White)
+                            Icon(Icons.Filled.Replay10, contentDescription = stringResource(R.string.video_cd_forward_10), tint = Color.White)
                         }
                     }
 
@@ -428,20 +413,20 @@ fun VideoPreviewPlaceholder(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
             ) {
-                androidx.compose.material.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Filled.MovieCreation,
+                Icon(
+                    imageVector = Icons.Filled.MovieCreation,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = 0.5f),
                     modifier = Modifier.size(48.dp)
                 )
                 Text(
                     text = title,
-                    style = androidx.compose.material3.Typography().titleMedium.copy(color = Color.White.copy(alpha = 0.7f))
+                    style = MaterialTheme.typography.titleMedium.copy(color = Color.White.copy(alpha = 0.7f))
                 )
                 Text(
                     text = subtitle,
-                    style = androidx.compose.material3.Typography().bodySmall.copy(color = Color.White.copy(alpha = 0.5f)),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.5f)),
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
             }

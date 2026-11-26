@@ -62,9 +62,11 @@ import com.harimu.app.feature.nusantara.WeatherScreen
 import com.harimu.app.feature.prayer.PrayerTimesScreen
 import com.harimu.app.feature.settings.OpenSourceLicensesScreen
 import com.harimu.app.feature.settings.SettingsScreen
+import com.harimu.app.feature.studios.AudioForgeScreen
 import com.harimu.app.feature.studios.AudioStudioScreen
 import com.harimu.app.feature.studios.BackupScreen
 import com.harimu.app.feature.studios.EqualizerScreen
+import com.harimu.app.feature.studios.ImageForgeScreen
 import com.harimu.app.feature.studios.ImageMatrixScreen
 import com.harimu.app.feature.studios.KeyVaultScreen
 import com.harimu.app.feature.studios.ScreenRecorderScreen
@@ -91,7 +93,9 @@ import java.util.Locale
 @Serializable data object ScreenRecorderRoute
 @Serializable data object VideoEditorRoute
 @Serializable data object VideoForgeRoute
+@Serializable data object ImageForgeRoute
 @Serializable data object ImageMatrixRoute
+@Serializable data object AudioForgeRoute
 @Serializable data object EqualizerRoute
 @Serializable data object AudioStudioRoute
 @Serializable data object KeyVaultRoute
@@ -271,11 +275,10 @@ private fun HariMuRoot(
                         recentToolIds = historyItems.map { it.toolId },
                         onOpenTool = ::openTool,
                         onOpenGroup = { group ->
-                            // The Nusantara group has a dedicated hub; other groups open the catalog.
-                            if (group == ToolGroup.NUSANTARA) {
-                                navController.navigate(NusantaraRoute)
-                            } else {
-                                navController.navigate(CatalogRoute(group.name))
+                            when (group) {
+                                ToolGroup.NUSANTARA -> navController.navigate(NusantaraRoute)
+                                ToolGroup.AUDIO -> navController.navigate(AudioForgeRoute)
+                                else -> navController.navigate(CatalogRoute(group.name))
                             }
                         },
                         onToggleFavorite = { id ->
@@ -324,7 +327,10 @@ private fun HariMuRoot(
                             { navController.popBackStack() }
                         } else {
                             null
-                        }
+                        },
+                        onOpenAudioForge = { navController.navigate(AudioForgeRoute) },
+                        onOpenImageForge = { navController.navigate(ImageForgeRoute) },
+                        onOpenImageMatrix = { navController.navigate(ImageMatrixRoute) }
                     )
                 }
                 composable<ToolRoute> { entry ->
@@ -347,19 +353,48 @@ private fun HariMuRoot(
                     ScreenRecorderScreen(container, settings.isEnglish) { navController.popBackStack() }
                 }
                 composable<VideoEditorRoute> {
-                    VideoEditorScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    VideoEditorScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = { toolId -> navController.navigate(ToolRoute(toolId)) },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<VideoForgeRoute> {
                     VideoForgeScreen(container, settings.isEnglish) { navController.popBackStack() }
                 }
+                composable<ImageForgeRoute> {
+                    ImageForgeScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = ::openTool,
+                        onOpenImageMatrix = { navController.navigate(ImageMatrixRoute) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
                 composable<ImageMatrixRoute> {
                     ImageMatrixScreen(container, settings.isEnglish) { navController.popBackStack() }
+                }
+                composable<AudioForgeRoute> {
+                    AudioForgeScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = ::openTool,
+                        onOpenAudioStudio = { navController.navigate(AudioStudioRoute) },
+                        onOpenEqualizer = { navController.navigate(EqualizerRoute) },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<EqualizerRoute> {
                     EqualizerScreen(container, settings.isEnglish) { navController.popBackStack() }
                 }
                 composable<AudioStudioRoute> {
-                    AudioStudioScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    AudioStudioScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = { toolId -> navController.navigate(ToolRoute(toolId)) },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<KeyVaultRoute> {
                     KeyVaultScreen(container, settings.isEnglish) { navController.popBackStack() }

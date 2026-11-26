@@ -73,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -83,7 +84,8 @@ import com.harimu.app.core.design.EngineBadge
 import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
-import com.harimu.app.core.design.ProgressSheet
+import com.harimu.app.core.design.ProgressCallbacks
+import com.harimu.app.core.design.ResultActions
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.ToolFileSelector
 import com.harimu.app.core.design.ToolInputPreview
@@ -91,8 +93,11 @@ import com.harimu.app.core.design.ToolParameterPanel
 import com.harimu.app.core.design.ToolProgressView
 import com.harimu.app.core.design.ToolProgressState
 import com.harimu.app.core.design.ToolResultCard
-import com.harimu.app.core.design.ToolResultSummary
 import com.harimu.app.core.design.accentColor
+import com.harimu.app.core.design.audio.AudioForgeToolPreviewSection
+import com.harimu.app.core.design.audio.resolveWaveformOverlaySpec
+import com.harimu.app.core.design.image.ImageForgeToolPreviewSection
+import com.harimu.app.core.design.toProgressState
 import com.harimu.app.core.media.Id3TagHelper
 import com.harimu.app.core.pdf.PdfVaultEngine
 import com.harimu.app.core.toolapi.InputSpec
@@ -101,7 +106,6 @@ import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolResult
-import com.harimu.app.feature.toolscreen.ToolViewModel.ToolUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -121,7 +125,10 @@ fun ToolScreen(
     val layout = HariMuThemeTokens.layout
     val scope = rememberCoroutineScope()
     var showUploadConsent by remember { mutableStateOf(false) }
-    val vm: ToolViewModel = viewModel(factory = ToolViewModel.Factory(toolId, container))
+    val vm: ToolViewModel = viewModel(
+        key = "tool_$toolId",
+        factory = ToolViewModel.Factory(toolId, container)
+    )
     LaunchedEffect(context) { vm.bindContext(context) }
 
     val state by vm.state.collectAsStateWithLifecycle()
@@ -309,6 +316,7 @@ fun ToolScreen(
                     tool = tool,
                     state = state,
                     vm = vm,
+                    container = container,
                     isEnglish = isEnglish
                 )
 
@@ -362,7 +370,9 @@ fun ToolScreen(
                 if (state.progress is ToolProgress.Done) {
                     val doneProgress = state.progress as ToolProgress.Done
                     DetailedResultView(
+                        toolId = tool.id,
                         result = doneProgress.result,
+                        context = context,
                         container = container,
                         settings = settings,
                         pendingExportFile = { pendingExportFile = it },
@@ -387,9 +397,9 @@ fun ToolScreen(
 
 data class Pickers(
     val singleImagePicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val multiImagePicker: androidx.activity.result.ActivityResultLauncher<Array<Uri>>,
+    val multiImagePicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
     val singleVideoPicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val multiVideoPicker: androidx.activity.result.ActivityResultLauncher<Array<Uri>>,
+    val multiVideoPicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
     val singleDocPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     val multiDocPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     val secondaryAudioPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
@@ -489,6 +499,7 @@ fun SpecializedPreviews(
     tool: com.harimu.app.core.toolapi.Tool,
     state: ToolUiState,
     vm: ToolViewModel,
+    container: AppContainer,
     isEnglish: Boolean
 ) {
     // Video safety warnings
@@ -560,6 +571,18 @@ fun SpecializedPreviews(
         )
     }
 
+    // Visual previews for Image Forge tools (crop, canvas expander, straighten, bokeh, flare, overlays, LUT, format support)
+    if (tool.group == ToolGroup.IMAGE && !tool.isStub) {
+        ImageForgeToolPreviewSection(
+            toolId = tool.id,
+            selectedUris = state.selectedUris,
+            textInput = state.textInput,
+            params = state.paramValues,
+            onParamChange = { key, value -> vm.setParam(key, value) },
+            isEnglish = isEnglish
+        )
+    }
+
     // PDF page picker
     if (tool.group == ToolGroup.PDF && !tool.isStub &&
         state.selectedUris.isNotEmpty() &&
@@ -588,7 +611,7 @@ fun SpecializedPreviews(
         }
     }
 
-    // Audio preview
+    // Audio preview + Audio Forge visual cards
     val isSingleAudioSpec = tool.inputSpec == InputSpec.SingleAudio ||
         tool.inputSpec == InputSpec.AudioAndImage ||
         tool.inputSpec == InputSpec.AudioAndWatermarkAudio
@@ -596,6 +619,9 @@ fun SpecializedPreviews(
         ?.result
         ?.outputs
         ?.firstOrNull { it.mimeType.startsWith("audio/") }
+    val audioOverlaySpec = remember(tool.id, state.paramValues) {
+        resolveWaveformOverlaySpec(tool.id, state.paramValues)
+    }
     val showAudioCard = !tool.isStub && (
         (isSingleAudioSpec && state.selectedUris.isNotEmpty()) ||
             (tool.group == ToolGroup.AUDIO && doneAudioOutput != null)
@@ -607,10 +633,19 @@ fun SpecializedPreviews(
             showTrimControls = tool.id == "AUD-09",
             startSec = (state.paramValues["startSec"] as? Number)?.toFloat() ?: 0f,
             endSec = (state.paramValues["endSec"] as? Number)?.toFloat() ?: 15f,
+            overlaySpec = audioOverlaySpec,
             onRangeChange = { newStart, newEnd ->
                 vm.setParam("startSec", newStart)
                 vm.setParam("endSec", newEnd)
             }
+        )
+    }
+    if (tool.group == ToolGroup.AUDIO && !tool.isStub) {
+        AudioForgeToolPreviewSection(
+            toolId = tool.id,
+            params = state.paramValues,
+            secondaryUri = state.secondaryUri,
+            isEnglish = isEnglish
         )
     }
 }
@@ -681,7 +716,9 @@ fun UploadConsentDialog(
 
 @Composable
 fun DetailedResultView(
+    toolId: String,
     result: ToolResult,
+    context: Context,
     container: AppContainer,
     settings: AppSettings,
     pendingExportFile: (ToolOutputFile) -> Unit,
@@ -695,17 +732,16 @@ fun DetailedResultView(
     isEnglish: Boolean
 ) {
     val firstOut = result.outputs.firstOrNull()
-    val primaryOutput = firstOut
 
     ToolResultCard(
         result = result,
         storage = container.storage,
         actions = ResultActions(
-            onOpen = firstOut?.let { out -> { openFile(out, container.storage, container) } },
-            onShare = firstOut?.let { out -> { shareFile(out, container.storage, container) } },
-            onSave = firstOut?.let { out -> { saveFile(out, container.storage, settings, scope, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher) } },
-            onUploadToCloud = firstOut?.let { out -> { uploadToCloud(out, container, settings, scope, isEnglish) } },
-            onCopyText = { txt -> copyText(txt, container, copiedToast) }
+            onOpen = firstOut?.let { out -> { openFile(out, container.storage, context) } },
+            onShare = firstOut?.let { out -> { shareFile(out, container.storage, context) } },
+            onSave = firstOut?.let { out -> { saveFile(out, container.storage, settings, scope, context, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher) } },
+            onUploadToCloud = firstOut?.let { out -> { uploadToCloud(out, container, settings, scope, context, isEnglish) } },
+            onCopyText = { txt -> copyText(txt, context, copiedToast) }
         ),
         showPreview = false // We'll show custom previews below
     )
@@ -714,7 +750,7 @@ fun DetailedResultView(
     if (result.outputs.isNotEmpty()) {
         result.outputs.forEach { out ->
             when {
-                out.mimeType.startsWith("video/") && tool.id == "AUD-28" -> {
+                out.mimeType.startsWith("video/") && toolId == "AUD-28" -> {
                     VideoTrimPreviewCard(
                         videoUri = out.file.toUri(),
                         showTrimStrip = false,
@@ -752,7 +788,7 @@ fun DetailedResultView(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.label_output), style = MaterialTheme.typography.labelMedium)
-                    IconButton(onClick = { copyText(txt, container, copiedToast) }) {
+                    IconButton(onClick = { copyText(txt, context, copiedToast) }) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.action_copy), modifier = Modifier.size(18.dp))
                     }
                 }
@@ -778,6 +814,7 @@ fun saveFile(
     storage: com.harimu.app.core.files.FileStorageManager,
     settings: AppSettings,
     scope: kotlinx.coroutines.CoroutineScope,
+    context: Context,
     savedToast: String,
     saveFailedToast: String,
     pendingExportFile: (ToolOutputFile) -> Unit,
@@ -789,7 +826,7 @@ fun saveFile(
             val savedUri = storage.saveToTreeUri(source = output.file, treeUri = defaultTreeUri.toUri(), mimeType = output.mimeType)
             withContext(Dispatchers.Main) {
                 if (savedUri != null) {
-                    Toast.makeText(LocalContext.current, savedToast, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
                 } else {
                     pendingExportFile(output)
                     safSaveLauncher.launch(output.displayName)
@@ -807,13 +844,14 @@ fun uploadToCloud(
     container: AppContainer,
     settings: AppSettings,
     scope: kotlinx.coroutines.CoroutineScope,
+    context: Context,
     isEnglish: Boolean
 ) {
     scope.launch(Dispatchers.IO) {
         val config = container.cloudStore.load()
         if (!config.isConfigured()) {
             withContext(Dispatchers.Main) {
-                Toast.makeText(LocalContext.current, if (isEnglish) "Configure a cloud connection in Settings first" else "Atur koneksi cloud di Pengaturan dulu", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, if (isEnglish) "Configure a cloud connection in Settings first" else "Atur koneksi cloud di Pengaturan dulu", Toast.LENGTH_LONG).show()
             }
         } else {
             container.uploadQueue.enqueue(output.file, output.mimeType, config.provider)
@@ -822,7 +860,7 @@ fun uploadToCloud(
                 persistConfig = { container.cloudStore.save(it) }
             )
             withContext(Dispatchers.Main) {
-                Toast.makeText(LocalContext.current, if (uploaded > 0) {
+                Toast.makeText(context, if (uploaded > 0) {
                     if (settings.isEnglish) "Uploaded to cloud" else "Terunggah ke cloud"
                 } else {
                     if (settings.isEnglish) "Queued — will retry" else "Masuk antrean — akan dicoba ulang"
@@ -832,8 +870,7 @@ fun uploadToCloud(
     }
 }
 
-fun copyText(text: String, container: AppContainer, copiedToast: String) {
-    val context = LocalContext.current
+fun copyText(text: String, context: Context, copiedToast: String) {
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("HariMu", text))
     Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
 }
@@ -921,6 +958,7 @@ fun buildParamValidators(tool: com.harimu.app.core.toolapi.Tool): Map<String, (A
                     }
                 }
             }
+            is ToolParam.ToggleParam -> Unit
         }
     }
 

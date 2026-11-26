@@ -15,6 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,12 +26,16 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,7 +66,10 @@ fun CatalogScreen(
     favoriteIds: Set<String>,
     onOpenTool: (Tool) -> Unit,
     onToggleFavorite: (String) -> Unit,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onOpenAudioForge: (() -> Unit)? = null,
+    onOpenImageForge: (() -> Unit)? = null,
+    onOpenImageMatrix: (() -> Unit)? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
     val layout = HariMuThemeTokens.layout
@@ -173,13 +183,69 @@ fun CatalogScreen(
             ) {
                 selectedGroup?.let { group ->
                     item {
-                        GroupHeader(
-                            title = stringResource(group.titleRes),
-                            subtitle = stringResource(group.subtitleRes),
-                            toolCount = ToolRegistry.countByGroup(group),
-                            icon = group.icon(),
-                            accent = group.accentColor()
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                            GroupHeader(
+                                title = stringResource(group.titleRes),
+                                subtitle = stringResource(group.subtitleRes),
+                                toolCount = ToolRegistry.countByGroup(group),
+                                icon = group.icon(),
+                                accent = group.accentColor()
+                            )
+                            if (group == ToolGroup.AUDIO && onOpenAudioForge != null) {
+                                OutlinedButton(
+                                    onClick = onOpenAudioForge,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .minimumInteractiveComponentSize()
+                                        .testTag("catalog_open_audio_forge_btn")
+                                ) {
+                                    Icon(Icons.Filled.GraphicEq, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.audio_forge_title))
+                                }
+                            }
+                            if (group == ToolGroup.IMAGE && (onOpenImageForge != null || onOpenImageMatrix != null)) {
+                                androidx.compose.foundation.layout.Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (onOpenImageForge != null) {
+                                        OutlinedButton(
+                                            onClick = onOpenImageForge,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .minimumInteractiveComponentSize()
+                                                .testTag("catalog_open_image_forge_btn")
+                                        ) {
+                                            Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = stringResource(R.string.image_forge_title),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    if (onOpenImageMatrix != null) {
+                                        OutlinedButton(
+                                            onClick = onOpenImageMatrix,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .minimumInteractiveComponentSize()
+                                                .testTag("catalog_open_image_matrix_btn")
+                                        ) {
+                                            Icon(Icons.Filled.Layers, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = stringResource(R.string.image_matrix_title),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 if (filtered.isEmpty()) {

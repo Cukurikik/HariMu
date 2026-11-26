@@ -27,7 +27,7 @@ class VideoForgeScreenTest {
 
     @Test
     fun videoForgeHasAll30ToolsRegistered() {
-        val videoTools = ToolRegistry.getToolsByGroup(ToolGroup.VIDEO)
+        val videoTools = ToolRegistry.byGroup(ToolGroup.VIDEO)
         // Should have exactly 30 VID tools (VID-01 through VID-30)
         // Note: Some IDs might be missing (like VID-07 which is upscaler, implemented in Fase 11)
         // But all 30 should be registered
@@ -69,7 +69,7 @@ class VideoForgeScreenTest {
 
     @Test
     fun videoForgeToolsHaveEngineLabels() {
-        val videoTools = ToolRegistry.getToolsByGroup(ToolGroup.VIDEO)
+        val videoTools = ToolRegistry.byGroup(ToolGroup.VIDEO)
 
         // Count tools by engine label
         val m3ffCount = videoTools.count { it.engineLabel == "M3/FF" }
@@ -89,7 +89,7 @@ class VideoForgeScreenTest {
 
     @Test
     fun videoForgeToolsHaveInputSpecs() {
-        val videoTools = ToolRegistry.getToolsByGroup(ToolGroup.VIDEO)
+        val videoTools = ToolRegistry.byGroup(ToolGroup.VIDEO)
 
         // Verify input specs match expectations
         val singleVideoTools = videoTools.filter { it.inputSpec.toString().contains("SingleVideo") }

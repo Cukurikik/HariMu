@@ -67,7 +67,7 @@ fun FilterPreviewCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Pratinjau filter langsung (GPU)",
+                text = stringResource(R.string.image_preview_filter_title),
                 style = MaterialTheme.typography.titleSmall
             )
             Box(
@@ -86,8 +86,7 @@ fun FilterPreviewCard(
                 )
             }
             Text(
-                text = "Matrix warna identik dengan hasil ekspor. " +
-                    "Blur ${blurRadius}% dan vignette ${vignette}% diterapkan penuh saat ekspor.",
+                text = stringResource(R.string.image_preview_filter_caption, blurRadius, vignette),
                 style = MaterialTheme.typography.bodySmall
             )
         }

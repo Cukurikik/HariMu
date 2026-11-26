@@ -2,6 +2,7 @@ package com.harimu.app.core.design
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,6 +39,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -90,7 +93,7 @@ typealias ParamValidator = (Any) -> ParamValidation
 /**
  * Parameter with validation support.
  */
-data class ValidatedParam<out T>(
+data class ValidatedParam<out T : Any>(
     val param: ToolParam,
     val value: T,
     val validator: ParamValidator? = null
@@ -300,6 +303,8 @@ private fun ValidatedDropdownParam(
                     },
                     shape = HariMuThemeTokens.shapes.chip,
                     colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         selectedContainerColor = if (!validation.isValid)
                             MaterialTheme.colorScheme.errorContainer
                         else
@@ -308,8 +313,6 @@ private fun ValidatedDropdownParam(
                             MaterialTheme.colorScheme.onErrorContainer
                         else
                             MaterialTheme.colorScheme.onPrimaryContainer,
-                        unselectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unselectedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     ),
@@ -343,8 +346,9 @@ private fun ValidatedToggleParam(
             .minimumInteractiveComponentSize()
             .toggleable(
                 value = value,
+                enabled = validation.isValid,
                 role = Role.Switch,
-                onValueChange = if (validation.isValid) { onValueChange(it) } else null
+                onValueChange = { onValueChange(it) }
             )
             .padding(vertical = HariMuThemeTokens.spacing.xxs),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -360,7 +364,7 @@ private fun ValidatedToggleParam(
         Spacer(modifier = Modifier.width(HariMuThemeTokens.spacing.sm))
         Switch(
             checked = value,
-            onCheckedChange = if (validation.isValid) { onValueChange(it) } else null,
+            onCheckedChange = if (validation.isValid) { checked -> onValueChange(checked) } else null,
             enabled = validation.isValid
         )
     }
@@ -485,5 +489,9 @@ object ParamValidators {
 
     fun warnIf(condition: Boolean, warning: String): ParamValidator = { value ->
         if (condition) ParamValidation.Warning(warning) else ParamValidation.Valid
+    }
+
+    fun warnIf(predicate: (Any) -> Boolean, warning: String): ParamValidator = { value ->
+        if (predicate(value)) ParamValidation.Warning(warning) else ParamValidation.Valid
     }
 }

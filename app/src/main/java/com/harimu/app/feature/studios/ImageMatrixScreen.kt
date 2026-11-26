@@ -4,77 +4,95 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
 import com.harimu.app.R
-import com.harimu.app.core.ai.SegmentationMode
-import com.harimu.app.core.engines.MatrixLayerKind
+import com.harimu.app.core.data.AppSettings
+import com.harimu.app.core.design.EmptyState
+import com.harimu.app.core.design.HariMuColors
+import com.harimu.app.core.design.image.ImageMatrixCanvasInspector
+import com.harimu.app.core.design.image.ImageMatrixCheckerboardBox
+import com.harimu.app.core.design.image.ImageMatrixExportDialog
+import com.harimu.app.core.design.image.ImageMatrixLayerRow
+import com.harimu.app.core.design.image.ImageMatrixTransformInspector
+import com.harimu.app.core.toolapi.ToolOutputFile
+import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.feature.toolscreen.openFile
+import com.harimu.app.feature.toolscreen.saveFile
+import com.harimu.app.feature.toolscreen.shareFile
+import com.harimu.app.feature.toolscreen.uploadToCloud
+import kotlin.math.roundToInt
+
+private enum class MatrixInspectorTab {
+    TRANSFORM, LAYERS, CANVAS
+}
 
 /**
- * IMG-47 Image Matrix: one canvas, many layers. Every edit re-renders through the compositor,
- * so the preview above the controls is the same picture that gets exported.
+ * IMG-47 Image Matrix Studio: adaptive multilayer workspace with transparency checkerboard,
+ * viewport zoom, direct drag-to-move layer positioning, undo/redo stack, ML Kit / Basic background
+ * removal, and PNG/JPG/WEBP export.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,10 +102,12 @@ fun ImageMatrixScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val vm: ImageMatrixViewModel = viewModel(
         factory = ImageMatrixViewModel.Factory(container, context.applicationContext)
     )
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
 
     LaunchedEffect(Unit) { vm.initialize() }
     LaunchedEffect(state.lastMessage) {
@@ -96,375 +116,480 @@ fun ImageMatrixScreen(
         vm.consumeMessage()
     }
 
-    var textInput by remember { mutableStateOf("") }
-    var emojiInput by remember { mutableStateOf("⭐") }
-    var backgroundInput by remember { mutableStateOf(state.backgroundHex) }
+    var activeTab by remember { mutableStateOf(MatrixInspectorTab.TRANSFORM) }
+    var viewportZoom by remember { mutableFloatStateOf(1f) }
+    var showAddTextDialog by remember { mutableStateOf(false) }
+    var showAddStickerDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var pendingSaveFile by remember { mutableStateOf<ToolOutputFile?>(null) }
+
+    val savedToast = stringResource(R.string.toast_saved)
+    val saveFailedToast = stringResource(R.string.toast_save_failed)
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) vm.addImage(uri)
+    }
+
+    val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { destUri ->
+        val src = pendingSaveFile
+        if (destUri != null && src != null) {
+            val ok = container.storage.copyFileToUri(src.file, destUri)
+            Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+        }
     }
 
     val canvasW = state.canvasSize.first
     val canvasH = state.canvasSize.second
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
-                title = { Text(if (isEnglish) "Image Matrix Studio" else "Studio Image Matrix") },
+                title = {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.image_matrix_title),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.image_matrix_meta,
+                                state.layers.size,
+                                canvasW,
+                                canvasH,
+                                (viewportZoom * 100).roundToInt()
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("matrix_back_btn")
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
-                    IconButton(onClick = { vm.undo() }, enabled = state.canUndo) {
+                    IconButton(
+                        onClick = { vm.undo() },
+                        enabled = state.canUndo,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("matrix_undo_btn")
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.cd_undo))
                     }
-                    IconButton(onClick = { vm.redo() }, enabled = state.canRedo) {
+                    IconButton(
+                        onClick = { vm.redo() },
+                        enabled = state.canRedo,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("matrix_redo_btn")
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.cd_redo))
                     }
-                }
+                    FilledTonalButton(
+                        onClick = { showExportDialog = true },
+                        enabled = state.layers.isNotEmpty() && !state.isExporting,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .minimumInteractiveComponentSize()
+                            .testTag("matrix_top_export_btn")
+                    ) {
+                        Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.image_matrix_export_short))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { inner ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(inner)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(inner),
+            contentAlignment = Alignment.TopCenter
         ) {
-            // ------------------------------------------------- preview
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            val isWide = maxWidth >= 720.dp
+
+            val canvasPane: @Composable (Modifier) -> Unit = { paneModifier ->
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = paneModifier,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 420.dp)
-                            .aspectRatio(canvasW.toFloat() / canvasH.toFloat())
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        state.preview?.let { bitmap ->
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = stringResource(R.string.cd_image_matrix_canvas),
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-                        if (state.isRendering) {
-                            LinearProgressIndicator(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(2.dp)
-                                    .align(Alignment.TopCenter)
-                            )
-                        }
-                    }
-                    Text(
-                        text = "${state.layers.size} layer • ${canvasW}×${canvasH}",
-                        style = MaterialTheme.typography.bodySmall
+                    ImageMatrixCheckerboardBox(
+                        preview = state.preview,
+                        canvasW = canvasW,
+                        canvasH = canvasH,
+                        selectedLayer = state.selectedLayer,
+                        isRendering = state.isRendering,
+                        zoom = viewportZoom,
+                        onZoomChange = { viewportZoom = it },
+                        onDragSelectedLayer = { dx, dy -> vm.moveSelectedBy(dx, dy) },
+                        onDragSelectedLayerEnd = { vm.commitLayers() }
                     )
-                }
-            }
 
-            // ------------------------------------------------- add layer
-            Button(
-                onClick = {
-                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Tambah Layer Gambar")
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = textInput,
-                    onValueChange = { textInput = it },
-                    label = { Text("Teks baru") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                Button(onClick = {
-                    vm.addText(textInput)
-                    textInput = ""
-                }) { Text("+ Teks") }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = emojiInput,
-                    onValueChange = { emojiInput = it },
-                    label = { Text("Stiker / emoji") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                Button(onClick = { vm.addSticker(emojiInput) }) { Text("+ Stiker") }
-            }
-
-            // ------------------------------------------------- canvas
-            Text("Kanvas", style = MaterialTheme.typography.titleSmall)
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                vm.canvasPresets.forEachIndexed { index, preset ->
-                    FilterChip(
-                        selected = state.canvasPresetIndex == index,
-                        onClick = { vm.setCanvasPreset(index) },
-                        label = { Text(preset.first) }
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = backgroundInput,
-                    onValueChange = { backgroundInput = it },
-                    label = { Text("Latar #Hex") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                Button(onClick = { vm.setBackground(backgroundInput) }) { Text("Terapkan") }
-            }
-
-            // ------------------------------------------------- layers
-            Text("Urutan Layer", style = MaterialTheme.typography.titleSmall)
-            if (state.layers.isEmpty()) {
-                Text(
-                    "Belum ada layer. Tambahkan gambar, teks atau stiker.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            state.layers.asReversed().forEachIndexed { reverseIndex, layer ->
-                val index = state.layers.lastIndex - reverseIndex
-                val selected = layer.id == state.selectedLayer?.id
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { vm.selectLayer(layer.id) },
-                    border = if (selected) {
-                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                    } else {
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                    }
-                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "${index + 1}. ${layer.title()}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (layer.kind != MatrixLayerKind.IMAGE) {
-                            Text(
-                                text = vm.layerKindLabel(layer.kind),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                        IconButton(onClick = { vm.toggleVisibility(layer.id) }) {
-                            Icon(
-                                if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = "Visibilitas"
-                            )
-                        }
-                        IconButton(onClick = { vm.moveLayer(layer.id, 1) }) {
-                            Icon(Icons.Filled.ArrowUpward, contentDescription = "Naik")
-                        }
-                        IconButton(onClick = { vm.moveLayer(layer.id, -1) }) {
-                            Icon(Icons.Filled.ArrowDownward, contentDescription = "Turun")
-                        }
-                        IconButton(onClick = { vm.duplicateLayer(layer.id) }) {
-                            Icon(Icons.Filled.ContentCopy, contentDescription = "Duplikat")
-                        }
-                        IconButton(onClick = { vm.deleteLayer(layer.id) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Hapus")
-                        }
-                    }
-                }
-            }
-
-            // ------------------------------------------------- editor
-            state.selectedLayer?.let { layer ->
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "Layer aktif: ${layer.title()}",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        if (layer.kind == MatrixLayerKind.IMAGE) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { vm.removeBackgroundOfLayer(layer.id, SegmentationMode.FULL) },
-                                    enabled = !state.isRendering,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 48.dp)
-                                ) {
-                                    Text(
-                                        if (isEnglish) "Remove bg (ML Kit)" else "Hapus latar (ML Kit)"
-                                    )
-                                }
-                                OutlinedButton(
-                                    onClick = { vm.removeBackgroundOfLayer(layer.id, SegmentationMode.BASIC) },
-                                    enabled = !state.isRendering,
-                                    modifier = Modifier.heightIn(min = 48.dp)
-                                ) {
-                                    Text(if (isEnglish) "Basic" else "Dasar")
-                                }
-                            }
-                        }
-                        if (layer.kind != MatrixLayerKind.IMAGE) {
-                            OutlinedTextField(
-                                value = layer.text,
-                                onValueChange = { vm.updateText(layer.id, it) },
-                                label = { Text("Teks") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = layer.colorHex,
-                                onValueChange = { vm.setLayerColor(layer.id, it) },
-                                label = { Text("Warna #Hex") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            MatrixSlider(
-                                label = "Ukuran font (%)",
-                                value = layer.fontSizePct,
-                                range = 1f..40f,
-                                onValue = { value ->
-                                    vm.previewLayer(layer.id) { it.copy(fontSizePct = value) }
-                                },
-                                onCommit = { vm.commitLayers() }
-                            )
-                        }
-                        MatrixSlider(
-                            label = "Posisi X (%)",
-                            value = layer.xPct,
-                            range = 0f..100f,
-                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(xPct = value) } },
-                            onCommit = { vm.commitLayers() }
-                        )
-                        MatrixSlider(
-                            label = "Posisi Y (%)",
-                            value = layer.yPct,
-                            range = 0f..100f,
-                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(yPct = value) } },
-                            onCommit = { vm.commitLayers() }
-                        )
-                        MatrixSlider(
-                            label = "Skala (%)",
-                            value = layer.scalePct,
-                            range = 10f..300f,
-                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(scalePct = value) } },
-                            onCommit = { vm.commitLayers() }
-                        )
-                        MatrixSlider(
-                            label = "Rotasi (°)",
-                            value = layer.rotationDeg,
-                            range = -180f..180f,
-                            onValue = { value -> vm.previewLayer(layer.id) { it.copy(rotationDeg = value) } },
-                            onCommit = { vm.commitLayers() }
-                        )
-                        MatrixSlider(
-                            label = "Opasitas (%)",
-                            value = layer.opacityPct.toFloat(),
-                            range = 10f..100f,
-                            onValue = { value ->
-                                vm.previewLayer(layer.id) { it.copy(opacityPct = value.toInt()) }
+                        Button(
+                            onClick = {
+                                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             },
-                            onCommit = { vm.commitLayers() }
-                        )
-
-                        Text("Blend", style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = HariMuColors.GroupImage,
+                                contentColor = Color(0xFF062026)
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .minimumInteractiveComponentSize()
+                                .testTag("matrix_add_image_btn")
                         ) {
-                            vm.blendModes.forEach { mode ->
-                                FilterChip(
-                                    selected = layer.blend == mode,
-                                    onClick = { vm.updateLayer(layer.id) { it.copy(blend = mode) } },
-                                    label = { Text(mode) }
-                                )
-                            }
+                            Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.image_matrix_add_image),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showAddTextDialog = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .minimumInteractiveComponentSize()
+                                .testTag("matrix_add_text_btn")
+                        ) {
+                            Icon(Icons.Filled.TextFields, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.image_matrix_add_text),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showAddStickerDialog = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .minimumInteractiveComponentSize()
+                                .testTag("matrix_add_sticker_btn")
+                        ) {
+                            Icon(Icons.Filled.EmojiEmotions, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.image_matrix_add_sticker),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
             }
 
-            // ------------------------------------------------- export
-            Button(
-                onClick = {
-                    vm.export { _, message ->
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            val inspectorPane: @Composable (Modifier) -> Unit = { paneModifier ->
+                Column(
+                    modifier = paneModifier,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = activeTab == MatrixInspectorTab.TRANSFORM,
+                            onClick = { activeTab = MatrixInspectorTab.TRANSFORM },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("matrix_tab_transform")
+                        ) {
+                            Text(stringResource(R.string.image_matrix_tab_transform), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        SegmentedButton(
+                            selected = activeTab == MatrixInspectorTab.LAYERS,
+                            onClick = { activeTab = MatrixInspectorTab.LAYERS },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("matrix_tab_layers")
+                        ) {
+                            Text(stringResource(R.string.image_matrix_tab_layers, state.layers.size), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        SegmentedButton(
+                            selected = activeTab == MatrixInspectorTab.CANVAS,
+                            onClick = { activeTab = MatrixInspectorTab.CANVAS },
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("matrix_tab_canvas")
+                        ) {
+                            Text(stringResource(R.string.image_matrix_tab_canvas), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
-                },
-                enabled = state.layers.isNotEmpty() && !state.isExporting,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Filled.Save, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (state.isExporting) "Mengekspor..." else "Ekspor PNG ${canvasW}×${canvasH}")
+
+                    when (activeTab) {
+                        MatrixInspectorTab.TRANSFORM -> {
+                            ImageMatrixTransformInspector(
+                                layer = state.selectedLayer,
+                                blendModes = vm.blendModes,
+                                isRendering = state.isRendering,
+                                onRemoveBackground = vm::removeBackgroundOfLayer,
+                                onUpdateText = vm::updateText,
+                                onSetColor = vm::setLayerColor,
+                                onPreviewLayer = vm::previewLayer,
+                                onCommitLayers = vm::commitLayers,
+                                onUpdateLayer = vm::updateLayer,
+                                onCenterLayer = vm::centerLayer,
+                                onResetTransform = vm::resetTransform
+                            )
+                        }
+
+                        MatrixInspectorTab.LAYERS -> {
+                            if (state.layers.isEmpty()) {
+                                EmptyState(
+                                    icon = Icons.Filled.Layers,
+                                    title = stringResource(R.string.image_matrix_layers_empty_title),
+                                    subtitle = stringResource(R.string.image_matrix_layers_empty_subtitle),
+                                    modifier = Modifier.testTag("matrix_layers_empty")
+                                )
+                            } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    state.layers.asReversed().forEachIndexed { reverseIndex, layer ->
+                                        val index = state.layers.lastIndex - reverseIndex
+                                        val selected = layer.id == state.selectedLayer?.id
+                                        ImageMatrixLayerRow(
+                                            index = index,
+                                            layer = layer,
+                                            kindLabel = vm.layerKindLabel(layer.kind, isEnglish),
+                                            selected = selected,
+                                            canMoveUp = index < state.layers.lastIndex,
+                                            canMoveDown = index > 0,
+                                            onSelect = { vm.selectLayer(layer.id) },
+                                            onToggleVisible = { vm.toggleVisibility(layer.id) },
+                                            onMoveUp = { vm.moveLayer(layer.id, 1) },
+                                            onMoveDown = { vm.moveLayer(layer.id, -1) },
+                                            onDuplicate = { vm.duplicateLayer(layer.id) },
+                                            onDelete = { vm.deleteLayer(layer.id) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        MatrixInspectorTab.CANVAS -> {
+                            ImageMatrixCanvasInspector(
+                                presets = vm.canvasPresets,
+                                selectedPresetIndex = state.canvasPresetIndex,
+                                backgroundHex = state.backgroundHex,
+                                hasLayers = state.layers.isNotEmpty(),
+                                onSelectPreset = vm::setCanvasPreset,
+                                onApplyBackground = vm::setBackground,
+                                onClearCanvas = vm::clearCanvas
+                            )
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.height(16.dp))
+
+            if (isWide) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 1140.dp)
+                        .padding(16.dp)
+                        .testTag("matrix_wide_workspace"),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    canvasPane(
+                        Modifier
+                            .weight(1.1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                    )
+                    inspectorPane(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 680.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                        .testTag("matrix_compact_workspace"),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    canvasPane(Modifier.fillMaxWidth())
+                    inspectorPane(Modifier.fillMaxWidth())
+                }
+            }
         }
     }
+
+    if (showAddTextDialog) {
+        AddTextLayerDialog(
+            onConfirm = { txt ->
+                vm.addText(txt)
+                showAddTextDialog = false
+                activeTab = MatrixInspectorTab.TRANSFORM
+            },
+            onDismiss = { showAddTextDialog = false }
+        )
+    }
+
+    if (showAddStickerDialog) {
+        AddStickerLayerDialog(
+            onConfirm = { emoji ->
+                vm.addSticker(emoji)
+                showAddStickerDialog = false
+                activeTab = MatrixInspectorTab.TRANSFORM
+            },
+            onDismiss = { showAddStickerDialog = false }
+        )
+    }
+
+    val doneOutput = (state.exportProgress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()
+    ImageMatrixExportDialog(
+        isOpen = showExportDialog,
+        layers = state.layers,
+        canvasWidth = canvasW,
+        canvasHeight = canvasH,
+        progress = state.exportProgress,
+        onExport = { fmt, q ->
+            vm.exportComposition(format = fmt, quality = q, trackExportDialog = true)
+        },
+        onDismiss = {
+            showExportDialog = false
+            vm.resetExportProgress()
+        },
+        onOpenResult = doneOutput?.let { out -> { openFile(out, container.storage, context) } },
+        onShareResult = doneOutput?.let { out -> { shareFile(out, container.storage, context) } },
+        onSaveResult = doneOutput?.let { out ->
+            {
+                saveFile(
+                    output = out,
+                    storage = container.storage,
+                    settings = settings,
+                    scope = scope,
+                    context = context,
+                    savedToast = savedToast,
+                    saveFailedToast = saveFailedToast,
+                    pendingExportFile = { pendingSaveFile = it },
+                    safSaveLauncher = safSaveLauncher
+                )
+            }
+        },
+        onUploadResult = doneOutput?.let { out ->
+            { uploadToCloud(out, container, settings, scope, context, isEnglish) }
+        }
+    )
 }
 
 @Composable
-private fun MatrixSlider(
-    label: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    onValue: (Float) -> Unit,
-    onCommit: () -> Unit
+private fun AddTextLayerDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Text(value.toInt().toString(), style = MaterialTheme.typography.labelMedium)
+    var textInput by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.image_matrix_add_text)) },
+        text = {
+            OutlinedTextField(
+                value = textInput,
+                onValueChange = { textInput = it },
+                label = { Text(stringResource(R.string.image_matrix_new_text_label)) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("matrix_text_dialog_input")
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(textInput) },
+                enabled = textInput.isNotBlank(),
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("matrix_text_dialog_confirm")
+            ) {
+                Text(stringResource(R.string.image_matrix_add_text))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.minimumInteractiveComponentSize()) {
+                Text(stringResource(R.string.cd_image_close))
+            }
         }
-        Slider(
-            value = value.coerceIn(range.start, range.endInclusive),
-            onValueChange = onValue,
-            valueRange = range,
-            onValueChangeFinished = onCommit
-        )
-    }
+    )
+}
+
+@Composable
+private fun AddStickerLayerDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var emojiInput by remember { mutableStateOf("⭐") }
+    val presets = listOf("⭐", "🔥", "❤️", "✨", "📷", "✅")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.image_matrix_add_sticker)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    presets.forEach { preset ->
+                        OutlinedButton(
+                            onClick = { emojiInput = preset },
+                            modifier = Modifier
+                                .weight(1f)
+                                .minimumInteractiveComponentSize()
+                        ) {
+                            Text(preset)
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = emojiInput,
+                    onValueChange = { emojiInput = it },
+                    label = { Text(stringResource(R.string.image_matrix_sticker_label)) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("matrix_sticker_dialog_input")
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(emojiInput) },
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("matrix_sticker_dialog_confirm")
+            ) {
+                Text(stringResource(R.string.image_matrix_add_sticker))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.minimumInteractiveComponentSize()) {
+                Text(stringResource(R.string.cd_image_close))
+            }
+        }
+    )
 }

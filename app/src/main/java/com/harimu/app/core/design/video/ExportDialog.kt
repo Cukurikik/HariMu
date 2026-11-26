@@ -13,22 +13,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filed.FileDownload
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Chip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,7 +66,7 @@ fun ExportDialog(
     onSaveResult: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val resolution by remember { mutableStateOf("720p") }
+    var resolution by remember { mutableStateOf("720p") }
 
     if (!isOpen) return
 
@@ -93,14 +88,14 @@ fun ExportDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf("480p", "720p", "1080p").forEach { res ->
-                            Chip(
+                            FilterChip(
                                 selected = resolution == res,
                                 onClick = { resolution = res },
                                 label = { Text(res) },
-                                modifier = Modifier.weight(1f).padding(0.dp),
-                                colors = androidx.compose.material3.ChipDefaults.colors(
-                                    selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f),
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                modifier = Modifier.weight(1f),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f)
                                 )
                             )
                         }
@@ -147,7 +142,7 @@ fun ExportDialog(
                                 is ToolProgress.Running -> p.message
                                 is ToolProgress.Queued -> stringResource(R.string.progress_queued)
                                 is ToolProgress.Failed -> p.error
-                                is ToolProgress.Done -> stringResource(R.string.progress_completed)
+                                is ToolProgress.Done -> stringResource(R.string.status_success)
                                 else -> ""
                             },
                             onCancel = onDismiss
@@ -165,7 +160,7 @@ fun ExportDialog(
                         // Ready to export
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = stringResource(R.string.editor_export_ready_desc),
+                                text = stringResource(R.string.editor_export_ready_desc, clipsCount, resolution),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -187,7 +182,7 @@ fun ExportDialog(
                 Text(text = stringResource(R.string.action_cancel))
             }
         },
-        properties = androidx.compose.material3.AlertDialogDefaults.Properties(
+        properties = DialogProperties(
             dismissOnBackPress = true,
             dismissOnClickOutside = true
         )
