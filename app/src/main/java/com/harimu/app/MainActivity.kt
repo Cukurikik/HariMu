@@ -65,6 +65,7 @@ import com.harimu.app.core.design.HariMuTheme
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolGroup
+import com.harimu.app.feature.area.AreaLookupScreen
 import com.harimu.app.feature.catalog.CatalogScreen
 import com.harimu.app.feature.favorites.FavoritesScreen
 import com.harimu.app.feature.history.HistoryScreen
@@ -101,6 +102,7 @@ import java.util.Locale
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
 @Serializable data object PrayerTimesRoute
+@Serializable data object AreaLookupRoute
 @Serializable data object OpenSourceLicensesRoute
 
 
@@ -212,6 +214,7 @@ private fun HariMuRoot(
             DedicatedScreenRoute.KEY_VAULT -> navController.navigate(KeyVaultRoute)
             DedicatedScreenRoute.WORKSPACE_BACKUP -> navController.navigate(BackupRoute)
             DedicatedScreenRoute.PRAYER_TIMES -> navController.navigate(PrayerTimesRoute)
+            DedicatedScreenRoute.AREA_LOOKUP -> navController.navigate(AreaLookupRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
         }
     }
@@ -389,6 +392,9 @@ private fun HariMuRoot(
                     }
                     composable<PrayerTimesRoute> {
                         PrayerTimesScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<AreaLookupRoute> {
+                        AreaLookupScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<OpenSourceLicensesRoute> {
                         OpenSourceLicensesScreen(

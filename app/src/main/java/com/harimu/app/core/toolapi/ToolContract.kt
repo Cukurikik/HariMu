@@ -198,6 +198,7 @@ enum class DedicatedScreenRoute {
     KEY_VAULT,
     WORKSPACE_BACKUP,
     PRAYER_TIMES,
+    AREA_LOOKUP,
     SETTINGS
 }
 

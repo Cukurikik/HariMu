@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.BurstMode
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Mosque
@@ -214,6 +215,20 @@ fun coreTools(): List<Tool> = listOf(
         titleEn = "Prayer Times",
         descId = "Jadwal sholat hari ini untuk kota/kabupaten di Indonesia lewat API Quran API ID (tanpa kunci).",
         descEn = "Today's prayer schedule for any Indonesian city/regency via the keyless Quran API ID service."
+    ),
+    DedicatedTool(
+        id = "CORE-16",
+        group = ToolGroup.CORE,
+        engineLabel = "REST",
+        icon = Icons.Filled.Map,
+        dedicatedRoute = DedicatedScreenRoute.AREA_LOOKUP,
+        requiresNetwork = true,
+        titleId = "Cari Kode Pos & Wilayah",
+        titleEn = "Postal Code & Area Search",
+        descId = "Cari desa/kelurahan, kecamatan, kabupaten/kota, atau kode pos di seluruh Indonesia " +
+            "lewat API alamat.thecloudalert.com (tanpa kunci).",
+        descEn = "Search Indonesian villages, districts, cities, or postal codes " +
+            "via the keyless alamat.thecloudalert.com API."
     ),
     DedicatedTool(
         id = "CORE-09",
