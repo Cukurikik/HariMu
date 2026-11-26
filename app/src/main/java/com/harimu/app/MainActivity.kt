@@ -69,6 +69,7 @@ import com.harimu.app.feature.catalog.CatalogScreen
 import com.harimu.app.feature.favorites.FavoritesScreen
 import com.harimu.app.feature.history.HistoryScreen
 import com.harimu.app.feature.home.HomeScreen
+import com.harimu.app.feature.prayer.PrayerTimesScreen
 import com.harimu.app.feature.settings.OpenSourceLicensesScreen
 import com.harimu.app.feature.settings.SettingsScreen
 import com.harimu.app.feature.studios.AudioStudioScreen
@@ -99,6 +100,7 @@ import java.util.Locale
 @Serializable data object AudioStudioRoute
 @Serializable data object KeyVaultRoute
 @Serializable data object BackupRoute
+@Serializable data object PrayerTimesRoute
 @Serializable data object OpenSourceLicensesRoute
 
 
@@ -209,6 +211,7 @@ private fun HariMuRoot(
             DedicatedScreenRoute.AUDIO_STUDIO -> navController.navigate(AudioStudioRoute)
             DedicatedScreenRoute.KEY_VAULT -> navController.navigate(KeyVaultRoute)
             DedicatedScreenRoute.WORKSPACE_BACKUP -> navController.navigate(BackupRoute)
+            DedicatedScreenRoute.PRAYER_TIMES -> navController.navigate(PrayerTimesRoute)
             DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
         }
     }
@@ -383,6 +386,9 @@ private fun HariMuRoot(
                     }
                     composable<BackupRoute> {
                         BackupScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    }
+                    composable<PrayerTimesRoute> {
+                        PrayerTimesScreen(container, settings.isEnglish) { navController.popBackStack() }
                     }
                     composable<OpenSourceLicensesRoute> {
                         OpenSourceLicensesScreen(

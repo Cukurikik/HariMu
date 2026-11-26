@@ -197,6 +197,7 @@ enum class DedicatedScreenRoute {
     AUDIO_STUDIO,
     KEY_VAULT,
     WORKSPACE_BACKUP,
+    PRAYER_TIMES,
     SETTINGS
 }
 

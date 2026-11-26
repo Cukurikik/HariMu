@@ -14,6 +14,7 @@ import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.ai.AiClient
 import com.harimu.app.core.files.ModelManager
 import com.harimu.app.core.jobs.JobManager
+import com.harimu.app.core.prayer.PrayerTimesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,6 +30,7 @@ class AppContainer(app: Application) {
     val cloudUploader = CloudUploader()
     val uploadQueue = UploadQueue(app, cloudUploader)
     val aiClient: AiClient by lazy { AiClient(settings) }
+    val prayerTimes: PrayerTimesRepository by lazy { PrayerTimesRepository() }
     val jobManager: JobManager by lazy {
         JobManager(
             context = app,

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.BurstMode
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Mosque
 import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
@@ -203,6 +204,18 @@ fun coreTools(): List<Tool> = listOf(
         descEn = "Export & restore settings, favorites, and history in an encrypted .omni archive."
     ),
     DedicatedTool(
+        id = "CORE-15",
+        group = ToolGroup.CORE,
+        engineLabel = "REST",
+        icon = Icons.Filled.Mosque,
+        dedicatedRoute = DedicatedScreenRoute.PRAYER_TIMES,
+        requiresNetwork = true,
+        titleId = "Jadwal Sholat",
+        titleEn = "Prayer Times",
+        descId = "Jadwal sholat hari ini untuk kota/kabupaten di Indonesia lewat API Quran API ID (tanpa kunci).",
+        descEn = "Today's prayer schedule for any Indonesian city/regency via the keyless Quran API ID service."
+    ),
+    DedicatedTool(
         id = "CORE-09",
         group = ToolGroup.CORE,
         engineLabel = "APP",
@@ -230,7 +243,8 @@ class DedicatedTool(
     private val titleId: String,
     private val titleEn: String,
     private val descId: String,
-    private val descEn: String
+    private val descEn: String,
+    override val requiresNetwork: Boolean = false
 ) : Tool {
     override val inputSpec = InputSpec.None
     override val params = emptyList<ToolParam>()

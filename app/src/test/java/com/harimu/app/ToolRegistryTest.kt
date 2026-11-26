@@ -10,12 +10,12 @@ import org.junit.Test
 class ToolRegistryTest {
 
     @Test
-    fun registryContainsAll168CatalogEntriesAcrossSixGroups() {
+    fun registryContainsAll169CatalogEntriesAcrossSixGroups() {
         val all = ToolRegistry.allTools
-        assertEquals("Catalog must register all 168 tools", 168, all.size)
-        assertEquals("All tool IDs must be unique", 168, all.map { it.id }.toSet().size)
+        assertEquals("Catalog must register all 169 tools", 169, all.size)
+        assertEquals("All tool IDs must be unique", 169, all.map { it.id }.toSet().size)
 
-        assertEquals(14, ToolRegistry.countByGroup(ToolGroup.CORE))
+        assertEquals(15, ToolRegistry.countByGroup(ToolGroup.CORE))
         assertEquals(30, ToolRegistry.countByGroup(ToolGroup.VIDEO))
         assertEquals(28, ToolRegistry.countByGroup(ToolGroup.AUDIO))
         assertEquals(47, ToolRegistry.countByGroup(ToolGroup.IMAGE))
@@ -37,14 +37,14 @@ class ToolRegistryTest {
     @Test
     fun everyCatalogIdFrom02KatalogFiturIsResolvable() {
         val expectedIds = buildList {
-            (1..14).forEach { add("CORE-%02d".format(it)) }
+            (1..15).forEach { add("CORE-%02d".format(it)) }
             (1..30).forEach { add("VID-%02d".format(it)) }
             (1..28).forEach { add("AUD-%02d".format(it)) }
             (1..47).forEach { add("IMG-%02d".format(it)) }
             (1..21).forEach { add("PDF-%02d".format(it)) }
             (1..28).forEach { add("CNV-%02d".format(it)) }
         }
-        assertEquals(168, expectedIds.size)
+        assertEquals(169, expectedIds.size)
         expectedIds.forEach { id ->
             val tool = ToolRegistry.findById(id)
             assertNotNull("Missing tool $id in ToolRegistry", tool)

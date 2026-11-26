@@ -25,6 +25,7 @@
 | CORE-12 | AI Weather | CL | P15 | 🟢 | ✅ (butuh gateway) | Sebelumnya `CORE-07` (bentrok Key Vault). Menerima nama kota (geocoding Open-Meteo) atau `lat,lon`; atribusi CC BY 4.0 |
 | CORE-13 | Konversi Mata Uang | CL | P15 | 🟢 | ✅ (butuh gateway) | Kurs referensi Frankfurter (bank sentral) + tanggal; cache 12 jam di Worker. Bukan kurs live |
 | CORE-14 | Kamus | CL | P15 | 🟢 | ✅ (butuh gateway) | dictionaryapi.dev/Wiktionary (CC BY-SA), 12 bahasa, cache 7 hari; kegagalan provider ditampilkan sebagai kegagalan |
+| CORE-15 | Jadwal Sholat | REST | P16 | 🟢 | ✅ | Quran API ID (`api.myquran.com`, tanpa kunci) — cari kota/kabupaten lalu tampilkan jadwal hari ini; entri katalog `docs/DATA_PUBLIC_API_INDONESIA_NONE.json` ("Quran API ID"). Batas: jadwal mengikuti tanggal perangkat, butuh internet |
 
 ## 2. Video Forge
 
@@ -213,13 +214,13 @@
 
 | Grup | Jumlah tool | Fase |
 |---|---|---|
-| Core | 14 | P2, P5, P11, P14, P15 |
+| Core | 15 | P2, P5, P11, P14, P15, P16 |
 | Video Forge | 30 | P4, P5, P11 |
 | Audio Forge/Studio | 28 | P6, P7, P8, P11 |
 | Image Forge/Matrix | 47 | P9, P10, P11 |
 | PDF Vault | 21 | P12 |
 | Universal Converter | 28 | P13 |
-| **Total entri** | **168** (±150 implementasi unik setelah alias digabung) | |
+| **Total entri** | **169** (±150 implementasi unik setelah alias digabung) | |
 
 ## Item yang butuh keputusan Andikaa sebelum dikerjakan
 

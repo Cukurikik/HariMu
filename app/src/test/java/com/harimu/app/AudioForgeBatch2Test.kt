@@ -84,7 +84,7 @@ class AudioForgeBatch2Test {
 
     @Test
     fun registryActivatesAllFase7AudioToolsAndDefersOnlyP8AndP11() {
-        assertEquals(168, ToolRegistry.allTools.size)
+        assertEquals(169, ToolRegistry.allTools.size)
         assertEquals(28, ToolRegistry.byGroup(ToolGroup.AUDIO).size)
 
         val fase7And8ActiveIds = listOf(
