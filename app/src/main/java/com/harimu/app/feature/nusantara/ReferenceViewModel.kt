@@ -22,7 +22,8 @@ data class HeroesUiState(
     val query: String = "",
     val isLoading: Boolean = false,
     val loaded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 ) {
     val visible: List<Hero> get() = heroes.filterByQuery(query)
 }
@@ -47,7 +48,15 @@ class HeroesViewModel(
             val result = withContext(Dispatchers.IO) { repository.heroes() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, heroes = it, loaded = true, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            heroes = it,
+                            loaded = true,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = { current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish)) }
                 )
             }
@@ -66,7 +75,8 @@ data class VolcanoesUiState(
     val query: String = "",
     val isLoading: Boolean = false,
     val loaded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 ) {
     val visible: List<Volcano> get() = volcanoes.filterByQuery(query)
 }
@@ -91,7 +101,15 @@ class VolcanoesViewModel(
             val result = withContext(Dispatchers.IO) { repository.volcanoes() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, volcanoes = it, loaded = true, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            volcanoes = it,
+                            loaded = true,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = { current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish)) }
                 )
             }

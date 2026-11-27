@@ -4,25 +4,48 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
+import com.harimu.app.R
+import com.harimu.app.core.design.HariMuInsetPanel
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.design.utilities.UtilityActionButton
+import com.harimu.app.core.design.utilities.UtilityAttributionFooter
+import com.harimu.app.core.design.utilities.UtilityBadgePill
+import com.harimu.app.core.design.utilities.UtilityCopyIconButton
+import com.harimu.app.core.design.utilities.UtilityEmptyState
+import com.harimu.app.core.design.utilities.UtilityErrorCard
+import com.harimu.app.core.design.utilities.UtilityHeroBanner
+import com.harimu.app.core.design.utilities.UtilityLoadingCard
+import com.harimu.app.core.design.utilities.UtilityResultHeader
+import com.harimu.app.core.design.utilities.UtilityScreenScaffold
+import com.harimu.app.core.design.utilities.UtilitySearchBar
+import com.harimu.app.core.design.utilities.UtilitySectionCard
 import com.harimu.app.core.nusantara.School
 
 @Composable
@@ -33,80 +56,102 @@ fun SchoolScreen(
 ) {
     val vm: SchoolViewModel = viewModel(factory = SchoolViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
+    val spacing = HariMuThemeTokens.spacing
+    val canSearch = state.query.trim().length >= SchoolViewModel.MIN_QUERY_LENGTH
 
-    NusantaraScaffold(
-        title = if (isEnglish) "Find a School" else "Cari Sekolah",
-        onBack = onBack
-    ) { padding ->
+    UtilityScreenScaffold(
+        title = stringResource(R.string.schools_title),
+        onBack = onBack,
+        onRefresh = if (state.searched && canSearch) {
+            { vm.search(isEnglish) }
+        } else {
+            null
+        },
+        isRefreshing = state.isLoading,
+        backTestTag = "schools_back_button",
+        refreshTestTag = "schools_refresh_button"
+    ) { _ ->
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
-            item(key = "search") {
-                SearchField(
-                    value = state.query,
-                    onValueChange = vm::onQueryChange,
-                    hint = if (isEnglish) "School name, min. 3 letters" else "Nama sekolah, minimal 3 huruf",
-                    tag = "schools_search"
+            item(key = "hero") {
+                UtilityHeroBanner(
+                    title = stringResource(R.string.schools_title),
+                    description = stringResource(R.string.schools_intro),
+                    badge = stringResource(R.string.schools_badge)
                 )
             }
 
-            item(key = "action") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { vm.search(isEnglish) },
-                        enabled = state.query.trim().length >= SchoolViewModel.MIN_QUERY_LENGTH && !state.isLoading
-                    ) {
-                        Text(if (isEnglish) "Search" else "Cari")
+            item(key = "search") {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    UtilitySearchBar(
+                        value = state.query,
+                        onValueChange = vm::onQueryChange,
+                        label = stringResource(R.string.schools_search_hint),
+                        tag = "schools_search",
+                        onSearch = { if (canSearch) vm.search(isEnglish) }
+                    )
+                    if (!canSearch) {
+                        Text(
+                            text = stringResource(R.string.schools_min_chars_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("schools_min_chars_hint")
+                        )
                     }
                 }
             }
 
-            if (!state.searched) {
-                item(key = "intro") {
-                    NusantaraIntroCard(
-                        if (isEnglish) {
-                            "Search schools from the Indonesian education ministry dataset by name. " +
-                                "Results include NPSN, level, status, address, and coordinates."
-                        } else {
-                            "Cari sekolah dari dataset Kemendikdasmen berdasarkan nama. " +
-                                "Hasil memuat NPSN, jenjang, status, alamat, dan koordinat."
-                        }
+            item(key = "action") {
+                UtilityActionButton(
+                    label = if (isEnglish) "Search Schools" else "Cari Sekolah",
+                    onClick = { vm.search(isEnglish) },
+                    icon = Icons.Filled.Search,
+                    isLoading = state.isLoading,
+                    enabled = canSearch,
+                    testTag = "schools_search_button"
+                )
+            }
+
+            if (!state.searched && !state.isLoading) {
+                item(key = "prompt") {
+                    UtilityEmptyState(
+                        icon = Icons.Filled.School,
+                        title = stringResource(R.string.schools_prompt_title),
+                        subtitle = stringResource(R.string.schools_prompt_desc)
                     )
                 }
             }
 
-            if (state.isLoading) item(key = "loading") { NusantaraLoading() }
+            if (state.isLoading) {
+                item(key = "loading") { UtilityLoadingCard() }
+            }
 
             state.error?.let { message ->
                 item(key = "error") {
-                    NusantaraErrorCard(message = message, isEnglish = isEnglish) { vm.search(isEnglish) }
+                    UtilityErrorCard(
+                        message = message,
+                        onRetry = { vm.search(isEnglish) },
+                        testTag = "schools_retry_button"
+                    )
                 }
             }
 
             if (state.searched && !state.isLoading && state.error == null) {
                 item(key = "count") {
-                    Text(
-                        text = if (isEnglish) {
-                            "${state.schools.size} of ${state.total} schools"
-                        } else {
-                            "${state.schools.size} dari ${state.total} sekolah"
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    UtilityResultHeader(
+                        countText = stringResource(R.string.schools_count, state.schools.size, state.total)
                     )
                 }
 
                 if (state.schools.isEmpty()) {
                     item(key = "empty") {
-                        Text(
-                            text = if (isEnglish) {
-                                "No school matches that name. Try a shorter keyword."
-                            } else {
-                                "Tidak ada sekolah dengan nama itu. Coba kata kunci yang lebih pendek."
-                            },
-                            style = MaterialTheme.typography.bodyMedium
+                        UtilityEmptyState(
+                            icon = Icons.Filled.School,
+                            title = stringResource(R.string.schools_empty_title),
+                            subtitle = stringResource(R.string.schools_empty_desc)
                         )
                     }
                 }
@@ -120,13 +165,23 @@ fun SchoolScreen(
                         OutlinedButton(
                             onClick = { vm.loadMore(isEnglish) },
                             enabled = !state.isLoadingMore,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .minimumInteractiveComponentSize()
+                                .testTag("schools_load_more")
                         ) {
+                            if (state.isLoadingMore) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
                             Text(
                                 if (state.isLoadingMore) {
                                     if (isEnglish) "Loading…" else "Memuat…"
                                 } else {
-                                    if (isEnglish) "Load more" else "Muat lagi"
+                                    stringResource(R.string.schools_load_more)
                                 }
                             )
                         }
@@ -135,12 +190,9 @@ fun SchoolScreen(
             }
 
             item(key = "source") {
-                NusantaraSourceNote(
-                    if (isEnglish) {
-                        "Source: api-sekolah-indonesia (public school dataset, no API key)."
-                    } else {
-                        "Sumber: api-sekolah-indonesia (dataset sekolah publik, tanpa API key)."
-                    }
+                UtilityAttributionFooter(
+                    sourceText = stringResource(R.string.schools_source),
+                    fetchedAtMillis = state.fetchedAtMillis
                 )
             }
         }
@@ -149,50 +201,80 @@ fun SchoolScreen(
 
 @Composable
 private fun SchoolCard(school: School, isEnglish: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = school.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = listOf(
-                    school.npsn.takeIf { it.isNotBlank() }?.let { "NPSN $it" },
-                    school.form.takeIf { it.isNotBlank() },
-                    school.status.takeIf { it.isNotBlank() }?.let {
-                        if (isEnglish) {
-                            if (it.equals("S", true)) "Private" else "Public"
-                        } else {
-                            if (it.equals("S", true)) "Swasta" else "Negeri"
-                        }
+    UtilitySectionCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = school.name,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (school.npsn.isNotBlank()) {
+                        UtilityBadgePill(text = "NPSN ${school.npsn}")
                     }
-                ).filterNotNull().joinToString(" • "),
-                style = MonoTextStyle,
+                    if (school.form.isNotBlank()) {
+                        UtilityBadgePill(text = school.form, mono = false)
+                    }
+                    if (school.status.isNotBlank()) {
+                        val statusLabel = if (isEnglish) {
+                            if (school.status.equals("S", true)) "Private" else "Public"
+                        } else {
+                            if (school.status.equals("S", true)) "Swasta" else "Negeri"
+                        }
+                        UtilityBadgePill(text = statusLabel, mono = false)
+                    }
+                }
+            }
+            if (school.npsn.isNotBlank()) {
+                UtilityCopyIconButton(
+                    textToCopy = school.npsn,
+                    clipboardLabel = "npsn",
+                    contentDescription = stringResource(R.string.schools_copy_npsn),
+                    testTag = "school_copy_npsn_${school.npsn}"
+                )
+            }
+        }
+
+        if (school.address.isNotBlank()) {
+            Text(text = school.address, style = MaterialTheme.typography.bodyMedium)
+        }
+        val area = listOf(school.district, school.regency, school.province)
+            .filter { it.isNotBlank() }
+            .joinToString(", ")
+        if (area.isNotBlank()) {
+            Text(
+                text = area,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (school.address.isNotBlank()) {
-                Text(text = school.address, style = MaterialTheme.typography.bodyMedium)
-            }
-            val area = listOf(school.district, school.regency, school.province)
-                .filter { it.isNotBlank() }
-                .joinToString(", ")
-            if (area.isNotBlank()) {
-                Text(
-                    text = area,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (school.latitude.isNotBlank() && school.longitude.isNotBlank()) {
-                Text(
-                    text = "${school.latitude}, ${school.longitude}",
-                    style = MonoTextStyle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        }
+        if (school.latitude.isNotBlank() && school.longitude.isNotBlank()) {
+            val coords = "${school.latitude}, ${school.longitude}"
+            HariMuInsetPanel {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = coords,
+                        style = MonoTextStyle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    UtilityCopyIconButton(
+                        textToCopy = coords,
+                        clipboardLabel = "school_coords",
+                        contentDescription = stringResource(R.string.schools_copy_coords)
+                    )
+                }
             }
         }
     }

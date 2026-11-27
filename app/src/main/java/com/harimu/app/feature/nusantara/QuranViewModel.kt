@@ -24,7 +24,9 @@ data class QuranUiState(
     val isLoading: Boolean = false,
     val isLoadingDetail: Boolean = false,
     val loaded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null,
+    val detailFetchedAtMillis: Long? = null
 ) {
     val visible: List<QuranSurah> get() = surahs.filterSurahs(query)
 }
@@ -50,7 +52,15 @@ class QuranViewModel(
             val result = withContext(Dispatchers.IO) { repository.surahs() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, surahs = it, loaded = true, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            surahs = it,
+                            loaded = true,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = {
                         current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish))
                     }
@@ -66,7 +76,14 @@ class QuranViewModel(
             val result = withContext(Dispatchers.IO) { repository.surah(number) }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoadingDetail = false, detail = it, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoadingDetail = false,
+                            detail = it,
+                            error = null,
+                            detailFetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = {
                         current.copy(isLoadingDetail = false, error = it.toNusantaraMessage(isEnglish))
                     }

@@ -18,7 +18,8 @@ import kotlinx.coroutines.withContext
 data class NusantaraHubUiState(
     val isLoading: Boolean = false,
     val latest: Earthquake? = null,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 )
 
 class NusantaraHubViewModel(
@@ -37,7 +38,14 @@ class NusantaraHubViewModel(
             val result = withContext(Dispatchers.IO) { repository.load() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, latest = it.latest, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            latest = it.latest,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = { current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish)) }
                 )
             }

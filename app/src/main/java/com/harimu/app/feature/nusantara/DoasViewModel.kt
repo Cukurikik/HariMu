@@ -22,7 +22,8 @@ data class DoasUiState(
     val selected: Doa? = null,
     val isLoading: Boolean = false,
     val loaded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 ) {
     val visible: List<Doa> get() = doas.filterByQuery(query)
 }
@@ -51,7 +52,15 @@ class DoasViewModel(
             val result = withContext(Dispatchers.IO) { repository.all() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, doas = it, loaded = true, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            doas = it,
+                            loaded = true,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = { current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish)) }
                 )
             }

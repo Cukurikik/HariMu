@@ -22,7 +22,8 @@ data class AreaLookupUiState(
     val isLoading: Boolean = false,
     val entries: List<AreaEntry> = emptyList(),
     val hasSearched: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 )
 
 class AreaLookupViewModel(
@@ -38,6 +39,18 @@ class AreaLookupViewModel(
         _state.update { it.copy(keyword = value, error = null) }
     }
 
+    fun selectPresetAndSearch(keyword: String, isEnglish: Boolean) {
+        _state.update { it.copy(keyword = keyword, error = null) }
+        search(isEnglish)
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        _state.update {
+            it.copy(keyword = "", isLoading = false, entries = emptyList(), hasSearched = false, error = null)
+        }
+    }
+
     fun search(isEnglish: Boolean) {
         val query = _state.value.keyword
         searchJob?.cancel()
@@ -47,7 +60,13 @@ class AreaLookupViewModel(
             _state.update { current ->
                 result.fold(
                     onSuccess = { entries ->
-                        current.copy(isLoading = false, entries = entries, hasSearched = true, error = null)
+                        current.copy(
+                            isLoading = false,
+                            entries = entries,
+                            hasSearched = true,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
                     },
                     onFailure = { failure ->
                         val message = (failure as? AreaLookupException)?.userMessage(isEnglish)

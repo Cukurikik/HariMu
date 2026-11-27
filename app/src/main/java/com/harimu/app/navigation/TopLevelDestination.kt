@@ -75,7 +75,8 @@ enum class TopLevelDestination(
         selectedIcon = Icons.Outlined.Public,
         unselectedIcon = Icons.Outlined.Public,
         testTag = "nav_nusantara",
-        showInNavigationBar = false
+        showInNavigationBar = false,
+        providesOwnTopBar = true
     ),
     SETTINGS(
         route = SettingsRoute,

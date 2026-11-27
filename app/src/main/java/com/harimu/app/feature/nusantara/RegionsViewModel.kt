@@ -29,9 +29,15 @@ data class RegionsUiState(
     val province: Region? = null,
     val regency: Region? = null,
     val district: Region? = null,
+    val regionFilter: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null
-)
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
+) {
+    val visibleProvinces: List<Region> get() = provinces.filterRegionName(regionFilter)
+    val visibleRegencies: List<Region> get() = regencies.filterRegionName(regionFilter)
+    val visibleDistricts: List<Region> get() = districts.filterRegionName(regionFilter)
+}
 
 class RegionsViewModel(
     private val repository: RegionRepository
@@ -44,11 +50,17 @@ class RegionsViewModel(
     private var villagePager: Flow<PagingData<Region>>? = null
     private var pagerDistrictId: String? = null
 
-    fun loadProvinces(isEnglish: Boolean) {
-        if (_state.value.provinces.isNotEmpty()) return
+    fun onRegionFilterChange(value: String) {
+        _state.update { it.copy(regionFilter = value) }
+    }
+
+    fun loadProvinces(isEnglish: Boolean, force: Boolean = false) {
+        if (!force && _state.value.provinces.isNotEmpty()) return
         run(isEnglish) {
             val list = repository.provinces().getOrElse { throw it }
-            _state.update { current -> current.copy(provinces = list) }
+            _state.update { current ->
+                current.copy(provinces = list, fetchedAtMillis = System.currentTimeMillis())
+            }
         }
     }
 
@@ -60,27 +72,69 @@ class RegionsViewModel(
                 district = null,
                 regencies = emptyList(),
                 districts = emptyList(),
+                regionFilter = "",
                 error = null
             )
         }
         resetPager()
         run(isEnglish) {
             val list = repository.regencies(region.id).getOrElse { throw it }
-            _state.update { current -> current.copy(regencies = list) }
+            _state.update { current ->
+                current.copy(regencies = list, fetchedAtMillis = System.currentTimeMillis())
+            }
         }
     }
 
     fun selectRegency(region: Region, isEnglish: Boolean) {
-        _state.update { it.copy(regency = region, district = null, districts = emptyList(), error = null) }
+        _state.update {
+            it.copy(
+                regency = region,
+                district = null,
+                districts = emptyList(),
+                regionFilter = "",
+                error = null
+            )
+        }
         resetPager()
         run(isEnglish) {
             val list = repository.districts(region.id).getOrElse { throw it }
-            _state.update { current -> current.copy(districts = list) }
+            _state.update { current ->
+                current.copy(districts = list, fetchedAtMillis = System.currentTimeMillis())
+            }
         }
     }
 
     fun selectDistrict(region: Region) {
-        _state.update { it.copy(district = region, error = null) }
+        _state.update { it.copy(district = region, regionFilter = "", error = null) }
+    }
+
+    fun clearToLevel(level: Int) {
+        when (level) {
+            0 -> {
+                resetPager()
+                _state.update {
+                    it.copy(
+                        province = null,
+                        regency = null,
+                        district = null,
+                        regencies = emptyList(),
+                        districts = emptyList(),
+                        regionFilter = "",
+                        error = null
+                    )
+                }
+            }
+            1 -> {
+                resetPager()
+                _state.update {
+                    it.copy(regency = null, district = null, districts = emptyList(), regionFilter = "", error = null)
+                }
+            }
+            2 -> {
+                resetPager()
+                _state.update { it.copy(district = null, regionFilter = "", error = null) }
+            }
+        }
     }
 
     /** Daftar desa dimuat bertahap dengan Paging; pager di-cache per kecamatan. */
@@ -99,10 +153,7 @@ class RegionsViewModel(
         when {
             current.regency != null -> selectRegency(current.regency, isEnglish)
             current.province != null -> selectProvince(current.province, isEnglish)
-            else -> {
-                _state.update { it.copy(provinces = emptyList()) }
-                loadProvinces(isEnglish)
-            }
+            else -> loadProvinces(isEnglish, force = true)
         }
     }
 

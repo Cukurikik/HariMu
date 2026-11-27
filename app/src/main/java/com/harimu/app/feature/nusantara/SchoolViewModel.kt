@@ -25,7 +25,8 @@ data class SchoolUiState(
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
     val searched: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 )
 
 /** Pencarian sekolah per nama; halaman berikutnya ditambahkan ke daftar yang sama. */
@@ -56,7 +57,8 @@ class SchoolViewModel(
                     schools = page.schools,
                     page = page.page,
                     total = page.total,
-                    hasMore = page.hasMore
+                    hasMore = page.hasMore,
+                    fetchedAtMillis = System.currentTimeMillis()
                 )
             }
         }
@@ -77,7 +79,8 @@ class SchoolViewModel(
                         .distinctBy { school -> school.npsn.ifBlank { school.name } },
                     page = page.page,
                     total = page.total,
-                    hasMore = page.hasMore
+                    hasMore = page.hasMore,
+                    fetchedAtMillis = System.currentTimeMillis()
                 )
             }
         }

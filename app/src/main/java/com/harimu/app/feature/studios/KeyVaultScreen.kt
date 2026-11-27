@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +46,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,13 +57,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.data.VaultKeyEntity
 import com.harimu.app.core.design.EmptyStateCard
 import com.harimu.app.core.design.EngineBadge
 import com.harimu.app.core.design.HariMuColors
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.security.VaultCryptoEngine
 import kotlinx.coroutines.Dispatchers
@@ -288,24 +294,39 @@ fun KeyVaultScreen(
     openDocumentHolder[0] = openDocument
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Key Vault") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("key_vault_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back)
+                        )
                     }
                 }
             )
         }
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentAlignment = Alignment.TopCenter
         ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = HariMuThemeTokens.layout.catalogMaxWidth),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -472,9 +493,14 @@ fun KeyVaultScreen(
                                     Text(if (isEnglish) "Export PEM" else "Ekspor PEM")
                                 }
                                 IconButton(
-                                    onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteVaultKey(item.id) } }
+                                    onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteVaultKey(item.id) } },
+                                    modifier = Modifier.minimumInteractiveComponentSize()
                                 ) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    Icon(
+                                        imageVector = Icons.Filled.Delete,
+                                        contentDescription = stringResource(R.string.key_vault_delete_cd),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                             if (item.keystoreBacked) {
@@ -526,6 +552,7 @@ fun KeyVaultScreen(
                     }
                 }
             }
+        }
         }
     }
 }

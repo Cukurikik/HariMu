@@ -24,11 +24,21 @@ data class PesantrenUiState(
     val pesantren: List<Pesantren> = emptyList(),
     val province: PesantrenRegion? = null,
     val regency: PesantrenRegion? = null,
+    val regionQuery: String = "",
     val query: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 ) {
+    val visibleProvinces: List<PesantrenRegion> get() = provinces.filterPesantrenRegion(regionQuery)
+    val visibleRegencies: List<PesantrenRegion> get() = regencies.filterPesantrenRegion(regionQuery)
     val visiblePesantren: List<Pesantren> get() = pesantren.filterPesantren(query)
+}
+
+internal fun List<PesantrenRegion>.filterPesantrenRegion(query: String): List<PesantrenRegion> {
+    val needle = query.trim().lowercase()
+    if (needle.isEmpty()) return this
+    return filter { it.name.lowercase().contains(needle) || it.id.contains(needle) }
 }
 
 class PesantrenViewModel(
@@ -40,46 +50,78 @@ class PesantrenViewModel(
 
     private var job: Job? = null
 
+    fun onRegionQueryChange(value: String) {
+        _state.update { it.copy(regionQuery = value) }
+    }
+
     fun onQueryChange(value: String) {
         _state.update { it.copy(query = value) }
     }
 
-    fun loadProvinces(isEnglish: Boolean) {
-        if (_state.value.provinces.isNotEmpty()) return
+    fun loadProvinces(isEnglish: Boolean, force: Boolean = false) {
+        if (!force && _state.value.provinces.isNotEmpty()) return
         run(isEnglish) {
             val list = repository.provinces().getOrElse { throw it }
-            _state.update { current -> current.copy(provinces = list) }
+            _state.update { current ->
+                current.copy(provinces = list, fetchedAtMillis = System.currentTimeMillis())
+            }
         }
     }
 
     fun selectProvince(region: PesantrenRegion, isEnglish: Boolean) {
         _state.update {
-            it.copy(province = region, regency = null, regencies = emptyList(), pesantren = emptyList())
+            it.copy(
+                province = region,
+                regency = null,
+                regencies = emptyList(),
+                pesantren = emptyList(),
+                regionQuery = ""
+            )
         }
         run(isEnglish) {
             val list = repository.regencies(region.id).getOrElse { throw it }
-            _state.update { current -> current.copy(regencies = list) }
+            _state.update { current ->
+                current.copy(regencies = list, fetchedAtMillis = System.currentTimeMillis())
+            }
         }
     }
 
     fun selectRegency(region: PesantrenRegion, isEnglish: Boolean) {
-        _state.update { it.copy(regency = region, pesantren = emptyList(), query = "") }
+        _state.update { it.copy(regency = region, pesantren = emptyList(), query = "", regionQuery = "") }
         run(isEnglish) {
             val list = repository.pesantren(region.id).getOrElse { throw it }
-            _state.update { current -> current.copy(pesantren = list) }
+            _state.update { current ->
+                current.copy(pesantren = list, fetchedAtMillis = System.currentTimeMillis())
+            }
         }
     }
 
     fun backToProvinces() {
         job?.cancel()
         _state.update {
-            it.copy(province = null, regency = null, regencies = emptyList(), pesantren = emptyList(), error = null)
+            it.copy(
+                province = null,
+                regency = null,
+                regencies = emptyList(),
+                pesantren = emptyList(),
+                regionQuery = "",
+                query = "",
+                error = null
+            )
         }
     }
 
     fun backToRegencies() {
         job?.cancel()
-        _state.update { it.copy(regency = null, pesantren = emptyList(), query = "", error = null) }
+        _state.update {
+            it.copy(
+                regency = null,
+                pesantren = emptyList(),
+                regionQuery = "",
+                query = "",
+                error = null
+            )
+        }
     }
 
     fun retry(isEnglish: Boolean) {
@@ -87,10 +129,7 @@ class PesantrenViewModel(
         when {
             current.regency != null -> selectRegency(current.regency, isEnglish)
             current.province != null -> selectProvince(current.province, isEnglish)
-            else -> {
-                _state.update { it.copy(provinces = emptyList()) }
-                loadProvinces(isEnglish)
-            }
+            else -> loadProvinces(isEnglish, force = true)
         }
     }
 

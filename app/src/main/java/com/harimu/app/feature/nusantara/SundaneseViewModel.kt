@@ -21,7 +21,8 @@ data class SundaneseUiState(
     val lookedUpWord: String = "",
     val isLoading: Boolean = false,
     val searched: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 )
 
 class SundaneseViewModel(
@@ -35,6 +36,11 @@ class SundaneseViewModel(
 
     fun onQueryChange(value: String) {
         _state.update { it.copy(query = value) }
+    }
+
+    fun lookupPreset(word: String, isEnglish: Boolean) {
+        _state.update { it.copy(query = word) }
+        lookup(isEnglish)
     }
 
     fun lookup(isEnglish: Boolean) {
@@ -51,7 +57,8 @@ class SundaneseViewModel(
                             isLoading = false,
                             entries = it,
                             lookedUpWord = word,
-                            error = null
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
                         )
                     },
                     onFailure = {

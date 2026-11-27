@@ -1,50 +1,64 @@
 package com.harimu.app.feature.prayer
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Mosque
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
+import com.harimu.app.R
+import com.harimu.app.core.design.HariMuInsetPanel
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.design.accentColor
+import com.harimu.app.core.design.utilities.UtilityActionButton
+import com.harimu.app.core.design.utilities.UtilityAttributionFooter
+import com.harimu.app.core.design.utilities.UtilityBadgePill
+import com.harimu.app.core.design.utilities.UtilityCopyIconButton
+import com.harimu.app.core.design.utilities.UtilityEmptyState
+import com.harimu.app.core.design.utilities.UtilityErrorCard
+import com.harimu.app.core.design.utilities.UtilityHeroBanner
+import com.harimu.app.core.design.utilities.UtilityLoadingCard
+import com.harimu.app.core.design.utilities.UtilityQuickChips
+import com.harimu.app.core.design.utilities.UtilityScreenScaffold
+import com.harimu.app.core.design.utilities.UtilitySearchBar
+import com.harimu.app.core.design.utilities.UtilitySectionCard
 import com.harimu.app.core.prayer.PrayerSchedule
+import com.harimu.app.core.toolapi.ToolGroup
+import java.time.LocalDate
+import java.time.LocalTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val POPULAR_PRAYER_CITIES = listOf(
+    "Jakarta",
+    "Bandung",
+    "Surabaya",
+    "Yogyakarta",
+    "Semarang",
+    "Medan",
+    "Makassar",
+    "Denpasar"
+)
+
 @Composable
 fun PrayerTimesScreen(
     container: AppContainer,
@@ -53,164 +67,224 @@ fun PrayerTimesScreen(
 ) {
     val vm: PrayerTimesViewModel = viewModel(factory = PrayerTimesViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
+    val spacing = HariMuThemeTokens.spacing
+    val todayLabel = remember { LocalDate.now().toString() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isEnglish) "Prayer Times" else "Jadwal Sholat") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    UtilityScreenScaffold(
+        title = stringResource(R.string.prayer_title),
+        onBack = onBack,
+        onRefresh = if (state.cityQuery.isNotBlank()) {
+            { vm.refresh(isEnglish) }
+        } else {
+            null
+        },
+        isRefreshing = state.isLoading,
+        backTestTag = "prayer_back_button",
+        refreshTestTag = "prayer_refresh_button"
+    ) { _ ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = if (isEnglish) {
-                            "Look up today's prayer schedule for an Indonesian city (source: Quran API ID, no API key)."
-                        } else {
-                            "Cari jadwal sholat hari ini untuk kota di Indonesia (sumber: Quran API ID, tanpa API key)."
-                        },
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    OutlinedTextField(
+            item(key = "hero") {
+                UtilityHeroBanner(
+                    title = stringResource(R.string.prayer_title),
+                    description = stringResource(R.string.prayer_intro),
+                    badge = stringResource(R.string.prayer_badge),
+                    accent = ToolGroup.CORE.accentColor()
+                )
+            }
+
+            item(key = "search-form") {
+                UtilitySectionCard {
+                    UtilitySearchBar(
                         value = state.cityQuery,
                         onValueChange = vm::onCityQueryChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("prayer_city_input"),
-                        singleLine = true,
+                        label = stringResource(R.string.prayer_city_label),
+                        placeholder = stringResource(R.string.prayer_city_placeholder),
+                        tag = "prayer_city_input",
                         enabled = !state.isLoading,
-                        label = { Text(if (isEnglish) "City / Regency" else "Kota / Kabupaten") }
+                        onSearch = { vm.search(isEnglish) }
                     )
-                    Button(
+                    UtilityQuickChips(
+                        items = POPULAR_PRAYER_CITIES,
+                        selectedKey = state.cityQuery.trim(),
+                        keyOf = { it },
+                        labelOf = { it },
+                        label = stringResource(R.string.prayer_presets_label),
+                        tag = "prayer_city_presets",
+                        accent = ToolGroup.CORE.accentColor(),
+                        onSelect = { city -> vm.selectPresetCity(city, isEnglish) }
+                    )
+                    UtilityActionButton(
+                        label = stringResource(R.string.prayer_load_cta),
+                        loadingLabel = stringResource(R.string.prayer_loading),
+                        isLoading = state.isLoading,
                         onClick = { vm.search(isEnglish) },
-                        enabled = !state.isLoading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (state.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Icon(Icons.Filled.Search, contentDescription = null)
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            if (state.isLoading) {
-                                if (isEnglish) "Loading…" else "Memuat…"
-                            } else {
-                                if (isEnglish) "Load Prayer Times" else "Muat Jadwal Sholat"
-                            }
-                        )
-                    }
+                        testTag = "prayer_load_button"
+                    )
+                }
+            }
+
+            if (state.isLoading) {
+                item(key = "loading") {
+                    UtilityLoadingCard(message = stringResource(R.string.prayer_loading))
                 }
             }
 
             state.error?.let { message ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.ErrorOutline,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = if (isEnglish) "Could not load schedule" else "Gagal memuat jadwal",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        OutlinedButton(onClick = { vm.refresh(isEnglish) }, enabled = !state.isLoading) {
-                            Icon(Icons.Filled.Refresh, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (isEnglish) "Retry" else "Coba Lagi")
-                        }
-                    }
+                item(key = "error") {
+                    UtilityErrorCard(
+                        message = message,
+                        onRetry = { vm.refresh(isEnglish) },
+                        enabled = !state.isLoading,
+                        testTag = "prayer_retry_button"
+                    )
                 }
             }
 
-            state.schedule?.let { schedule ->
-                ScheduleCard(schedule = schedule, isEnglish = isEnglish)
+            val schedule = state.schedule
+            if (schedule != null && !state.isLoading) {
+                item(key = "schedule") {
+                    ScheduleCard(schedule = schedule, isEnglish = isEnglish)
+                }
+            } else if (!state.isLoading && state.error == null) {
+                item(key = "empty") {
+                    UtilityEmptyState(
+                        icon = Icons.Filled.Mosque,
+                        title = stringResource(R.string.prayer_empty_title),
+                        subtitle = stringResource(R.string.prayer_empty_desc)
+                    )
+                }
             }
 
-            Text(
-                text = if (isEnglish) {
-                    "Source: api.myquran.com (Quran API ID). Times are for the device's current date."
-                } else {
-                    "Sumber: api.myquran.com (Quran API ID). Jadwal mengikuti tanggal perangkat saat ini."
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            item(key = "attribution") {
+                UtilityAttributionFooter(
+                    sourceText = stringResource(R.string.prayer_source),
+                    freshnessNote = stringResource(R.string.prayer_freshness, todayLabel),
+                    fetchedAtMillis = state.fetchedAtMillis,
+                    onlineOnlyNote = null
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun ScheduleCard(schedule: PrayerSchedule, isEnglish: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
+    val rows = listOf(
+        "Imsak" to schedule.imsak,
+        (if (isEnglish) "Fajr" else "Subuh") to schedule.subuh,
+        (if (isEnglish) "Sunrise" else "Terbit") to schedule.terbit,
+        (if (isEnglish) "Duha" else "Dhuha") to schedule.dhuha,
+        (if (isEnglish) "Dhuhr" else "Dzuhur") to schedule.dzuhur,
+        (if (isEnglish) "Asr" else "Ashar") to schedule.ashar,
+        "Maghrib" to schedule.maghrib,
+        (if (isEnglish) "Isha" else "Isya") to schedule.isya
+    )
+    val nextIdx = remember(schedule) { findNextPrayerIndex(schedule, LocalTime.now()) }
+    val copyText = remember(schedule, rows) {
+        buildString {
+            appendLine(schedule.city.ifBlank { schedule.cityId })
+            if (schedule.dateLabel.isNotBlank()) appendLine(schedule.dateLabel)
+            rows.forEach { (label, time) -> appendLine("$label: ${time.ifBlank { "—" }}") }
+        }.trim()
+    }
+
+    UtilitySectionCard(
+        highlighted = true,
+        modifier = Modifier.testTag("prayer_schedule_card")
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = schedule.city.ifBlank { schedule.cityId },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = schedule.city.ifBlank { schedule.cityId },
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = listOf(schedule.region, schedule.dateLabel)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            UtilityCopyIconButton(
+                textToCopy = copyText,
+                clipboardLabel = "prayer_schedule",
+                contentDescription = stringResource(R.string.prayer_copy_schedule),
+                testTag = "prayer_copy_schedule"
             )
-            Text(
-                text = listOf(schedule.region, schedule.dateLabel)
-                    .filter { it.isNotBlank() }
-                    .joinToString(" • "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
-            val rows = listOf(
-                "Imsak" to schedule.imsak,
-                (if (isEnglish) "Fajr" else "Subuh") to schedule.subuh,
-                (if (isEnglish) "Sunrise" else "Terbit") to schedule.terbit,
-                (if (isEnglish) "Duha" else "Dhuha") to schedule.dhuha,
-                (if (isEnglish) "Dhuhr" else "Dzuhur") to schedule.dzuhur,
-                (if (isEnglish) "Asr" else "Ashar") to schedule.ashar,
-                "Maghrib" to schedule.maghrib,
-                (if (isEnglish) "Isha" else "Isya") to schedule.isya
-            )
-            rows.forEach { (label, time) ->
+        }
+
+        if (nextIdx != null) {
+            val (nextLabel, nextTime) = rows[nextIdx]
+            HariMuInsetPanel {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(label, style = MaterialTheme.typography.bodyMedium)
-                    Text(time.ifBlank { "—" }, style = MonoTextStyle)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Filled.Schedule,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Column {
+                            Text(
+                                text = stringResource(R.string.prayer_next_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = nextLabel,
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                    UtilityBadgePill(
+                        text = nextTime.ifBlank { "—" },
+                        accent = ToolGroup.CORE.accentColor()
+                    )
                 }
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+        rows.forEachIndexed { index, (label, time) ->
+            val isNext = index == nextIdx
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = if (isNext) {
+                        MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    } else {
+                        MaterialTheme.typography.bodyMedium
+                    },
+                    color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = time.ifBlank { "—" },
+                    style = if (isNext) MonoTextStyle.copy(fontWeight = FontWeight.Bold) else MonoTextStyle,
+                    color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }

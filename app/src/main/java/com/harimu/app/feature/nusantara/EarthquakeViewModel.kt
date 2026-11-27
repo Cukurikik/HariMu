@@ -20,7 +20,8 @@ import kotlinx.coroutines.withContext
 data class EarthquakeUiState(
     val isLoading: Boolean = false,
     val snapshot: EarthquakeSnapshot? = null,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 )
 
 class EarthquakeViewModel(
@@ -39,7 +40,14 @@ class EarthquakeViewModel(
             val result = withContext(Dispatchers.IO) { repository.load() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, snapshot = it, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            snapshot = it,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = { failure ->
                         current.copy(isLoading = false, error = failure.toNusantaraMessage(isEnglish))
                     }

@@ -954,4 +954,35 @@
     <string name="pesantren_empty_title">Belum ada data pesantren</string>
     <string name="pesantren_empty_desc">Tidak ada pesantren yang cocok pada wilayah atau filter ini.</string>
     <string name="pesantren_source">Sumber: api-pesantren-indonesia oleh nasrul21 (data Kemenag publik).</string>
+
+    <string name="utility_online_only_note">Memerlukan koneksi internet. Data hanya dimuat pada sesi ini dan tidak tersimpan offline antar-sesi.</string>
+    <string name="utility_open_weather_adm4">Lihat Cuaca BMKG</string>
+    <string name="utility_copy_all">Salin Semua</string>
+    <string name="utility_refresh_btn">Segarkan</string>
+    <string name="utility_clear_filters">Bersihkan</string>
+    <string name="earthquake_shakemap">Peta Guncangan BMKG</string>
+    <string name="earthquake_no_recent">Belum ada daftar gempa tambahan pada feed saat ini.</string>
+    <string name="weather_pick_step_hint">Pilih bertahap: Provinsi → Kab/Kota → Kecamatan → Desa</string>
+    <string name="weather_filter_empty">Tidak ada wilayah yang cocok dengan filter di tingkat ini.</string>
+    <string name="regions_filter_label">Saring provinsi, kab/kota, atau kecamatan</string>
+    <string name="regions_load_villages_retry">Muat Ulang Daftar Desa</string>
+    <string name="schools_min_chars_hint">Ketik minimal 3 huruf untuk mengaktifkan pencarian.</string>
+    <string name="schools_copy_npsn">Salin NPSN</string>
+    <string name="schools_copy_coords">Salin koordinat</string>
+    <string name="sundanese_level_self">Ke diri sendiri (Sorangan)</string>
+    <string name="sundanese_level_elder">Ke orang dihormati (Batur)</string>
+    <string name="sundanese_level_casual">Sebaya / akrab (Loma)</string>
+    <string name="sundanese_copy_entry">Salin entri</string>
+    <string name="tts_copy_answer">Salin jawaban</string>
+    <string name="quran_verify_mushaf">Untuk ibadah, selalu cocokkan bacaan dengan mushaf tercetak atau guru tepercaya.</string>
+    <string name="quran_play_audio">Putar audio ayat</string>
+    <string name="quran_stop_audio">Hentikan audio</string>
+    <string name="quran_audio_error">Audio ayat tidak dapat diputar saat ini.</string>
+    <string name="football_season_label">Pilih Musim</string>
+    <string name="football_empty_leagues_title">Liga tidak ditemukan</string>
+    <string name="pesantren_step_province">Pilih Provinsi</string>
+    <string name="pesantren_step_regency">Pilih Kabupaten / Kota</string>
+    <string name="pesantren_copy_nspp">Salin NSPP</string>
+    <string name="backup_saved_toast">Backup .omni tersimpan</string>
+    <string name="key_vault_delete_cd">Hapus kunci</string>
 </resources>

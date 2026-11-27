@@ -1,55 +1,53 @@
 package com.harimu.app.feature.area
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.area.AreaEntry
-import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.design.HariMuThemeTokens
+import com.harimu.app.core.design.accentColor
+import com.harimu.app.core.design.utilities.UtilityActionButton
+import com.harimu.app.core.design.utilities.UtilityAttributionFooter
+import com.harimu.app.core.design.utilities.UtilityBadgePill
+import com.harimu.app.core.design.utilities.UtilityCopyIconButton
+import com.harimu.app.core.design.utilities.UtilityEmptyState
+import com.harimu.app.core.design.utilities.UtilityErrorCard
+import com.harimu.app.core.design.utilities.UtilityHeroBanner
+import com.harimu.app.core.design.utilities.UtilityLoadingCard
+import com.harimu.app.core.design.utilities.UtilityQuickChips
+import com.harimu.app.core.design.utilities.UtilityResultHeader
+import com.harimu.app.core.design.utilities.UtilityScreenScaffold
+import com.harimu.app.core.design.utilities.UtilitySearchBar
+import com.harimu.app.core.design.utilities.UtilitySectionCard
+import com.harimu.app.core.toolapi.ToolGroup
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val AREA_PRESET_KEYWORDS = listOf("Soreang", "40915", "Gambir", "Surabaya", "Yogyakarta")
+
 @Composable
 fun AreaLookupScreen(
     container: AppContainer,
@@ -58,176 +56,120 @@ fun AreaLookupScreen(
 ) {
     val vm: AreaLookupViewModel = viewModel(factory = AreaLookupViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
-    val keyboard = LocalSoftwareKeyboardController.current
+    val spacing = HariMuThemeTokens.spacing
 
-    fun runSearch() {
-        keyboard?.hide()
-        vm.search(isEnglish)
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isEnglish) "Postal Code & Area Search" else "Cari Kode Pos & Wilayah") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    UtilityScreenScaffold(
+        title = stringResource(R.string.area_title),
+        onBack = onBack,
+        onRefresh = if (state.keyword.trim().length >= 2) {
+            { vm.refresh(isEnglish) }
+        } else {
+            null
+        },
+        isRefreshing = state.isLoading,
+        backTestTag = "area_back_button",
+        refreshTestTag = "area_refresh_button"
+    ) { _ ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
+            item(key = "hero") {
+                UtilityHeroBanner(
+                    title = stringResource(R.string.area_title),
+                    description = stringResource(R.string.area_intro),
+                    badge = stringResource(R.string.area_badge),
+                    accent = ToolGroup.CORE.accentColor()
+                )
+            }
+
             item(key = "search-form") {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = if (isEnglish) {
-                                "Find a village, district, city, or postal code across Indonesia " +
-                                    "(source: thecloudalert, no API key)."
-                            } else {
-                                "Cari desa/kelurahan, kecamatan, kabupaten/kota, atau kode pos " +
-                                    "di seluruh Indonesia (sumber: thecloudalert, tanpa API key)."
-                            },
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        OutlinedTextField(
-                            value = state.keyword,
-                            onValueChange = vm::onKeywordChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("area_keyword_input"),
-                            singleLine = true,
-                            enabled = !state.isLoading,
-                            label = {
-                                Text(if (isEnglish) "Area or postal code" else "Wilayah atau kode pos")
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { runSearch() })
-                        )
-                        Button(
-                            onClick = { runSearch() },
-                            enabled = !state.isLoading,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (state.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            } else {
-                                Icon(Icons.Filled.Search, contentDescription = null)
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (state.isLoading) {
-                                    if (isEnglish) "Searching…" else "Mencari…"
-                                } else {
-                                    if (isEnglish) "Search" else "Cari"
-                                }
-                            )
-                        }
-                    }
+                UtilitySectionCard {
+                    UtilitySearchBar(
+                        value = state.keyword,
+                        onValueChange = vm::onKeywordChange,
+                        label = stringResource(R.string.area_keyword_label),
+                        placeholder = stringResource(R.string.area_keyword_placeholder),
+                        tag = "area_keyword_input",
+                        enabled = !state.isLoading,
+                        onSearch = { vm.search(isEnglish) }
+                    )
+                    UtilityQuickChips(
+                        items = AREA_PRESET_KEYWORDS,
+                        selectedKey = state.keyword.trim(),
+                        keyOf = { it },
+                        labelOf = { it },
+                        label = stringResource(R.string.area_presets_label),
+                        tag = "area_presets",
+                        accent = ToolGroup.CORE.accentColor(),
+                        onSelect = { preset -> vm.selectPresetAndSearch(preset, isEnglish) }
+                    )
+                    UtilityActionButton(
+                        label = stringResource(R.string.area_search_cta),
+                        loadingLabel = stringResource(R.string.area_loading),
+                        isLoading = state.isLoading,
+                        onClick = { vm.search(isEnglish) },
+                        testTag = "area_search_button"
+                    )
+                }
+            }
+
+            if (state.isLoading) {
+                item(key = "loading") {
+                    UtilityLoadingCard(message = stringResource(R.string.area_loading))
                 }
             }
 
             state.error?.let { message ->
                 item(key = "error") {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Filled.ErrorOutline,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = if (isEnglish) "Could not search" else "Gagal mencari",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                            Text(
-                                text = message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            OutlinedButton(onClick = { vm.refresh(isEnglish) }, enabled = !state.isLoading) {
-                                Icon(Icons.Filled.Refresh, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(if (isEnglish) "Retry" else "Coba Lagi")
-                            }
-                        }
-                    }
+                    UtilityErrorCard(
+                        message = message,
+                        onRetry = { vm.refresh(isEnglish) },
+                        enabled = !state.isLoading,
+                        testTag = "area_retry_button"
+                    )
                 }
             }
 
-            if (state.hasSearched && state.entries.isEmpty() && state.error == null) {
+            if (!state.hasSearched && !state.isLoading && state.error == null) {
+                item(key = "prompt") {
+                    UtilityEmptyState(
+                        icon = Icons.Filled.LocationOn,
+                        title = stringResource(R.string.area_prompt_title),
+                        subtitle = stringResource(R.string.area_prompt_desc)
+                    )
+                }
+            }
+
+            if (state.hasSearched && state.entries.isEmpty() && state.error == null && !state.isLoading) {
                 item(key = "empty") {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (isEnglish) {
-                                "No area matched that keyword. Try a village name, district, city, or postal code."
-                            } else {
-                                "Tidak ada wilayah yang cocok. Coba nama desa, kecamatan, kota, atau kode pos."
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
+                    UtilityEmptyState(
+                        icon = Icons.Filled.SearchOff,
+                        title = stringResource(R.string.area_empty_title),
+                        subtitle = stringResource(R.string.area_empty_desc),
+                        actionLabel = stringResource(R.string.utility_clear_filters),
+                        onAction = { vm.clearSearch() },
+                        actionTag = "area_clear_button"
+                    )
                 }
             }
 
-            if (state.entries.isNotEmpty()) {
+            if (state.entries.isNotEmpty() && !state.isLoading) {
                 item(key = "result-count") {
-                    Text(
-                        text = if (isEnglish) {
-                            "${state.entries.size} result(s)"
-                        } else {
-                            "${state.entries.size} hasil"
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    UtilityResultHeader(
+                        countText = stringResource(R.string.area_results_count, state.entries.size)
                     )
                 }
                 items(state.entries, key = { entryKey(it) }) { entry ->
-                    AreaCard(entry = entry, isEnglish = isEnglish)
+                    AreaCard(entry = entry)
                 }
             }
 
             item(key = "source") {
-                Text(
-                    text = if (isEnglish) {
-                        "Source: alamat.thecloudalert.com (Indonesian Address Provider API, MIT)."
-                    } else {
-                        "Sumber: alamat.thecloudalert.com (Indonesian Address Provider API, MIT)."
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                UtilityAttributionFooter(
+                    sourceText = stringResource(R.string.area_source),
+                    fetchedAtMillis = state.fetchedAtMillis
                 )
             }
         }
@@ -243,42 +185,50 @@ private fun entryKey(entry: AreaEntry): String = listOf(
 ).joinToString("|")
 
 @Composable
-private fun AreaCard(entry: AreaEntry, isEnglish: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+private fun AreaCard(entry: AreaEntry) {
+    val postal = entry.kodepos.ifBlank { "—" }
+    val copyAddress = remember(entry) {
+        listOf(entry.desakel, entry.kecamatan, entry.kabkota, entry.provinsi, entry.kodepos)
+            .filter { it.isNotBlank() }
+            .joinToString(", ")
+    }
+    UtilitySectionCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = entry.desakel.ifBlank { entry.kecamatan.ifBlank { "—" } },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Text(
-                    text = entry.kodepos.ifBlank { "—" },
-                    style = MonoTextStyle,
-                    color = MaterialTheme.colorScheme.primary
+                    text = listOf(entry.kecamatan, entry.kabkota)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Text(
-                text = listOf(entry.kecamatan, entry.kabkota).filter { it.isNotBlank() }.joinToString(" • "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider(Modifier.padding(vertical = 2.dp))
-            Text(
-                text = if (isEnglish) {
-                    "Province: ${entry.provinsi.ifBlank { "—" }}"
-                } else {
-                    "Provinsi: ${entry.provinsi.ifBlank { "—" }}"
-                },
-                style = MaterialTheme.typography.bodySmall
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                UtilityBadgePill(text = postal, accent = ToolGroup.CORE.accentColor())
+                UtilityCopyIconButton(
+                    textToCopy = if (entry.kodepos.isNotBlank()) entry.kodepos else copyAddress,
+                    clipboardLabel = "postal_code",
+                    contentDescription = stringResource(R.string.area_copy_postal),
+                    testTag = "area_copy_${entry.kodepos.ifBlank { entry.desakel }}"
+                )
+            }
         }
+        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+        Text(
+            text = stringResource(R.string.area_province_label, entry.provinsi.ifBlank { "—" }),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

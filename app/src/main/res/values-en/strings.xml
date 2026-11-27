@@ -954,4 +954,35 @@
     <string name="pesantren_empty_title">No pesantren found</string>
     <string name="pesantren_empty_desc">No pesantren matched the selected area or filter.</string>
     <string name="pesantren_source">Source: api-pesantren-indonesia by nasrul21 (public Kemenag dataset).</string>
+
+    <string name="utility_online_only_note">Requires internet access. Data is loaded for this session only and not cached offline.</string>
+    <string name="utility_open_weather_adm4">Open BMKG Weather</string>
+    <string name="utility_copy_all">Copy All</string>
+    <string name="utility_refresh_btn">Refresh</string>
+    <string name="utility_clear_filters">Clear</string>
+    <string name="earthquake_shakemap">BMKG Shakemap</string>
+    <string name="earthquake_no_recent">No additional recent earthquake list returned by the feed right now.</string>
+    <string name="weather_pick_step_hint">Step-by-step: Province → Regency/City → District → Village</string>
+    <string name="weather_filter_empty">No regions match your filter at this level.</string>
+    <string name="regions_filter_label">Filter provinces, regencies, or districts</string>
+    <string name="regions_load_villages_retry">Reload Village List</string>
+    <string name="schools_min_chars_hint">Type at least 3 characters to enable search.</string>
+    <string name="schools_copy_npsn">Copy NPSN</string>
+    <string name="schools_copy_coords">Copy coordinates</string>
+    <string name="sundanese_level_self">To oneself (Sorangan)</string>
+    <string name="sundanese_level_elder">To elders / polite (Batur)</string>
+    <string name="sundanese_level_casual">Casual / peers (Loma)</string>
+    <string name="sundanese_copy_entry">Copy entry</string>
+    <string name="tts_copy_answer">Copy answer</string>
+    <string name="quran_verify_mushaf">For worship, always verify recitation against a printed mushaf or trusted teacher.</string>
+    <string name="quran_play_audio">Play verse audio</string>
+    <string name="quran_stop_audio">Stop audio</string>
+    <string name="quran_audio_error">Verse audio could not be played right now.</string>
+    <string name="football_season_label">Select Season</string>
+    <string name="football_empty_leagues_title">No leagues matched</string>
+    <string name="pesantren_step_province">Choose a Province</string>
+    <string name="pesantren_step_regency">Choose a Regency / City</string>
+    <string name="pesantren_copy_nspp">Copy NSPP</string>
+    <string name="backup_saved_toast">.omni backup saved</string>
+    <string name="key_vault_delete_cd">Delete key</string>
 </resources>

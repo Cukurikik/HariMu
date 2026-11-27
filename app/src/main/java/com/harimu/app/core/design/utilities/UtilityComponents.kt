@@ -5,18 +5,23 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,12 +31,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,21 +55,24 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuThemeTokens
@@ -83,15 +93,23 @@ fun UtilityScreenScaffold(
     isRefreshing: Boolean = false,
     backTestTag: String = "utility_back_button",
     refreshTestTag: String = "utility_refresh_button",
+    maxWidth: Dp = HariMuThemeTokens.layout.catalogMaxWidth,
+    extraActions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
                 title = {
                     Column {
                         Text(
                             text = title,
+                            style = MaterialTheme.typography.titleLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -110,8 +128,8 @@ fun UtilityScreenScaffold(
                     IconButton(
                         onClick = onBack,
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
                             .testTag(backTestTag)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -120,13 +138,14 @@ fun UtilityScreenScaffold(
                     }
                 },
                 actions = {
+                    extraActions()
                     if (onRefresh != null) {
                         IconButton(
                             onClick = onRefresh,
                             enabled = !isRefreshing,
                             modifier = Modifier
-                                .minimumInteractiveComponentSize()
                                 .testTag(refreshTestTag)
+                                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         ) {
                             if (isRefreshing) {
                                 CircularProgressIndicator(
@@ -154,7 +173,7 @@ fun UtilityScreenScaffold(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = HariMuThemeTokens.layout.catalogMaxWidth)
+                    .widthIn(max = maxWidth)
             ) {
                 content(PaddingValues(0.dp))
             }
@@ -171,34 +190,30 @@ fun UtilityHeroBanner(
     accent: Color = ToolGroup.NUSANTARA.accentColor()
 ) {
     val spacing = HariMuThemeTokens.spacing
+    val safeAccent = HariMuThemeTokens.semantic.contrastSafeAccent(accent)
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = HariMuThemeTokens.shapes.card,
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
-        color = Color.Transparent
+        shape = HariMuThemeTokens.shapes.container,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(
+            HariMuThemeTokens.borders.hairline,
+            MaterialTheme.colorScheme.outlineVariant
+        )
     ) {
         Column(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            accent.copy(alpha = 0.14f),
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-                        )
-                    )
-                )
-                .padding(spacing.md),
+            modifier = Modifier.padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.xs)
         ) {
             Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = accent.copy(alpha = 0.18f)
+                shape = HariMuThemeTokens.shapes.badge,
+                color = accent.copy(alpha = 0.14f),
+                border = BorderStroke(HariMuThemeTokens.borders.hairline, accent.copy(alpha = 0.28f))
             ) {
                 Text(
                     text = badge,
-                    style = MonoTextStyle.copy(fontWeight = FontWeight.Bold),
-                    color = accent,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = safeAccent,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -213,6 +228,35 @@ fun UtilityHeroBanner(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+fun UtilityBadgePill(
+    text: String,
+    modifier: Modifier = Modifier,
+    accent: Color = ToolGroup.NUSANTARA.accentColor(),
+    mono: Boolean = true
+) {
+    val safeAccent = HariMuThemeTokens.semantic.contrastSafeAccent(accent)
+    Surface(
+        modifier = modifier,
+        shape = HariMuThemeTokens.shapes.badge,
+        color = accent.copy(alpha = 0.13f),
+        border = BorderStroke(HariMuThemeTokens.borders.hairline, accent.copy(alpha = 0.28f))
+    ) {
+        Text(
+            text = text,
+            style = if (mono) {
+                MonoTextStyle.copy(fontWeight = FontWeight.Bold)
+            } else {
+                MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
+            },
+            color = safeAccent,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -259,8 +303,8 @@ fun UtilitySearchBar(
                 IconButton(
                     onClick = { onValueChange("") },
                     modifier = Modifier
-                        .minimumInteractiveComponentSize()
                         .testTag("${tag}_clear")
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
@@ -290,6 +334,45 @@ fun UtilitySearchBar(
 }
 
 @Composable
+fun UtilityActionButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Filled.Search,
+    isLoading: Boolean = false,
+    enabled: Boolean = true,
+    loadingLabel: String? = null,
+    testTag: String? = null
+) {
+    val controls = HariMuThemeTokens.controls
+    Button(
+        onClick = onClick,
+        enabled = enabled && !isLoading,
+        shape = HariMuThemeTokens.shapes.control,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = controls.buttonMinHeight)
+            .let { if (testTag != null) it.testTag(testTag) else it }
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = if (isLoading && !loadingLabel.isNullOrBlank()) loadingLabel else label,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun <T> UtilityQuickChips(
     items: List<T>,
     selectedKey: String?,
@@ -302,6 +385,7 @@ fun <T> UtilityQuickChips(
     accent: Color = ToolGroup.NUSANTARA.accentColor()
 ) {
     if (items.isEmpty()) return
+    val safeAccent = HariMuThemeTokens.semantic.contrastSafeAccent(accent)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (!label.isNullOrBlank()) {
             Text(
@@ -328,12 +412,94 @@ fun <T> UtilityQuickChips(
                     },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = accent.copy(alpha = 0.16f),
-                        selectedLabelColor = accent
+                        selectedLabelColor = safeAccent
                     ),
                     modifier = Modifier.minimumInteractiveComponentSize()
                 )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun UtilityBreadcrumbBar(
+    segments: List<String>,
+    modifier: Modifier = Modifier,
+    onSegmentClick: ((Int) -> Unit)? = null,
+    tag: String? = null
+) {
+    if (segments.isEmpty()) return
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .let { if (tag != null) it.testTag(tag) else it },
+        shape = HariMuThemeTokens.shapes.chip,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(HariMuThemeTokens.borders.hairline, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically
+        ) {
+            segments.forEachIndexed { index, segment ->
+                val isLast = index == segments.lastIndex
+                val clickableModifier = if (!isLast && onSegmentClick != null) {
+                    Modifier
+                        .minimumInteractiveComponentSize()
+                        .clickable(role = Role.Button) { onSegmentClick(index) }
+                } else {
+                    Modifier
+                }
+                Text(
+                    text = segment,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = if (isLast) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = if (isLast) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    modifier = clickableModifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!isLast) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UtilityResultHeader(
+    countText: String,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = countText,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f, fill = false),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        trailing?.invoke()
     }
 }
 
@@ -345,8 +511,10 @@ fun UtilityLoadingCard(
     val spacing = HariMuThemeTokens.spacing
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = HariMuThemeTokens.shapes.card
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(HariMuThemeTokens.borders.hairline, MaterialTheme.colorScheme.outlineVariant),
+        shape = HariMuThemeTokens.shapes.card,
+        elevation = CardDefaults.cardElevation(defaultElevation = HariMuThemeTokens.elevation.card)
     ) {
         Row(
             modifier = Modifier
@@ -379,6 +547,7 @@ fun UtilityErrorCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
         shape = HariMuThemeTokens.shapes.card,
+        elevation = CardDefaults.cardElevation(defaultElevation = HariMuThemeTokens.elevation.card),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -426,10 +595,16 @@ fun UtilityEmptyState(
     actionTag: String = "utility_empty_action"
 ) {
     val spacing = HariMuThemeTokens.spacing
+    val accent = ToolGroup.NUSANTARA.accentColor()
+    val safeAccent = HariMuThemeTokens.semantic.contrastSafeAccent(accent)
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = HariMuThemeTokens.layout.cardBorderAlpha)),
+        border = BorderStroke(
+            HariMuThemeTokens.borders.hairline,
+            MaterialTheme.colorScheme.outline.copy(alpha = HariMuThemeTokens.layout.cardBorderAlpha)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = HariMuThemeTokens.elevation.card),
         shape = HariMuThemeTokens.shapes.card
     ) {
         Column(
@@ -441,24 +616,26 @@ fun UtilityEmptyState(
         ) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
+                color = accent.copy(alpha = 0.12f)
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = ToolGroup.NUSANTARA.accentColor(),
+                    tint = safeAccent,
                     modifier = Modifier.padding(12.dp).size(28.dp)
                 )
             }
             Spacer(Modifier.size(2.dp))
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                textAlign = TextAlign.Center
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
             if (!actionLabel.isNullOrBlank() && onAction != null) {
                 Spacer(Modifier.size(4.dp))
@@ -485,18 +662,22 @@ fun UtilitySectionCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = HariMuThemeTokens.shapes.card,
+        elevation = CardDefaults.cardElevation(defaultElevation = HariMuThemeTokens.elevation.card),
         colors = CardDefaults.cardColors(
             containerColor = if (highlighted) {
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.surfaceContainerHigh
             } else {
                 MaterialTheme.colorScheme.surface
             }
         ),
-        border = if (highlighted) {
-            null
-        } else {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = HariMuThemeTokens.layout.cardBorderAlpha))
-        }
+        border = BorderStroke(
+            HariMuThemeTokens.borders.hairline,
+            if (highlighted) {
+                MaterialTheme.colorScheme.outlineVariant
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = HariMuThemeTokens.layout.cardBorderAlpha)
+            }
+        )
     ) {
         Column(
             modifier = Modifier.padding(spacing.md),
@@ -525,8 +706,8 @@ fun UtilityCopyIconButton(
             Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier
-            .minimumInteractiveComponentSize()
             .let { if (testTag != null) it.testTag(testTag) else it }
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
     ) {
         Icon(
             imageVector = Icons.Filled.ContentCopy,
@@ -541,7 +722,9 @@ fun UtilityAttributionFooter(
     sourceText: String,
     modifier: Modifier = Modifier,
     freshnessNote: String? = null,
-    fetchedAtMillis: Long? = null
+    fetchedAtMillis: Long? = null,
+    onlineOnlyNote: String? = stringResource(R.string.utility_online_only_note),
+    showSessionStatus: Boolean = true
 ) {
     val spacing = HariMuThemeTokens.spacing
     val fetchedLabel = remember(fetchedAtMillis) {
@@ -552,9 +735,11 @@ fun UtilityAttributionFooter(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = HariMuThemeTokens.shapes.card,
+        elevation = CardDefaults.cardElevation(defaultElevation = HariMuThemeTokens.elevation.card),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        border = BorderStroke(HariMuThemeTokens.borders.hairline, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.padding(spacing.sm),
@@ -580,11 +765,26 @@ fun UtilityAttributionFooter(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (fetchedLabel != null) {
+                if (!onlineOnlyNote.isNullOrBlank()) {
                     Text(
-                        text = stringResource(R.string.utility_fetched_this_session, fetchedLabel),
+                        text = onlineOnlyNote,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (showSessionStatus) {
+                    Text(
+                        text = if (fetchedLabel != null) {
+                            stringResource(R.string.utility_fetched_this_session, fetchedLabel)
+                        } else {
+                            stringResource(R.string.utility_not_fetched_yet)
+                        },
                         style = MonoTextStyle,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (fetchedLabel != null) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }

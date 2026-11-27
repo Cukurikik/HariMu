@@ -20,7 +20,8 @@ data class TtsUiState(
     val result: TtsResult? = null,
     val isLoading: Boolean = false,
     val searched: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null
 ) {
     val answers get() = result?.answers.orEmpty()
 }
@@ -38,6 +39,11 @@ class TtsViewModel(
         _state.update { it.copy(query = value) }
     }
 
+    fun searchPreset(clue: String, isEnglish: Boolean) {
+        _state.update { it.copy(query = clue) }
+        search(isEnglish)
+    }
+
     fun search(isEnglish: Boolean) {
         val clue = _state.value.query.trim()
         if (clue.isEmpty()) return
@@ -47,7 +53,14 @@ class TtsViewModel(
             val result = withContext(Dispatchers.IO) { repository.answers(clue) }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, result = it, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            result = it,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = {
                         current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish))
                     }

@@ -113,7 +113,7 @@ import java.util.Locale
 @Serializable data object AreaLookupRoute
 @Serializable data object NusantaraRoute
 @Serializable data object EarthquakeRoute
-@Serializable data object BmkgWeatherRoute
+@Serializable data class BmkgWeatherRoute(val initialAdm4: String? = null)
 @Serializable data object RegionsRoute
 @Serializable data object HeroesRoute
 @Serializable data object VolcanoesRoute
@@ -225,7 +225,7 @@ private fun HariMuRoot(
             DedicatedScreenRoute.PRAYER_TIMES -> navController.navigate(PrayerTimesRoute)
             DedicatedScreenRoute.AREA_LOOKUP -> navController.navigate(AreaLookupRoute)
             DedicatedScreenRoute.EARTHQUAKE -> navController.navigate(EarthquakeRoute)
-            DedicatedScreenRoute.BMKG_WEATHER -> navController.navigate(BmkgWeatherRoute)
+            DedicatedScreenRoute.BMKG_WEATHER -> navController.navigate(BmkgWeatherRoute())
             DedicatedScreenRoute.REGIONS -> navController.navigate(RegionsRoute)
             DedicatedScreenRoute.HEROES -> navController.navigate(HeroesRoute)
             DedicatedScreenRoute.VOLCANOES -> navController.navigate(VolcanoesRoute)
@@ -474,16 +474,32 @@ private fun HariMuRoot(
                     AreaLookupScreen(container, settings.isEnglish) { navController.popBackStack() }
                 }
                 composable<NusantaraRoute> {
-                    NusantaraHubScreen(container, settings.isEnglish) { tool -> openTool(tool) }
+                    NusantaraHubScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = { tool -> openTool(tool) },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<EarthquakeRoute> {
                     EarthquakeScreen(container, settings.isEnglish) { navController.popBackStack() }
                 }
-                composable<BmkgWeatherRoute> {
-                    WeatherScreen(container, settings.isEnglish) { navController.popBackStack() }
+                composable<BmkgWeatherRoute> { entry ->
+                    val args = entry.toRoute<BmkgWeatherRoute>()
+                    WeatherScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        initialAdm4 = args.initialAdm4,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<RegionsRoute> {
-                    RegionsScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    RegionsScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenWeather = { adm4 -> navController.navigate(BmkgWeatherRoute(initialAdm4 = adm4)) },
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<HeroesRoute> {
                     HeroesScreen(container, settings.isEnglish) { navController.popBackStack() }

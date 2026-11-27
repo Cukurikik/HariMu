@@ -1,34 +1,30 @@
 package com.harimu.app.feature.nusantara
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,78 +32,126 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.harimu.app.AppContainer
-import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.R
+import com.harimu.app.core.design.HariMuThemeTokens
+import com.harimu.app.core.design.utilities.UtilityAttributionFooter
+import com.harimu.app.core.design.utilities.UtilityBadgePill
+import com.harimu.app.core.design.utilities.UtilityBreadcrumbBar
+import com.harimu.app.core.design.utilities.UtilityCopyIconButton
+import com.harimu.app.core.design.utilities.UtilityEmptyState
+import com.harimu.app.core.design.utilities.UtilityErrorCard
+import com.harimu.app.core.design.utilities.UtilityHeroBanner
+import com.harimu.app.core.design.utilities.UtilityLoadingCard
+import com.harimu.app.core.design.utilities.UtilityQuickChips
+import com.harimu.app.core.design.utilities.UtilityResultHeader
+import com.harimu.app.core.design.utilities.UtilityScreenScaffold
+import com.harimu.app.core.design.utilities.UtilitySearchBar
+import com.harimu.app.core.design.utilities.UtilitySectionCard
 import com.harimu.app.core.nusantara.Region
 
 @Composable
 fun RegionsScreen(
     container: AppContainer,
     isEnglish: Boolean,
+    onOpenWeather: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     val vm: RegionsViewModel = viewModel(factory = RegionsViewModel.Factory(container))
     val state by vm.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val clipboard = remember(context) {
-        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    }
+    val spacing = HariMuThemeTokens.spacing
 
-    LaunchedEffect(isEnglish) { vm.loadProvinces(isEnglish) }
+    LaunchedEffect(Unit) { vm.loadProvinces(isEnglish) }
 
-    // Paging desa harus dikumpulkan di luar lambda LazyColumn (bukan scope composable).
     val selectedDistrict = state.district
     val villageFlow = selectedDistrict?.let { district ->
         remember(district.id) { vm.villages(district.id) }
     }
     val villages = villageFlow?.collectAsLazyPagingItems()
 
-    NusantaraScaffold(
-        title = if (isEnglish) "Indonesian Regions" else "Wilayah Indonesia",
-        onBack = onBack
-    ) { padding ->
+    val breadcrumbs = listOfNotNull(
+        state.province?.name,
+        state.regency?.name,
+        state.district?.name
+    )
+
+    UtilityScreenScaffold(
+        title = stringResource(R.string.regions_title),
+        onBack = onBack,
+        onRefresh = { vm.retry(isEnglish) },
+        isRefreshing = state.isLoading,
+        backTestTag = "regions_back_button",
+        refreshTestTag = "regions_refresh_button"
+    ) { _ ->
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
-            item(key = "intro") {
-                NusantaraIntroCard(
-                    if (isEnglish) {
-                        "Province → city → district → village, with the hierarchical code you can reuse as BMKG adm4."
-                    } else {
-                        "Provinsi → kab/kota → kecamatan → desa, lengkap dengan kode hierarkis yang bisa dipakai sebagai adm4 BMKG."
-                    }
+            item(key = "hero") {
+                UtilityHeroBanner(
+                    title = stringResource(R.string.regions_title),
+                    description = stringResource(R.string.regions_intro),
+                    badge = stringResource(R.string.regions_badge)
                 )
             }
 
-            item(key = "province") {
-                LevelChips(
-                    label = if (isEnglish) "Province" else "Provinsi",
-                    regions = state.provinces,
-                    selectedId = state.province?.id,
-                    tag = "regions_province",
-                    onSelect = { vm.selectProvince(it, isEnglish) }
-                )
+            if (breadcrumbs.isNotEmpty()) {
+                item(key = "breadcrumbs") {
+                    UtilityBreadcrumbBar(
+                        segments = breadcrumbs,
+                        onSegmentClick = { idx -> vm.clearToLevel(idx + 1) },
+                        tag = "regions_breadcrumbs"
+                    )
+                }
             }
 
-            if (state.province != null) {
+            if (state.provinces.isNotEmpty()) {
+                item(key = "filter") {
+                    UtilitySearchBar(
+                        value = state.regionFilter,
+                        onValueChange = vm::onRegionFilterChange,
+                        label = stringResource(R.string.regions_filter_label),
+                        tag = "regions_filter_input"
+                    )
+                }
+            }
+
+            if (state.visibleProvinces.isNotEmpty()) {
+                item(key = "province") {
+                    UtilityQuickChips(
+                        items = state.visibleProvinces,
+                        selectedKey = state.province?.id,
+                        keyOf = { it.id },
+                        labelOf = { it.name },
+                        label = if (isEnglish) "Province" else "Provinsi",
+                        tag = "regions_province",
+                        onSelect = { vm.selectProvince(it, isEnglish) }
+                    )
+                }
+            }
+
+            if (state.province != null && state.visibleRegencies.isNotEmpty()) {
                 item(key = "regency") {
-                    LevelChips(
+                    UtilityQuickChips(
+                        items = state.visibleRegencies,
+                        selectedKey = state.regency?.id,
+                        keyOf = { it.id },
+                        labelOf = { it.name },
                         label = if (isEnglish) "City / Regency" else "Kabupaten / Kota",
-                        regions = state.regencies,
-                        selectedId = state.regency?.id,
                         tag = "regions_regency",
                         onSelect = { vm.selectRegency(it, isEnglish) }
                     )
                 }
             }
 
-            if (state.regency != null) {
+            if (state.regency != null && state.visibleDistricts.isNotEmpty()) {
                 item(key = "district") {
-                    LevelChips(
+                    UtilityQuickChips(
+                        items = state.visibleDistricts,
+                        selectedKey = state.district?.id,
+                        keyOf = { it.id },
+                        labelOf = { it.name },
                         label = if (isEnglish) "District" else "Kecamatan",
-                        regions = state.districts,
-                        selectedId = state.district?.id,
                         tag = "regions_district",
                         onSelect = { vm.selectDistrict(it) }
                     )
@@ -115,46 +159,88 @@ fun RegionsScreen(
             }
 
             if (state.isLoading) {
-                item(key = "loading") { NusantaraLoading() }
+                item(key = "loading") {
+                    UtilityLoadingCard()
+                }
             }
 
             state.error?.let { message ->
                 item(key = "error") {
-                    NusantaraErrorCard(message = message, isEnglish = isEnglish) { vm.retry(isEnglish) }
+                    UtilityErrorCard(
+                        message = message,
+                        onRetry = { vm.retry(isEnglish) },
+                        testTag = "regions_retry_button"
+                    )
+                }
+            }
+
+            if (selectedDistrict == null && !state.isLoading && state.error == null) {
+                item(key = "prompt") {
+                    UtilityEmptyState(
+                        icon = Icons.Filled.Map,
+                        title = stringResource(R.string.regions_selected_path),
+                        subtitle = stringResource(R.string.weather_pick_step_hint)
+                    )
                 }
             }
 
             if (selectedDistrict != null && villages != null) {
                 item(key = "village-title") {
-                    Text(
-                        text = if (isEnglish) {
-                            "Villages in ${selectedDistrict.name}"
-                        } else {
-                            "Desa di ${selectedDistrict.name}"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                    UtilityResultHeader(
+                        countText = stringResource(R.string.regions_villages_title, selectedDistrict.name)
                     )
                 }
-                items(count = villages.itemCount) { index ->
-                    villages[index]?.let { region ->
-                        RegionRow(region = region) {
-                            clipboard.setPrimaryClip(ClipData.newPlainText("region_code", region.id))
+                when (val refreshState = villages.loadState.refresh) {
+                    is LoadState.Loading -> {
+                        item(key = "village-loading") {
+                            UtilityLoadingCard(message = stringResource(R.string.regions_loading_villages))
                         }
                     }
+                    is LoadState.Error -> {
+                        item(key = "village-refresh-error") {
+                            UtilityErrorCard(
+                                message = refreshState.error.toNusantaraMessage(isEnglish),
+                                onRetry = { villages.retry() },
+                                retryLabel = stringResource(R.string.regions_load_villages_retry),
+                                testTag = "regions_village_retry"
+                            )
+                        }
+                    }
+                    is LoadState.NotLoading -> Unit
                 }
-                if (villages.loadState.refresh is LoadState.Loading) {
-                    item(key = "village-loading") { NusantaraLoading() }
+
+                items(count = villages.itemCount) { index ->
+                    villages[index]?.let { region ->
+                        RegionRow(
+                            region = region,
+                            onOpenWeather = { onOpenWeather(region.id) }
+                        )
+                    }
+                }
+
+                when (villages.loadState.append) {
+                    is LoadState.Loading -> {
+                        item(key = "village-append-loading") {
+                            UtilityLoadingCard(message = stringResource(R.string.regions_loading_villages))
+                        }
+                    }
+                    is LoadState.Error -> {
+                        item(key = "village-append-error") {
+                            UtilityErrorCard(
+                                message = stringResource(R.string.regions_append_error),
+                                onRetry = { villages.retry() },
+                                testTag = "regions_append_retry"
+                            )
+                        }
+                    }
+                    is LoadState.NotLoading -> Unit
                 }
             }
 
             item(key = "source") {
-                NusantaraSourceNote(
-                    if (isEnglish) {
-                        "Source: emsifa api-wilayah-indonesia (static, no API key). Tap the copy icon to save a code."
-                    } else {
-                        "Sumber: emsifa api-wilayah-indonesia (statis, tanpa API key). Ketuk ikon salin untuk menyimpan kode."
-                    }
+                UtilityAttributionFooter(
+                    sourceText = stringResource(R.string.regions_source),
+                    fetchedAtMillis = state.fetchedAtMillis
                 )
             }
         }
@@ -162,49 +248,43 @@ fun RegionsScreen(
 }
 
 @Composable
-private fun LevelChips(
-    label: String,
-    regions: List<Region>,
-    selectedId: String?,
-    tag: String,
-    onSelect: (Region) -> Unit
+private fun RegionRow(
+    region: Region,
+    onOpenWeather: () -> Unit
 ) {
-    if (regions.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag(tag)) {
-            items(regions, key = { it.id }) { region ->
-                FilterChip(
-                    selected = region.id == selectedId,
-                    onClick = { onSelect(region) },
-                    label = { Text(region.name) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RegionRow(region: Region, onCopy: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    UtilitySectionCard {
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = region.name, style = MaterialTheme.typography.bodyMedium)
-                Text(text = region.id, style = MonoTextStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = region.name,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                )
+                UtilityBadgePill(text = region.id)
             }
-            IconButton(onClick = onCopy) {
-                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy code")
-            }
+            UtilityCopyIconButton(
+                textToCopy = region.id,
+                clipboardLabel = "region_code",
+                contentDescription = stringResource(R.string.regions_copy_code),
+                testTag = "regions_copy_${region.id}"
+            )
+        }
+        OutlinedButton(
+            onClick = onOpenWeather,
+            modifier = Modifier
+                .fillMaxWidth()
+                .minimumInteractiveComponentSize()
+                .testTag("regions_open_weather_${region.id}")
+        ) {
+            Icon(imageVector = Icons.Filled.Cloud, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.utility_open_weather_adm4))
         }
     }
 }

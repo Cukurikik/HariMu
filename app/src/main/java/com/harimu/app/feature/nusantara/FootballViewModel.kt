@@ -26,7 +26,9 @@ data class FootballUiState(
     val isLoading: Boolean = false,
     val isLoadingStandings: Boolean = false,
     val loaded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val fetchedAtMillis: Long? = null,
+    val standingsFetchedAtMillis: Long? = null
 ) {
     val visibleLeagues: List<FootballLeague> get() = leagues.filterLeagues(query)
 
@@ -57,7 +59,15 @@ class FootballViewModel(
             val result = withContext(Dispatchers.IO) { repository.leagues() }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(isLoading = false, leagues = it, loaded = true, error = null) },
+                    onSuccess = {
+                        current.copy(
+                            isLoading = false,
+                            leagues = it,
+                            loaded = true,
+                            error = null,
+                            fetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = {
                         current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish))
                     }
@@ -93,7 +103,14 @@ class FootballViewModel(
             }
             _state.update { state ->
                 result.fold(
-                    onSuccess = { state.copy(isLoadingStandings = false, standings = it, error = null) },
+                    onSuccess = {
+                        state.copy(
+                            isLoadingStandings = false,
+                            standings = it,
+                            error = null,
+                            standingsFetchedAtMillis = System.currentTimeMillis()
+                        )
+                    },
                     onFailure = {
                         state.copy(isLoadingStandings = false, error = it.toNusantaraMessage(isEnglish))
                     }
