@@ -1,6 +1,62 @@
 {
   "version": 2,
   "skills": {
+    "aceternity-ui": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/aceternity-ui/skills/aceternity-ui/SKILL.md",
+      "computedHash": "42e453a250bc0daa93b32b201a3a70f494fbe8bd14d4e9ab46a6b0acbe65dba1"
+    },
+    "agp-9-upgrade": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "build-system/agp/agp-9-upgrade/SKILL.md",
+      "computedHash": "213ff412cbed96d77469c370320d1e7f873c3dec11e6520eb902057f41f23efe"
+    },
+    "ai-image-generator": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/design-assets/skills/ai-image-generator/SKILL.md",
+      "computedHash": "226e5257bcf16e44680a2a34c84f4be67a380c12e7f54cbd9f2e2eaf191da1d9"
+    },
+    "android-debugging": {
+      "source": "rcosteira79/android-skills",
+      "commit": "fa39ae26f224fac45b32280f66ac839ae57b4c64",
+      "sourceType": "github",
+      "skillPath": "plugins/android-skills/skills/android-debugging/SKILL.md",
+      "computedHash": "12cb21419a0739adfabc5b58e4223beebe9076d3967667f23cd5beba6a327a81"
+    },
+    "android-kotlin-coroutines": {
+      "source": "thebushidocollective/han",
+      "commit": "162b86b81857c0acca9fdccfcf499120e9c6d85c",
+      "sourceType": "github",
+      "skillPath": "plugins/specialized/android/skills/kotlin-coroutines/SKILL.md",
+      "computedHash": "61b27a12969d8ba53c0396f5fa4e9051acdbcaaf90753ce44ffaf4b0a53379e4"
+    },
+    "android-security-hardened": {
+      "source": "prasad-vennam/awesome-android-ai-agent-skills",
+      "commit": "302d994c51d3fc4411e826ea3c6964234cc20c14",
+      "sourceType": "github",
+      "skillPath": "skills/android-security-hardened/SKILL.md",
+      "computedHash": "91dcf6717a59bad244933ec60d16340b333b1ffc361f193aa3ff92e1a6455728"
+    },
+    "android-testing": {
+      "source": "rcosteira79/android-skills",
+      "commit": "fa39ae26f224fac45b32280f66ac839ae57b4c64",
+      "sourceType": "github",
+      "skillPath": "plugins/android-skills/skills/android-testing/SKILL.md",
+      "computedHash": "9d23488eb172c5fef5fdfaf3a4121e8f2cc1d72d9439e4cf711a721448659094"
+    },
+    "anr-audit-and-fix": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "performance/anr-audit-and-fix/SKILL.md",
+      "computedHash": "ab13efcb3b7816b3a0bcbe54245383c85973c87173cb60f3087ee31f2619a54e"
+    },
     "antislop": {
       "source": "miqdadbadjuber/anti-slop",
       "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
@@ -43,6 +99,34 @@
       "skillPath": "skills/antislop-ui/SKILL.md",
       "computedHash": "09c3efcee47866061a1609e298068941eb1d35e73eea95ae67ea2453be3951a9"
     },
+    "api-authentication": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-authentication/skills/api-authentication/SKILL.md",
+      "computedHash": "f6236d3b972391a80253edb34b507bb7ba699a880bc9cad848e58d9e880f1282"
+    },
+    "api-changelog-versioning": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-changelog-versioning/skills/api-changelog-versioning/SKILL.md",
+      "computedHash": "ca05851bab6f10c0d6fe4fd8601979ddb884c44f644db2fe2f8b74315e499084"
+    },
+    "api-contract-testing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-contract-testing/skills/api-contract-testing/SKILL.md",
+      "computedHash": "fb7820d2d206c0185bf31e5c1b4767d00ff2c88ec6260c8cf9083f3a6c321cc0"
+    },
+    "api-design-principles": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-design-principles/skills/api-design-principles/SKILL.md",
+      "computedHash": "543542c9225706891f4367c8d243fbf9b323b7b34d568990ede371506217d2ad"
+    },
     "api-endpoint-creator": {
       "source": "c0x12c/ai-toolkit",
       "commit": "96b2c9d099f8507a95b9e43916f144594720a3c9",
@@ -50,12 +134,348 @@
       "skillPath": ".claude/skills/api-endpoint-creator/SKILL.md",
       "computedHash": "88d0a16d9fc1cb44e6d1e30205a334c9bf6789e6733bba36e6f2f7adc3cea833"
     },
+    "api-error-handling": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-error-handling/skills/api-error-handling/SKILL.md",
+      "computedHash": "91239e07a94676a37de151e454c3510d321ce2cb0cad98d788b3b6d95934a5a1"
+    },
+    "api-filtering-sorting": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-filtering-sorting/skills/api-filtering-sorting/SKILL.md",
+      "computedHash": "e2d70032b3c3737dbdb9b6e5930b32bd24a17efd9b2fea2b1808fa7867050303"
+    },
+    "api-gateway-configuration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-gateway-configuration/skills/api-gateway-configuration/SKILL.md",
+      "computedHash": "a440d9547c390f489c2f25d80c196198b90a3bd1fdabd5a6a8c8747a11757119"
+    },
+    "api-pagination": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-pagination/skills/api-pagination/SKILL.md",
+      "computedHash": "46c38058e43277cc8c0cfa3ffee0bbe406f296d59101becef53fccc32c95959f"
+    },
+    "api-rate-limiting": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-rate-limiting/skills/api-rate-limiting/SKILL.md",
+      "computedHash": "c6836f1d145202fd69cf73eb7af796934c854070f0fd0aeb0f60f51790a32af3"
+    },
+    "api-reference-documentation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-reference-documentation/skills/api-reference-documentation/SKILL.md",
+      "computedHash": "d247dee3d5acb3e0e31500dbcdbf1c453d8a77b5f0573e7a577f5f4ad38e94bc"
+    },
+    "api-response-optimization": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-response-optimization/skills/api-response-optimization/SKILL.md",
+      "computedHash": "64758febff7d9b1f993daf87f058937704a96e89a3c4636477009a290b354e88"
+    },
+    "api-security-hardening": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-security-hardening/skills/api-security-hardening/SKILL.md",
+      "computedHash": "d208bd000237a07b4b7c0cd91407e8127c1f87725b7e8892b8cbb5bbc3f0b123"
+    },
+    "api-testing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-testing/skills/api-testing/SKILL.md",
+      "computedHash": "a9d40044b486a8ac0444cf64e556a0a077da81ba4be8bab83de260541a41b1f6"
+    },
+    "api-versioning-strategy": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/api-versioning-strategy/skills/api-versioning-strategy/SKILL.md",
+      "computedHash": "f2f80a4f9476eadf769ff9a39195b45d74370c3011ca165546586f9411db8b70"
+    },
+    "app-docs": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/app-docs/SKILL.md",
+      "computedHash": "47be1d9e4eb9db8a98b260b923c9c81702cec1b2c8a2f63efa71b3b92a92efe1"
+    },
+    "app-store-deployment": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/app-store-deployment/skills/app-store-deployment/SKILL.md",
+      "computedHash": "25fe421fa459288d1bab15134b715d1aadd0d101f803f23cc141ea136ee3c97f"
+    },
+    "architecture-patterns": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/architecture-patterns/skills/architecture-patterns/SKILL.md",
+      "computedHash": "ea43da64e72786b5d0fd069a24d7c91d0d2fac89403b7ee95547a515079326b0"
+    },
+    "aussie-business-english": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/aussie-business-english/SKILL.md",
+      "computedHash": "c75392d336398a5832826b55e06d9624957410ea7ec0938a06dcd108ab14629f"
+    },
+    "auto-animate": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/auto-animate/skills/auto-animate/SKILL.md",
+      "computedHash": "5d93d79f1ae5e45b460059d523d34554e030f76ab36dcc0a1017e2172f115900"
+    },
+    "award-application": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/award-application/SKILL.md",
+      "computedHash": "e5ebade834feb258dfe66eda84da4757f2039735213cf9de4dec6c2b57d8a2b6"
+    },
+    "base-ui-react": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/base-ui-react/skills/base-ui-react/SKILL.md",
+      "computedHash": "11b8f1bafa31c8f9c8b4f5a739e46b3ba66e5455450c7e7167dc3ea4e856a443"
+    },
+    "bun-bundler": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-bundler/SKILL.md",
+      "computedHash": "434b6e530fca8f4508b391edec4789e5f16aa4c15ebb592df8967e25df48aab7"
+    },
+    "bun-cloudflare-workers": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-cloudflare-workers/SKILL.md",
+      "computedHash": "2898a862519f074673866c25d65a0b6d4c89d0a3980cae192a7a709f7b51aa06"
+    },
+    "bun-docker": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-docker/SKILL.md",
+      "computedHash": "a54087f6d0fb610021fb808187228953ff28d4e749e0c4209c5938f719c23d41"
+    },
+    "bun-drizzle-integration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-drizzle-integration/SKILL.md",
+      "computedHash": "d8c3ee846bd04a40a52f1ffecf6e023b2351079a62c784d3a4c0c4fd42c438bc"
+    },
+    "bun-ffi": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-ffi/SKILL.md",
+      "computedHash": "a0b09616bd2fd71226a2a4f54ea9cebbe38c678b43ccc5fbe162b45bf60ba3ba"
+    },
+    "bun-file-io": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-file-io/SKILL.md",
+      "computedHash": "4da1f393d667040fbdd90c78ad891c71cec8b2f148b47a84e17c54e462ee4d04"
+    },
+    "bun-hono-integration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-hono-integration/SKILL.md",
+      "computedHash": "a7e9407996e455098033bf8a6df610e7c43b484155d71204e2463664e80e8503"
+    },
+    "bun-hot-reloading": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-hot-reloading/SKILL.md",
+      "computedHash": "e79986fc9e6d9d5dc398beb40db7fb6b21267793b65d38b03ba74872a155af70"
+    },
+    "bun-http-server": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-http-server/SKILL.md",
+      "computedHash": "44dc15e8c6aeeca027e68b451ccc95f2c5232236b3216459351776f4f35922ae"
+    },
+    "bun-jest-migration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-jest-migration/SKILL.md",
+      "computedHash": "e5e2b93b688f8f5f8d5d7ddbc680a8622cf62595ea6f656cd451683e8d96a405"
+    },
+    "bun-macros": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-macros/SKILL.md",
+      "computedHash": "8b8c19e152014323bc8758f2b942b096bf7d6bf801bb292054ee4a045ceb5867"
+    },
+    "bun-nextjs": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-nextjs/SKILL.md",
+      "computedHash": "556db5977fb8f3e8ee6b7e0251dec648c6ec6cd50ababf3dcd6329ff222b2673"
+    },
+    "bun-nuxt": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-nuxt/SKILL.md",
+      "computedHash": "e3a9b9f68a3f7a4b04ff915c3933d15b67f7d327b39ede677388afc6df24bebe"
+    },
+    "bun-package-manager": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-package-manager/SKILL.md",
+      "computedHash": "535f45bc02dcdaa39eac0c82e9469c238acf80b0259282c60d5dfe60d6b55956"
+    },
+    "bun-react-ssr": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-react-ssr/SKILL.md",
+      "computedHash": "148c45382a07edbe303db5479d4116beec4feb641366d229a19c9fd593d3e0af"
+    },
+    "bun-redis": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-redis/SKILL.md",
+      "computedHash": "8c0997520e0492e7ed688dfb1458add2bb5e9b8401e390d813ca11647b51380d"
+    },
+    "bun-runtime": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-runtime/SKILL.md",
+      "computedHash": "7e515e2d4995c0ca87d3d60eb0a8d37efae5ea60ecf1ac5378c4c3f86641c9ae"
+    },
+    "bun-shell": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-shell/SKILL.md",
+      "computedHash": "f0b8b860f863c248c479c609928ae302198c7fbdb315b6d37657154daf3e9a4c"
+    },
+    "bun-sqlite": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-sqlite/SKILL.md",
+      "computedHash": "b109649cfa907cfb3c78af8dd0fcee1c9be4359b25849feee7594553c3d398f9"
+    },
+    "bun-sveltekit": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-sveltekit/SKILL.md",
+      "computedHash": "8b0760f6693e2474b5c38c5f333bffb397219f7cd329a215ec493c47b6203841"
+    },
+    "bun-tanstack-start": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-tanstack-start/SKILL.md",
+      "computedHash": "977cd6d7e28756ac153f942c6e0041af80a1cbeca44f8a2b6cdeda523b0ba2bc"
+    },
+    "bun-test-basics": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-test-basics/SKILL.md",
+      "computedHash": "a7699f51b31a77822cd8539c72d900bf0cfe441b9a87c0e37346d9e51df87041"
+    },
+    "bun-test-coverage": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-test-coverage/SKILL.md",
+      "computedHash": "032ff315f70c32a5e019589fc5d5cd969f102585cc28eecdee50ce3bb200dd89"
+    },
+    "bun-test-lifecycle": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-test-lifecycle/SKILL.md",
+      "computedHash": "ce3dbcbdb50504023e39bd8998035bd43956099df15bb31b9a3f3dccaf6cdb8b"
+    },
+    "bun-test-mocking": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-test-mocking/SKILL.md",
+      "computedHash": "99029fb4e3d22a0d22d1dbc94dee1cbabf534d52d105a33e0131d913a276993e"
+    },
+    "bun-websocket-server": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-websocket-server/SKILL.md",
+      "computedHash": "196615c16186d741cefbf70f5bba2e0203b9fc80ae4952effca9c967be818438"
+    },
+    "bun-workers": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/bun/skills/bun-workers/SKILL.md",
+      "computedHash": "6fa87f4911fee27ac35df218394a539ae238bc66bbaf8b19e977bea978ef8f68"
+    },
+    "claude-code-bash-patterns": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/claude-code-bash-patterns/skills/claude-code-bash-patterns/SKILL.md",
+      "computedHash": "d8bd6b3fec627a65a972a342d4ea22056b17f18da7f89e3e9dc65647ce19bbc1"
+    },
+    "claude-hook-writer": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/claude-hook-writer/skills/claude-hook-writer/SKILL.md",
+      "computedHash": "935c5759d4c2ab1974b7bcfaaebafba30594ff2dd39027405fd59840f77f34d3"
+    },
+    "clefcut-cloudflare-remotion-video": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/clefcut-cloudflare-remotion-video/skills/clefcut-cloudflare-remotion-video/SKILL.md",
+      "computedHash": "40e914852b6412191a3218bfe3f6d3eeebaea273c99e48d86ae210ef45b69807"
+    },
+    "clefcut-cloudflare-video": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/clefcut-cloudflare-video/skills/clefcut-cloudflare-video/SKILL.md",
+      "computedHash": "c651af86c52733436ad4e009c91fc53ac14df0df93dc30820372d6232615309a"
+    },
     "cloudflare": {
-      "source": "cloudflare/skills",
-      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "source": "dmmulroy/cloudflare-skill",
+      "commit": "97a85fdde7fe9695fbcba0c6bfde18dcdb5993d7",
       "sourceType": "github",
       "skillPath": "skills/cloudflare/SKILL.md",
-      "computedHash": "c87fdf5939f1c0b86dc895af18dbff1be369707fc3f1cd9cc038c3c3be5c694f"
+      "computedHash": "847cac31098fd422e8649f6b10101a5cf5e0529ab345a120c655ebf79ff7777b"
     },
     "cloudflare-deploy": {
       "source": "JetBrains/skills",
@@ -64,12 +484,103 @@
       "skillPath": "cloudflare-deploy/SKILL.md",
       "computedHash": "4a6052a97e4785afee8ac92b31491ecd5dd494cc42372adfc2b195f04a094d01"
     },
+    "cloudflare-security-hardening": {
+      "source": "agentivecity/skillfactory",
+      "commit": "b150bc63eb2161645ab083f7050acb0d775cb6b6",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/cloudflare-security-hardening/SKILL.md",
+      "computedHash": "aa91e7d4fc70b737b66256bfd3c7106f7506f70e623a15faf0569161a08a24d6"
+    },
+    "cloudflare-worker-dev": {
+      "source": "curiositech/some_claude_skills",
+      "commit": "f3688811a5be25896a1522bb3161532728d2db30",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/cloudflare-worker-dev/SKILL.md",
+      "computedHash": "a6a9038fecf7749d1f50aca6d0e8b2f87c9ea72ba41492cbe93c99eeaca7d3fc"
+    },
+    "cloudflare-workers-ai": {
+      "source": "ovachiever/droid-tings",
+      "commit": "7acd12a7547ded8f801615e69c3b881a584ce323",
+      "sourceType": "github",
+      "skillPath": "skills/cloudflare-workers-ai/SKILL.md",
+      "computedHash": "ab4ea6f15bca5973f03cfd58699ebe9a01dfc62e5f9f491b07d82da9767965c1"
+    },
+    "code-review": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/code-review/skills/code-review/SKILL.md",
+      "computedHash": "81b4114d149099ebf1a136b043415fb46f90d21147342e9cda65523d460cf04d"
+    },
+    "codex-review": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/codex-review/SKILL.md",
+      "computedHash": "ea4e23b0893d34b0f0b84b5b95950f676e867d870632dfca07c51cda05ec30a3"
+    },
+    "color-palette": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/design-assets/skills/color-palette/SKILL.md",
+      "computedHash": "837bca002c3d13c19477ee170e6e33e152a009336d31ff77f75c26f763f8f6eb"
+    },
+    "compose-animations": {
+      "source": "chrisbanes/skills",
+      "commit": "2975135ec0ca55f96d79f9e413ecb40e47ed885a",
+      "sourceType": "github",
+      "skillPath": "skills/compose-animations/SKILL.md",
+      "computedHash": "68acb77046efe5c8f1006e0466963a694b026ba16086a0ef54f87266b9f81f30"
+    },
     "compose-multiplatform-patterns": {
       "source": "affaan-m/ecc",
       "commit": "4adeee6732a12d1540f49a4d50a38ce8c97f9a53",
       "sourceType": "github",
       "skillPath": "skills/compose-multiplatform-patterns/SKILL.md",
       "computedHash": "daccc6ffb3398e0d656fd9fb69032c7c5c1d546df9832e43799733d54321cb75"
+    },
+    "compose-ui-testing-patterns": {
+      "source": "chrisbanes/skills",
+      "commit": "2975135ec0ca55f96d79f9e413ecb40e47ed885a",
+      "sourceType": "github",
+      "skillPath": "skills/compose-ui-testing-patterns/SKILL.md",
+      "computedHash": "d911498e40a69ad9eed2d16d53efba5ae6ccc73b972de6dc2bd181403cd1f998"
+    },
+    "csrf-protection": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/csrf-protection/skills/csrf-protection/SKILL.md",
+      "computedHash": "050e7a1334de17998b025ffee1315d9120f260c762790c5acb35d0f65408e42d"
+    },
+    "cybersecurity": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/cybersecurity/skills/cybersecurity/SKILL.md",
+      "computedHash": "689ab379ccfa33680682ee3c87245e2d3969693a65f4c831b0c15112c3d0aff1"
+    },
+    "deep-research": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/deep-research/SKILL.md",
+      "computedHash": "5681b2e99768b7e2eb588d88336be283515fb16e4d7c4c77093af8653f289593"
+    },
+    "defense-in-depth-validation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/defense-in-depth-validation/skills/defense-in-depth-validation/SKILL.md",
+      "computedHash": "2f46812303f09a074166e8beb871580298a6ff958826cbab4b14fa29bd893264"
+    },
+    "delegate-my-work": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/delegate-my-work/skills/delegate-my-work/SKILL.md",
+      "computedHash": "01707907b03b4c3e1dd4c5d38b8d010ccac9d55e5808b22d7666b4bbd3fc9311"
     },
     "dependency-conflict-resolver": {
       "source": "JetBrains/skills",
@@ -78,6 +589,13 @@
       "skillPath": "dependency-conflict-resolver/SKILL.md",
       "computedHash": "add3ebdc24847d20a4fdce25cb282a7c0b9ffa88a56becf4e64a2f3f7aa99206"
     },
+    "dependency-upgrade": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/dependency-upgrade/skills/dependency-upgrade/SKILL.md",
+      "computedHash": "09e5543c7ab84c80cb8991f04117d349d57b4a1927e8cca3fd4245c02d062126"
+    },
     "design-intelligence": {
       "source": "c0x12c/ai-toolkit",
       "commit": "96b2c9d099f8507a95b9e43916f144594720a3c9",
@@ -85,12 +603,33 @@
       "skillPath": ".claude/skills/design-intelligence/SKILL.md",
       "computedHash": "b1321e7ee11b8c8eca1a211e1151bf392f2e2818128b587a8e441d1015ce1347"
     },
-    "design-system": {
-      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
-      "commit": "11ca2b3bdd555649f278ee348c32a9302b24dcf1",
+    "design-loop": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
       "sourceType": "github",
-      "skillPath": ".claude/skills/design-system/SKILL.md",
-      "computedHash": "9d5c24edd9030632a5fbe859c2b74758433e8788111bd77a25539ee018062c65"
+      "skillPath": "plugins/frontend/skills/design-loop/SKILL.md",
+      "computedHash": "6e346eb1e61bd27d229cd7859324ccd4cc08e283f1143b16ee1d0ebde8162421"
+    },
+    "design-review": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/design-review/SKILL.md",
+      "computedHash": "39580fa14d35ec0ca60d5079d7f3e10dbad73b670da5dcae546523a9f11801c1"
+    },
+    "design-system": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/design-system/SKILL.md",
+      "computedHash": "2022bb3b292fc40c2da24d9c58ad2c526efc1cb2ba1a2213c20eaae837aef4d0"
+    },
+    "design-system-creation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/design-system-creation/skills/design-system-creation/SKILL.md",
+      "computedHash": "bfd3ae80f125292873d5467a6a6ba29c8efa6dbc79bd5e7082a2808d45393134"
     },
     "design-workflow": {
       "source": "c0x12c/ai-toolkit",
@@ -99,12 +638,110 @@
       "skillPath": ".claude/skills/design-workflow/SKILL.md",
       "computedHash": "96db20bb63b50752fecba0f13a53e46e93a2d26c4ab1cbb6dd590d6d5807dab5"
     },
+    "drizzle-orm-d1": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/drizzle-orm-d1/skills/drizzle-orm-d1/SKILL.md",
+      "computedHash": "b620570e5f3566b7fabc9a89d198a26cff7c95db343f12c427736d5c80cb2067"
+    },
+    "durable-objects": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/durable-objects/SKILL.md",
+      "computedHash": "659669f02a6e1b37020b799be0f71e3fecc7b5111f3f406d9f844a0a21994113"
+    },
+    "elevenlabs-agents": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/elevenlabs-agents/SKILL.md",
+      "computedHash": "50d27eac0ce1be5fe730d6f29918b7249127b11c211a99d3b8ae53365537e83b"
+    },
+    "favicon-gen": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/design-assets/skills/favicon-gen/SKILL.md",
+      "computedHash": "d2c096a328785cb4b1902ca1e951135286b94b585d283185f3760c03d1c417c8"
+    },
+    "feature-dev": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/feature-dev/skills/feature-dev/SKILL.md",
+      "computedHash": "637c68981a2fd737883e69cae797ab7e2cb79daa82f433bde1bfea315ccb295a"
+    },
+    "ffmpeg": {
+      "source": "digitalsamba/claude-code-video-toolkit",
+      "commit": "463f7be001e51cbb7f28f848cd323541acff8ad8",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ffmpeg/SKILL.md",
+      "computedHash": "ff8e85c81bac9a0bc655b94893f06e60e34c42f3faa98ee60e2cdd51a0215013"
+    },
+    "fork-discipline": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/fork-discipline/SKILL.md",
+      "computedHash": "4ec69e10fe7af85da1fb265a36d36c3f815bd35be9a3e9b33bb9b84ed167cc35"
+    },
+    "frontend-design": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-design/skills/frontend-design/SKILL.md",
+      "computedHash": "8bad20b1442218d8e46194c51557a3eaafa7288269f837574315c3f8d3533c36"
+    },
     "gateway-workers": {
       "source": "cloudflare/skills",
       "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
       "sourceType": "github",
       "skillPath": "skills/gateway-workers/SKILL.md",
       "computedHash": "bcbf091d931668274961a349c64c38f63aaf0f1fedc93fb61a9c0b8e15ee2160"
+    },
+    "gemini-cli": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/gemini-cli/skills/gemini-cli/SKILL.md",
+      "computedHash": "bf54105c3c96508818a03f5c4495f69e8b371570fabfbba6e1bb154f1dfda49f"
+    },
+    "git-workflow": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/git-workflow/SKILL.md",
+      "computedHash": "72745bdd626a338ee5e653ecee23866a8b9bb1b8d697dff61e56100978623bb9"
+    },
+    "github-project-automation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/github-project-automation/skills/github-project-automation/SKILL.md",
+      "computedHash": "d5ab7507d8c4eb2770eb24ebd0b0f9dceaed72020e948aeb1b9a3a85ac961281"
+    },
+    "github-release": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/github-release/SKILL.md",
+      "computedHash": "4a64bdcc40231120bf3e0c65275a36e6ade059991d9a417cd442d22dcb6e71b7"
+    },
+    "google-apps-script": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/google-apps-script/SKILL.md",
+      "computedHash": "719da588bcdff9fbe6ea5866aab67de6fc1d4bac58aee7c5183c7c45f13c27b5"
+    },
+    "google-chat-messages": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/google-chat-messages/SKILL.md",
+      "computedHash": "4fe9b75fc85b2df518564b2f45295384c0c84cbb12462cff0a8a75f79ab1d9d0"
     },
     "google-mobile-ads-validate": {
       "source": "google/skills",
@@ -113,12 +750,152 @@
       "skillPath": "skills/ads/google-mobile-ads-validate/SKILL.md",
       "computedHash": "792ebe5e4bb275198f0c034c71897553792fd087f1b56573fad35aee1c1961ce"
     },
+    "gradle-build-performance": {
+      "source": "rcosteira79/android-skills",
+      "commit": "fa39ae26f224fac45b32280f66ac839ae57b4c64",
+      "sourceType": "github",
+      "skillPath": "plugins/android-skills/skills/gradle-build-performance/SKILL.md",
+      "computedHash": "2d83bf33a36c8736dcd5960e077f5cce59665ca1df6420f74c4c55eaeb618136"
+    },
+    "gradle-kotlin-dsl-doctor": {
+      "source": "Kotlin/kotlin-backend-agent-skills",
+      "commit": "fd0ed521d22efd28221d532c9abab97af0b9bf0e",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/gradle-kotlin-dsl-doctor/SKILL.md",
+      "computedHash": "2159359607a13291b732ff16f5deb001258c4c7479c85efba079965a0d870005"
+    },
+    "graphql-implementation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/graphql-implementation/skills/graphql-implementation/SKILL.md",
+      "computedHash": "f06f31d2965776aa4db9fef1e20cd14cd4f9b50a93dc4f5aefe6b6f3f117cbcc"
+    },
+    "gws-install": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/gws-install/SKILL.md",
+      "computedHash": "ca10bc43890d35b8f7c74bd30bd1b57ec14fd7f5306d89eb20d321ee1c27f26d"
+    },
+    "gws-setup": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/gws-setup/SKILL.md",
+      "computedHash": "173c31f467fd32265b69e9979689dbf2af7e23e53eeab57d5baff76f4d6289de"
+    },
+    "health-check-endpoints": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/health-check-endpoints/skills/health-check-endpoints/SKILL.md",
+      "computedHash": "7c5de33109b6780c3ec7d761d2e951ecd02770b6bc54d1b5d0eee98a780433c4"
+    },
+    "hono-routing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/hono-routing/skills/hono-routing/SKILL.md",
+      "computedHash": "3d90fc8095b626dbc21448fb84d719b623a7a331ed75eb9bac145d13e3f58510"
+    },
+    "hugo": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/hugo/skills/hugo/SKILL.md",
+      "computedHash": "c1adfadfa5bbb9a085a4ea29c28e7d12c016a27280eeb5d97ef2ce26974fbd86"
+    },
+    "humanize-writing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/humanize-writing/skills/humanize-writing/SKILL.md",
+      "computedHash": "f6bab87d01d9f9d85b4b4d9a65da65152c46d0842e193e79155da848c8b2f877"
+    },
+    "icon-set-generator": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/design-assets/skills/icon-set-generator/SKILL.md",
+      "computedHash": "de8de16df8fd40eeceec6eab0de18c257e4dc86de7cbbc3ad755225fc00b1cf8"
+    },
+    "idempotency-handling": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/idempotency-handling/skills/idempotency-handling/SKILL.md",
+      "computedHash": "797003ff89cf2bb76445a6ddbe0b8d9aa6632b773a0081a8cf190c2905d9bcd0"
+    },
+    "identity-and-signing": {
+      "source": "erberkk/mobile-app-launch-skills",
+      "commit": "9006aad1b71fb51c5c62c014f7cc01a73a80c051",
+      "sourceType": "github",
+      "skillPath": "skills/identity-and-signing/SKILL.md",
+      "computedHash": "1291617dddbed0a9dc438e6686b60f874499cdd16b9e2d9ab50dab93ab0cb07e"
+    },
+    "image-optimization": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/image-optimization/skills/image-optimization/SKILL.md",
+      "computedHash": "6514998327340ad1cb965be0a5b140e20e44c4aa7e135291797ece320350bbe4"
+    },
+    "image-processing": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/design-assets/skills/image-processing/SKILL.md",
+      "computedHash": "7065677fbd9ccaead5944f930403535340c5642b0e4533f7bd22b91d953eb61e"
+    },
+    "inspira-ui": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/inspira-ui/skills/inspira-ui/SKILL.md",
+      "computedHash": "0c9e7321a9bb6a1275f15650da5c8a8a5d69469e992c32bb8081c110728165f0"
+    },
+    "interaction-design": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/interaction-design/skills/interaction-design/SKILL.md",
+      "computedHash": "8c8fd3ff41231645e92076d6d29bd05234ad248f31f6cd04c6943402ddef1dba"
+    },
+    "internationalization-i18n": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/internationalization-i18n/skills/internationalization-i18n/SKILL.md",
+      "computedHash": "0a167664b576ce4d5cdfa202aa4acf4941422a30b4c723c6ed27c75e536e56df"
+    },
     "investigation-mode": {
       "source": "xebia/gino-gelato-webinar",
       "commit": "a96bb6b42c4e17d74b799333801d5b947f6c449b",
       "sourceType": "github",
       "skillPath": ".github/skills/investigation-mode/SKILL.md",
       "computedHash": "98dd17376fd631fa74b7618bb37cfb47675f67d535d86ac0bcf325d7a4efdd7d"
+    },
+    "jest-generator": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/jest-generator/skills/jest-generator/SKILL.md",
+      "computedHash": "c44fd961c20ca929b26946604c87fee0309f40d1d26b86002281d2dccbe96cbd"
+    },
+    "jetpack-compose-performance": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "jetpack-compose/jetpack-compose-performance/SKILL.md",
+      "computedHash": "67cc0dad9d1684821c87d3f41535ef60e54bfebd019714c94374af2dc75c0104"
+    },
+    "kotlin-android-ci": {
+      "source": "almasumdev/awesome-kotlin-android-agent-skills",
+      "commit": "1c24ece6c276822f54f6f1d1ba82bc996d3ccd08",
+      "sourceType": "github",
+      "skillPath": ".github/skills/build_and_tooling/kotlin-android-ci/SKILL.md",
+      "computedHash": "f8cc702d95109fbcbe6a8c83dbb619aaa0e40a26d33c445960f0c0e21221d6c4"
     },
     "kotlin-backend-jpa-entity-mapping": {
       "source": "JetBrains/skills",
@@ -134,12 +911,859 @@
       "skillPath": "kotlin-tooling-immutable-collections-0-5-x-migration/SKILL.md",
       "computedHash": "fc7f89299011414be787c09cf6411fff8a0a02439990cd0f988955138544bf7d"
     },
+    "kpi-dashboard-design": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/kpi-dashboard-design/skills/kpi-dashboard-design/SKILL.md",
+      "computedHash": "419ea6a8abc96610526bf9cbd670b500888b42deb85c87544d7e7ea6a7775188"
+    },
+    "landing-page": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/landing-page/SKILL.md",
+      "computedHash": "d29808a29c4e2ffabac1cc4c8625656e4994ccc76fda3f82b1ee920980e2bcf8"
+    },
+    "litert-runtime": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "device-ai/litert/litert-runtime/SKILL.md",
+      "computedHash": "1e05fd5a8ce1017989a1a255c9fedfa814766dac8e40b47ecd96ffec03e9a04a"
+    },
+    "logging-best-practices": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/logging-best-practices/skills/logging-best-practices/SKILL.md",
+      "computedHash": "bddc9e9655db58bb5eedebdea6cd935d7ed2cd963e354583a26aa1b98531e0f9"
+    },
+    "maz-ui": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/maz-ui/skills/maz-ui/SKILL.md",
+      "computedHash": "e8d1490fe205156251bd5a72b0b1e164df7045cbff932ed6ab9f116d51ff7953"
+    },
+    "mcp-builder": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/mcp-builder/SKILL.md",
+      "computedHash": "b8b9ef3756bf4a254605311773374d97db0b7e8273e29a0fa6150d9ee628748e"
+    },
+    "microservices-patterns": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/microservices-patterns/skills/microservices-patterns/SKILL.md",
+      "computedHash": "67791fd7ab9cbc1fa08a9255e57e10f136a05356ec24db7ba830f291a23bebef"
+    },
+    "ml-model-training": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/ml-model-training/skills/ml-model-training/SKILL.md",
+      "computedHash": "9a8d759e5f266a17ca128898b84abf194f4568e4baadd47b01c8dd16319d7290"
+    },
+    "ml-pipeline-automation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/ml-pipeline-automation/skills/ml-pipeline-automation/SKILL.md",
+      "computedHash": "3fb0e08500ed244f8618a05a0d1886a41275167c49f159a73fee9bb2bc296491"
+    },
+    "mobile-app-debugging": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/mobile-app-debugging/skills/mobile-app-debugging/SKILL.md",
+      "computedHash": "215252f3c00449efede7392e34fceac378eabcf1eab11b131e39085cafbc43da"
+    },
+    "mobile-app-testing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/mobile-app-testing/skills/mobile-app-testing/SKILL.md",
+      "computedHash": "2e507712dd2e7686524e7e1d2352b50e7cdb5aa718abb515f5b566a375daf1c1"
+    },
+    "mobile-first-design": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/mobile-first-design/skills/mobile-first-design/SKILL.md",
+      "computedHash": "f585acb70cb5388824bb60f5f2c48b578e19f164c786acf60270d3ecd26c2c7e"
+    },
+    "mobile-offline-support": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/mobile-offline-support/skills/mobile-offline-support/SKILL.md",
+      "computedHash": "6312feed355a28b2f4d66a2bf6a7369be2e41e9eedbbf49d1ff5e288d624b3e5"
+    },
+    "mobile-security-coder": {
+      "source": "sickn33/agentic-awesome-skills",
+      "commit": "560a2b034d8ce3eb90445841ab6a53df7132926a",
+      "sourceType": "github",
+      "skillPath": "skills/mobile-security-coder/SKILL.md",
+      "computedHash": "2f34a5446fd2160ecd8e086efe0f373cfe740e58e3c4c84b5714b584705c777b"
+    },
+    "model-deployment": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/model-deployment/skills/model-deployment/SKILL.md",
+      "computedHash": "f68e0800cd1953513db192e68917e525b61c73f4b98084b41f34940675058084"
+    },
+    "motion": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/motion/skills/motion/SKILL.md",
+      "computedHash": "540bfe5a35ab06ad34c2730875ee737e554be8b836dac17cce26cd543f4d2ac4"
+    },
+    "multi-ai-consultant": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/multi-ai-consultant/skills/multi-ai-consultant/SKILL.md",
+      "computedHash": "b27793188206974cb5bdd6f38f4ce2eaff28a601b2b34fe4f7f102232c33435a"
+    },
+    "mutation-testing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/mutation-testing/skills/mutation-testing/SKILL.md",
+      "computedHash": "d8e84d48cf66523033ec725c1c1e717d4b81485efec8c18d3b32299a1956718e"
+    },
+    "nano-banana-prompts": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nano-banana-prompts/skills/nano-banana-prompts/SKILL.md",
+      "computedHash": "5727f61795386de064dae02e5a03743f1004b44c8021aa704fc75ad2cedbe9f2"
+    },
+    "nemoclaw-setup": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/nemoclaw-setup/SKILL.md",
+      "computedHash": "1499837c1586f9a6699ce83a810f1d119413a5b6aafee736f68c2133cc39852b"
+    },
+    "nextjs": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nextjs/skills/nextjs/SKILL.md",
+      "computedHash": "5a1c4c83f69beba26ebc56dde7f52f52ef980d4a32bede1665ff486d1f05b201"
+    },
+    "nuxt-content": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-content/skills/nuxt-content/SKILL.md",
+      "computedHash": "cd83feed8413e8aaaab113f84db9c1dbe8561857884d9b4b066e7fc97f75eb38"
+    },
+    "nuxt-core": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-v4/skills/nuxt-core/SKILL.md",
+      "computedHash": "bbac4d4be82c6d3957a35ab8c59948d5f18e80f54b7e6340dd6b07b4cfd741fa"
+    },
+    "nuxt-data": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-v4/skills/nuxt-data/SKILL.md",
+      "computedHash": "25d5cc40bd78c9740eed3c81327f239ded4057490fb2fd05911b504b57941f86"
+    },
+    "nuxt-production": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-v4/skills/nuxt-production/SKILL.md",
+      "computedHash": "5222ddbcad50394cef69fe55cfffb2f4af3cc6f67ac44b0fcfa46429d2fe8c58"
+    },
+    "nuxt-seo": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-seo/skills/nuxt-seo/SKILL.md",
+      "computedHash": "cc8ce52a23d3e169809112bb49e776b23d4112f4b12fccbc4e57feb3f149944a"
+    },
+    "nuxt-server": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-v4/skills/nuxt-server/SKILL.md",
+      "computedHash": "f4ec576a10d14d6aa193233d270a6a8a819e4556e5d1b2728bb570d743ccbb53"
+    },
+    "nuxt-studio": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-studio/skills/nuxt-studio/SKILL.md",
+      "computedHash": "54a1e7710a1ab28f600c75de607122c543ac37664fa0c09949afb08742096615"
+    },
+    "nuxt-ui-v4": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/nuxt-ui-v4/skills/nuxt-ui-v4/SKILL.md",
+      "computedHash": "66f6636411d2bc8a5170685019125eb453283ba83e5c1d79d1dcf10b8cdd06d4"
+    },
+    "nz-business-english": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/nz-business-english/SKILL.md",
+      "computedHash": "e35692c93ad45e4c7f289ac04c5af4a0756bbf1f6b2852fcc51af400b66a17a9"
+    },
+    "oauth-implementation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/oauth-implementation/skills/oauth-implementation/SKILL.md",
+      "computedHash": "58d480e2e5c76f3ec416eb39656760a85a412b08512a556d3800f750b4c6b02e"
+    },
+    "onboarding-ux": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/onboarding-ux/SKILL.md",
+      "computedHash": "1ce841f727d0d77e514051057c548c3199f83079b2616045288566357de5003f"
+    },
+    "parcel-tracking": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/parcel-tracking/SKILL.md",
+      "computedHash": "a7ac98fa2e9861738fe08e3142b6a02ee3243ede35f147c617d1ca98c3a993da"
+    },
+    "payment-gateway-integration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/payment-gateway-integration/skills/payment-gateway-integration/SKILL.md",
+      "computedHash": "8ade73ddcc67feffe08b1e59dee1288a8598f3da18f856381bae7de100cc8b43"
+    },
+    "pinia-colada": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/pinia-colada/skills/pinia-colada/SKILL.md",
+      "computedHash": "759d5d8dc900d8b3beac60f2c1809735ac2958278638aef10e50a24bdf8cd152"
+    },
+    "pinia-v3": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/pinia-v3/skills/pinia-v3/SKILL.md",
+      "computedHash": "72eff74492d29c48994efac3feb00593bc1ad74e95adc5e69e30545d05ebbfd2"
+    },
+    "plan-interview": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/plan-interview/skills/plan-interview/SKILL.md",
+      "computedHash": "fae6f19e2dce89bd246ccd69e7107a6b489030e7fcbf74c8bc5d734c109cdc8d"
+    },
+    "play-store-review": {
+      "source": "enes-1/play-store-review-skill",
+      "commit": "cf5d6f5ed674aa827f63201c099ff71db08ac4fb",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "fb94f2154bb52ee81506739d38f5a524cd0791c1d592bf5fdd0001f3cc565f72"
+    },
+    "playwright": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/playwright/skills/playwright/SKILL.md",
+      "computedHash": "b5a4813c60592b3e76bf61be06a969658226548198463ea9e4ff3c60ec92ebf8"
+    },
+    "privacy-and-declarations": {
+      "source": "erberkk/mobile-app-launch-skills",
+      "commit": "9006aad1b71fb51c5c62c014f7cc01a73a80c051",
+      "sourceType": "github",
+      "skillPath": "skills/privacy-and-declarations/SKILL.md",
+      "computedHash": "c995dc0aa408d495c5630bb6a6277fed85090b2302aa8d28443f978a1e568dcd"
+    },
+    "product-showcase": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/product-showcase/SKILL.md",
+      "computedHash": "970809ca4b831f21620211a8e3d57ef235837fc25088a88060a39de77201edb6"
+    },
+    "progressive-web-app": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/progressive-web-app/skills/progressive-web-app/SKILL.md",
+      "computedHash": "60841fe71b9bddd75aac3dc479d8248a9f5d57c23875f7eb7ab4e1abff5b9cc7"
+    },
+    "project-docs": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/project-docs/SKILL.md",
+      "computedHash": "c5d6926beae54a15f9f2913e049fe60b65376111dbb5d26410a0109f5dde4550"
+    },
+    "project-health": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/project-health/SKILL.md",
+      "computedHash": "2fb944c42cc583e99757bdfe65e1f0bf9b687890a8f052d15c48f0edb60b43b7"
+    },
+    "proposal-writer": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/proposal-writer/SKILL.md",
+      "computedHash": "3bbcc54a55c615f2877893096ef1b69b82efc02f37dc1a5cde8f33e64b227469"
+    },
+    "push-notification-setup": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/push-notification-setup/skills/push-notification-setup/SKILL.md",
+      "computedHash": "8d80ec3487a5389d830186831b0de2a29f9da24580a9ea8d3f6d96de67f2a0e1"
+    },
+    "react-best-practices": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/react-best-practices/skills/react-best-practices/SKILL.md",
+      "computedHash": "697a7db18407e89a8559ecc2edb645e71764020b6b78a81afcba2110d6c42574"
+    },
+    "react-composition-patterns": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/react-composition-patterns/skills/react-composition-patterns/SKILL.md",
+      "computedHash": "6f46442e977798d570cbc0d3fde4488c70827ee86fcf7babd8f8f6b1845e3ede"
+    },
+    "react-hook-form-zod": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/react-hook-form-zod/skills/react-hook-form-zod/SKILL.md",
+      "computedHash": "06212342770d7a06c12c7ec404bcb4d308c2c66c3b69a1fcb8668322918bdf04"
+    },
+    "react-native": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/react-native/SKILL.md",
+      "computedHash": "5bd409c03e85bbd790813afab645afec277d85dc7a4669fda9027c11993ddd74"
+    },
+    "react-native-skills": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/react-native-skills/skills/react-native-skills/SKILL.md",
+      "computedHash": "d1219d8208a35d0179a97e303943e4857f2ea934978b8a4f904e990972174271"
+    },
+    "react-patterns": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/react-patterns/SKILL.md",
+      "computedHash": "0f7c719b4265b7215dea0b28036542942dccbb6e34f952a0ef627a5a4227d12d"
+    },
+    "recommendation-engine": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/recommendation-engine/skills/recommendation-engine/SKILL.md",
+      "computedHash": "c039203a35ab8b121089fc7c7f19e3da2fbad557842f33a2122275dedfef0d8d"
+    },
+    "recommendation-system": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/recommendation-system/skills/recommendation-system/SKILL.md",
+      "computedHash": "c9922801fee610ed05b6e34bb1e6155e02ebe5cf0c9152de4d25a2d221b22f79"
+    },
+    "release-pipeline": {
+      "source": "erberkk/mobile-app-launch-skills",
+      "commit": "9006aad1b71fb51c5c62c014f7cc01a73a80c051",
+      "sourceType": "github",
+      "skillPath": "skills/release-pipeline/SKILL.md",
+      "computedHash": "a414c349066f243a36069a64e4d92c5507da52c82dbb4747e8ce201ff82fc811"
+    },
+    "requesting-code-review": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/requesting-code-review/SKILL.md",
+      "computedHash": "32bcc25e8c3315d0150f646ee0067c9d4bfbc7719c34012db9c202e17cce8a14"
+    },
+    "responsive-web-design": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/responsive-web-design/skills/responsive-web-design/SKILL.md",
+      "computedHash": "ef63946e2d24c5d283ece98bcc840e9dc7fab5c37f0f9f7b788d73fcfaa0632d"
+    },
+    "responsiveness-check": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/responsiveness-check/SKILL.md",
+      "computedHash": "3fb35e3eb00d025118efc29a190e768c5a4183571e559f50b387783eab4c6c40"
+    },
+    "rest-api-design": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/rest-api-design/skills/rest-api-design/SKILL.md",
+      "computedHash": "a4d2da8fcefe2e0fa9392b9cb4897e85f67d9cc15624926cb03d5ef016c0a86b"
+    },
+    "resume-cover-letter": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/resume-cover-letter/SKILL.md",
+      "computedHash": "85b00cb8d38af1e88a7f2fb06203db8825af97503b55dae63a9fc68e2ad7be03"
+    },
+    "roadmap": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/roadmap/SKILL.md",
+      "computedHash": "3f1bf691e3ce8a6822c6332f3dae60af4ca8d54104ff13dab699e4ca197ab912"
+    },
+    "root-cause-tracing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/root-cause-tracing/skills/root-cause-tracing/SKILL.md",
+      "computedHash": "ec532eeacd29046a3611e0b2b0e7226b68a52d131892b114acfec998cf4f4808"
+    },
+    "security-headers-configuration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/security-headers-configuration/skills/security-headers-configuration/SKILL.md",
+      "computedHash": "c45a6a31f62b3628c36a4fe88ee6ce3d40989b70063a25598772c696672e1701"
+    },
+    "seo-keyword-cluster-builder": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/seo-keyword-cluster-builder/skills/seo-keyword-cluster-builder/SKILL.md",
+      "computedHash": "0d7ab3841d3297c6836025fda4bab828bf7fc1a945efc048a6c69f0f42080410"
+    },
+    "seo-local-business": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/web-design/skills/seo-local-business/SKILL.md",
+      "computedHash": "9496af165f220929c915e6eeb682c683b6a5b696f1815b2b54740f9dfe45b56c"
+    },
+    "seo-optimizer": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/seo-optimizer/skills/seo-optimizer/SKILL.md",
+      "computedHash": "4d98d196c8f60d6ccf7ed1e5fc3a385e1f2d0cc82d0440011b012bc9e805e795"
+    },
+    "sequential-thinking": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/sequential-thinking/skills/sequential-thinking/SKILL.md",
+      "computedHash": "09502c772180105bf70aa36afcff9882c1bc8c1fb40e96bc84a91c687b4835c5"
+    },
+    "session-management": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/session-management/skills/session-management/SKILL.md",
+      "computedHash": "3ab8cad40446a399aa195b1748403e8c726c749c21562b1398b3f6d34406f70a"
+    },
+    "shadcn-ui": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/shadcn-ui/SKILL.md",
+      "computedHash": "23cf187bb16946621856d6fa2baf288dc13c6f65740a8be9c39df117d89f31bf"
+    },
+    "shadcn-vue": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/shadcn-vue/skills/shadcn-vue/SKILL.md",
+      "computedHash": "144c372c347a65166dd23151433db00908205e8a141b0729e57b20260f86aec4"
+    },
+    "shopify-content": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/shopify/skills/shopify-content/SKILL.md",
+      "computedHash": "7ea3bf4cb7da3776d85259d46e4380a5776daaf6159e1f1e8296b835f7e10893"
+    },
+    "shopify-products": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/shopify/skills/shopify-products/SKILL.md",
+      "computedHash": "9ac112bcbbb53bde183efb4d33a9b907e79b4222687a4fbe3accb19facd8446b"
+    },
+    "shopify-setup": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/shopify/skills/shopify-setup/SKILL.md",
+      "computedHash": "6584897c9f4c05af323ea6dfeaa8495cd2661158b089face3ab285fb305300c6"
+    },
+    "social-media-posts": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/social-media/skills/social-media-posts/SKILL.md",
+      "computedHash": "bb7fb6e33b6bd382dedae724c20ca6e5c42655c4dd80896abc2aaefc20dbd437"
+    },
+    "strategy-document": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/strategy-document/SKILL.md",
+      "computedHash": "35d2b4fa9eaa55be229588eccdd01ae73fdb11d52b8f521ad0973a713ed1cee6"
+    },
+    "stripe-payments": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/stripe-payments/SKILL.md",
+      "computedHash": "d2d89f9be5ec081e13980d8345a3a7b50d6499fa38f938fd7aae78d54b179f99"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "79ff0583175346e39431b0dc713b223edd1bd7a7ea2b6c8b78b2fb9a3fed6782"
+    },
+    "tailwind-theme-builder": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend/skills/tailwind-theme-builder/SKILL.md",
+      "computedHash": "4b95e21c900b3da4f68471431757903e45dd055b5901edb747769087b0e50ff4"
+    },
+    "tailwind-v4-shadcn": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tailwind-v4-shadcn/skills/tailwind-v4-shadcn/SKILL.md",
+      "computedHash": "c7432deb64737b2c3294c771fccff92bc0b7849247a6132581ade27ef4800445"
+    },
+    "tanstack-ai": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-ai/skills/tanstack-ai/SKILL.md",
+      "computedHash": "19be25a7f41d204c17cd7c29b8c4bf98782f51395254e2d9c6c15fa7fac75240"
+    },
+    "tanstack-query": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-query/skills/tanstack-query/SKILL.md",
+      "computedHash": "bc8fb06a2c923b2da0326f35123e3852258af6b53cbf8a7aef87e216ba60d49f"
+    },
+    "tanstack-router": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-router/skills/tanstack-router/SKILL.md",
+      "computedHash": "522947de6c862954f6464857999a2d7ecc2e638059ebbeb3e43927a9aa2ecbdb"
+    },
+    "tanstack-start": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-start/skills/tanstack-start/SKILL.md",
+      "computedHash": "7cd3bf5c0d0bcc6e75fe2f24eb1996ec15924f3e5dfa1c49e418d6847b380576"
+    },
+    "tanstack-table": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-table/skills/tanstack-table/SKILL.md",
+      "computedHash": "d316da1a2580d9f785e0974a529c15ceff92ec653fd0d6d52b24bbea065d224a"
+    },
+    "team-update": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/team-update/SKILL.md",
+      "computedHash": "447277ab634fe771a31e8dab556d48f9c63ddcfc7ebbcdd905c431ce41245c73"
+    },
+    "tech-debt": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/tech-debt/skills/tech-debt/SKILL.md",
+      "computedHash": "9acff3d6bf69367772bd52889ec022db37dda3b6e4c8b46883840ed8263477d2"
+    },
+    "technical-specification": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/technical-specification/skills/technical-specification/SKILL.md",
+      "computedHash": "1712a917b85e629205acbf94146d86be1e151d631b9e3c62f40c078118ef5de7"
+    },
+    "test-quality-analysis": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/test-quality-analysis/skills/test-quality-analysis/SKILL.md",
+      "computedHash": "3222389eb9e1aa23c5d447eb4c4135d77fdb1be04553a5a3315a241d6f2dfe5e"
+    },
+    "thesys-generative-ui": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/thesys-generative-ui/skills/thesys-generative-ui/SKILL.md",
+      "computedHash": "76b876dc68c5c7d3be9b01dbf0b25164f5bae6d7396785a059633c5029363ab4"
+    },
+    "threejs": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/threejs/skills/threejs/SKILL.md",
+      "computedHash": "0d2d9fec448d9f7df83c56a07b5c98dfbc9da6391d0ecf79f578505c5172c0d3"
+    },
+    "turborepo": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/turborepo/skills/turborepo/SKILL.md",
+      "computedHash": "99127619258a0eb5cb89db881522ec5cd098144cc2c553245900b783a89b3546"
+    },
+    "typescript-migration": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/typescript-migration/skills/typescript-migration/SKILL.md",
+      "computedHash": "644ca788495b64964b3f6c30e5328ade782372b6c0e73dfbe449058bc43e821c"
+    },
+    "uk-business-english": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/uk-business-english/SKILL.md",
+      "computedHash": "b6e8e610a620d97750de786103f03efb11c2c2f088c60186d6c87b16c58f14e8"
+    },
+    "ultracite": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/ultracite/skills/ultracite/SKILL.md",
+      "computedHash": "e4bde43861f1bbae3b1ca491e2029e3f365ea9cbe9ad397e89cbfadcc085295e"
+    },
+    "unknowns-discovery": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/unknowns-discovery/skills/unknowns-discovery/SKILL.md",
+      "computedHash": "c9a9a04947a9cb28a7658411209fd76a2c0cbb5963818f865d53f5e55b7b122a"
+    },
+    "us-business-english": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/writing/skills/us-business-english/SKILL.md",
+      "computedHash": "e4a8fb69e32bc1ecaac8ef3afa8619ae79f7571aa5b75d1f763c1d29f9c132ba"
+    },
+    "ux-audit": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/ux-audit/SKILL.md",
+      "computedHash": "d18def8193c5c9b131bf36970382433a33f40f03773db7546072550929d34e7e"
+    },
+    "ux-compare": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/ux-compare/SKILL.md",
+      "computedHash": "3b596041d197b639f34cec5c29606e3c7a0c7f0d1b39131198ac781577b52094"
+    },
+    "ux-extract": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/ux-extract/SKILL.md",
+      "computedHash": "590fe637bb9fdc723eb460cff624d57bd666d36cd8ecd18451f529376c359b1e"
+    },
+    "vite-flare-starter": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/cloudflare/skills/vite-flare-starter/SKILL.md",
+      "computedHash": "7d6493e949390ef95acd0bacd63fb8629b9fc2f224bdafcc03e0057e62ca40b5"
+    },
+    "vitest": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/dev-tools/skills/vitest/SKILL.md",
+      "computedHash": "ece2f899ebe0b9eff9283deca170fd86013ef99c449a9f57a49e193c66daa552"
+    },
+    "vitest-testing": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/vitest-testing/skills/vitest-testing/SKILL.md",
+      "computedHash": "aae4585c3a86fce86b45175c82551d343e44264246e1a660b5ca890307a4ee4b"
+    },
+    "vulnerability-scanning": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/vulnerability-scanning/skills/vulnerability-scanning/SKILL.md",
+      "computedHash": "fd70397f4dc31fa38269a705cc5627bd361f4b206815335dd9f4016621f3fb6c"
+    },
+    "web-performance-audit": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/web-performance-audit/skills/web-performance-audit/SKILL.md",
+      "computedHash": "b12eea70bb9a1387dd700e41a689a3ed7b2bc0e6b4cdb75237754c75623afc53"
+    },
+    "web-performance-optimization": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/web-performance-optimization/skills/web-performance-optimization/SKILL.md",
+      "computedHash": "77921a0e0e9b843c4e052d3f6f1434b12d0a967b3e36563f7011f36d3c4ef7c8"
+    },
+    "websocket-implementation": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/websocket-implementation/skills/websocket-implementation/SKILL.md",
+      "computedHash": "a1d6cdd59ad1d50dec3951b4e466e2500cf55bf5cf5df8840afa669d56f02b9a"
+    },
+    "woocommerce-backend-dev": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/woocommerce-backend-dev/skills/woocommerce-backend-dev/SKILL.md",
+      "computedHash": "4be9d3c2163b4c955cd65cf6ef12041ef5d7cbc5afd53ba2d279d5df227ac98b"
+    },
+    "woocommerce-code-review": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/woocommerce-code-review/skills/woocommerce-code-review/SKILL.md",
+      "computedHash": "da823f336c7adc3f143f54d162a4da9ccef412cc172428e364360912e8f13348"
+    },
+    "woocommerce-copy-guidelines": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/woocommerce-copy-guidelines/skills/woocommerce-copy-guidelines/SKILL.md",
+      "computedHash": "e2438b2ae29fa4aad7106b95c59e4b426261f780af39fafc3c049ec0ecfda3a5"
+    },
+    "woocommerce-dev-cycle": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/woocommerce-dev-cycle/skills/woocommerce-dev-cycle/SKILL.md",
+      "computedHash": "358724189eb80ff54ca7ded2a16dac84a0e87804b70f3ca37534c8f06faee58a"
+    },
+    "wordpress-content": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/wordpress/skills/wordpress-content/SKILL.md",
+      "computedHash": "505790c880f2d77fde000ab61690f649c6160dbbe32e5bff8ab09b7eccde1e93"
+    },
+    "wordpress-elementor": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/wordpress/skills/wordpress-elementor/SKILL.md",
+      "computedHash": "d94117fea25ede1a7c8a327031268d13e27579ca61bd7ab74b2ad0187896e151"
+    },
+    "wordpress-plugin-core": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/wordpress-plugin-core/skills/wordpress-plugin-core/SKILL.md",
+      "computedHash": "e2022a5a74aca4bf6956daf893731a9a5e11f9cc1a66602423fb912426dc20f1"
+    },
+    "wordpress-setup": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/wordpress/skills/wordpress-setup/SKILL.md",
+      "computedHash": "db01bd3a7af61c09db3675dd379e2eeb17f09ec8908f79e312a2fd7cbc6a0b7a"
+    },
+    "workers-best-practices": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/workers-best-practices/SKILL.md",
+      "computedHash": "7f941bbc549454872a4c7c261bf75a1ef7aaa69666bc85cec91e97cf40c11cc6"
+    },
     "workers-development": {
       "source": "cloudflare/skills",
       "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
       "sourceType": "github",
       "skillPath": "skills/workers-development/SKILL.md",
       "computedHash": "a5b7dd748116d8b83db7d198867badcdde53c9eb13bf884c7557d40d0c965e38"
+    },
+    "wrangler": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/wrangler/SKILL.md",
+      "computedHash": "182e370d8c26e6bcb896a57a63e6cab006b253b9278cc3515f7b9db2c4d07661"
+    },
+    "wrangler-coder": {
+      "source": "majesticlabs-dev/majestic-marketplace",
+      "commit": "04e97708c250057244545febfc38039d2a525a8e",
+      "sourceType": "github",
+      "skillPath": "plugins/majestic-devops/skills/wrangler-coder/SKILL.md",
+      "computedHash": "ae5c440fed9132b5843f24b175a2d2687dd91562be05c262d48b350d3f6cca68"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "sourceType": "github",
+      "skillPath": "skills/writing-plans/SKILL.md",
+      "computedHash": "ef082ddb5354d736059397133b3682e8a0c85c57906affe47c9da354cbb7c91e"
+    },
+    "xss-prevention": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/xss-prevention/skills/xss-prevention/SKILL.md",
+      "computedHash": "574375addcc930e4cb26f967f713cfdc13c5c8a0f79cd1f0f4eac3468579493d"
+    },
+    "zod": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/zod/skills/zod/SKILL.md",
+      "computedHash": "960ea133a16ebc0294497b3b2009ad83b118d6f6bdf7429cce249f816614a382"
+    },
+    "zustand-state-management": {
+      "source": "secondsky/claude-skills",
+      "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
+      "sourceType": "github",
+      "skillPath": "plugins/zustand-state-management/skills/zustand-state-management/SKILL.md",
+      "computedHash": "5e4f472d17c95cf7e91614167c891a679386bde48014c20a83994685fc355918"
     }
   }
 }
