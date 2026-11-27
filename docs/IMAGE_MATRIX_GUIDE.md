@@ -6,7 +6,7 @@
 
 - **State holder**: `ImageMatrixViewModel` (`StateFlow<ImageMatrixUiState>`).
 - **Undo/Redo stack**: `LayerHistory` (bounded to 50 snapshots of `List<MatrixLayer>`). Continuous drag or slider adjustments call `previewLayer(...)` without flooding undo history, and push a single undo state on gesture release via `commitLayers()`.
-- **Bitmap lifecycle**: Decoded preview bitmaps (capped at `MAX_CACHED_BITMAPS = 24`, max 2048px edge) live in `ConcurrentHashMap<String, Bitmap>`. Unreferenced bitmaps are recycled when deleting layers or clearing the ViewModel.
+- **Bitmap lifecycle**: Decoded preview bitmaps (capped at `MAX_CACHED_BITMAPS = 24`, max 2048px edge) live in `ConcurrentHashMap<String, Bitmap>`. Unreferenced bitmaps are recycled only once no snapshot in the current, undo, or redo stacks references them.
 - **Coordinate system**: Layer positions (`xPct`, `yPct`), scales (`scalePct`), text font sizes (`fontSizePct`), rotations (`rotationDeg`), opacities (`opacityPct`), and Porter-Duff blend modes (`ImageBlendModes.labels`) are stored normalized so previews at max 720px render proportionally identically to full-resolution exports (up to `2048×2048`).
 
 ## 2. Adaptive Workspace Layout
@@ -29,7 +29,7 @@
 3. **Transform Tab (`ImageMatrixTransformInspector`)**:
    - Image layers: one-tap **Remove Bg (ML Kit)** (`SegmentationMode.FULL`) or **Basic** (`SegmentationMode.BASIC`). Because cut-out bitmaps are stored under `#nobg-<timestamp>` keys, **Undo** restores the original image intact.
    - Text & Sticker layers: live text editing, quick hex color swatch strip + hex field, `Font Size (%)`.
-   - All layers: `Center` quick button, `Reset Transform` quick button, `Position X/Y (%)`, `Scale (%)`, `Rotation (°)`, `Opacity (%)`, and 9 Porter-Duff blend modes (`Normal`, `Multiply`, `Screen`, `Overlay`, `Darken`, `Lighten`, `Color Dodge`, `Color Burn`, `Difference`).
+   - All layers: `Center` quick button, `Reset Transform` quick button, `Position X/Y (%)`, `Scale (%)`, `Rotation (°)`, `Opacity (%)`, and 9 Porter-Duff blend modes (`Normal`, `Multiply`, `Screen`, `Overlay`, `Darken`, `Lighten`, `Add`, `Difference`, `Exclusion`).
 4. **Canvas Tab (`ImageMatrixCanvasInspector`)**:
    - 5 canvas resolution presets (`1080×1080`, `1080×1350`, `1920×1080`, `1080×1920`, `2048×2048`).
    - Background fill hex input + quick color swatches + `Clear All` canvas reset (undoable).

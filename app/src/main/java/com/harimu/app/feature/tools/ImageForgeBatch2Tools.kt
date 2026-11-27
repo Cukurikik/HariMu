@@ -118,24 +118,29 @@ private fun overlayTool(): Tool = object : Tool {
         val entry = ImageFormatMatrix.requireEncodable(input.getString("format", "PNG"))
         emit(ToolProgress.Running(20, "Mendekode gambar dasar..."))
         val base = ImageIO.decodeFullGuarded(ctx.appContext, input.uris[0], 24_000_000L)
-        emit(ToolProgress.Running(45, "Mendekode lapisan atas..."))
-        val top = ImageIO.decodeFullGuarded(ctx.appContext, input.uris[1], 24_000_000L)
-        emit(ToolProgress.Running(70, "Menggabungkan layer..."))
-        val out = ImageOverlayEngine.blend(
-            base = base,
-            top = top,
-            blendMode = input.getString("blend", "Overlay"),
-            opacityPct = input.getFloat("opacity", 80f).toInt(),
-            scalePct = input.getFloat("scale", 100f).toInt(),
-            offsetXPct = input.getFloat("offsetX", 0f),
-            offsetYPct = input.getFloat("offsetY", 0f)
-        )
-        base.recycle()
-        top.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_OVERLAY", ImageFormatMatrix.extensionFor(entry.id))
-        ImageIO.encode(out, dest, entry.id, 95)
-        val size = "${out.width}×${out.height}"
-        out.recycle()
+        var top: Bitmap? = null
+        var out: Bitmap? = null
+        val (dest, size) = try {
+            emit(ToolProgress.Running(45, "Mendekode lapisan atas..."))
+            top = ImageIO.decodeFullGuarded(ctx.appContext, input.uris[1], 24_000_000L)
+            emit(ToolProgress.Running(70, "Menggabungkan layer..."))
+            out = ImageOverlayEngine.blend(
+                base = base,
+                top = top,
+                blendMode = input.getString("blend", "Overlay"),
+                opacityPct = input.getFloat("opacity", 80f).toInt(),
+                scalePct = input.getFloat("scale", 100f).toInt(),
+                offsetXPct = input.getFloat("offsetX", 0f),
+                offsetYPct = input.getFloat("offsetY", 0f)
+            )
+            val outFile = ctx.storage.createOutputFile("IMG_OVERLAY", ImageFormatMatrix.extensionFor(entry.id))
+            ImageIO.encode(out, outFile, entry.id, 95)
+            outFile to "${out.width}×${out.height}"
+        } finally {
+            if (out != null && out !== base && out !== top && !out.isRecycled) out.recycle()
+            if (top != null && !top.isRecycled) top.recycle()
+            if (!base.isRecycled) base.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -184,13 +189,17 @@ private fun filtersTool(): Tool = object : Tool {
         )
         emit(ToolProgress.Running(25, "Mendekode gambar resolusi penuh..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        emit(ToolProgress.Running(60, "Menerapkan pipeline filter..."))
-        val out = ImageFilterPipeline.apply(source, spec)
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_FLT", ImageFormatMatrix.extensionFor(entry.id))
-        ImageIO.encode(out, dest, entry.id, 94)
-        val size = "${out.width}×${out.height}"
-        out.recycle()
+        var out: Bitmap? = null
+        val (dest, size) = try {
+            emit(ToolProgress.Running(60, "Menerapkan pipeline filter..."))
+            out = ImageFilterPipeline.apply(source, spec)
+            val outFile = ctx.storage.createOutputFile("IMG_FLT", ImageFormatMatrix.extensionFor(entry.id))
+            ImageIO.encode(out, outFile, entry.id, 94)
+            outFile to "${out.width}×${out.height}"
+        } finally {
+            if (out != null && out !== source && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -229,23 +238,27 @@ private fun shadowGlowTool(): Tool = object : Tool {
         val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
         emit(ToolProgress.Running(25, "Mendekode gambar..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        emit(ToolProgress.Running(60, "Menyusun bayangan & glow..."))
-        val out = ImageOverlayEngine.shadowGlow(
-            source = source,
-            shape = input.getString("shape", "Alpha subjek"),
-            shadowHex = input.getString("shadowColor", "#000000"),
-            shadowBlurPct = input.getFloat("shadowBlur", 4f),
-            shadowOffsetXPct = input.getFloat("shadowX", 2f),
-            shadowOffsetYPct = input.getFloat("shadowY", 3f),
-            glowHex = input.getString("glowColor", "#FFE082"),
-            glowStrengthPct = input.getFloat("glow", 35f).toInt(),
-            paddingPct = input.getFloat("padding", 8f).toInt()
-        )
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_SHADOW", "png")
-        ImageIO.encode(out, dest, "PNG", 100)
-        val size = "${out.width}×${out.height}"
-        out.recycle()
+        var out: Bitmap? = null
+        val (dest, size) = try {
+            emit(ToolProgress.Running(60, "Menyusun bayangan & glow..."))
+            out = ImageOverlayEngine.shadowGlow(
+                source = source,
+                shape = input.getString("shape", "Alpha subjek"),
+                shadowHex = input.getString("shadowColor", "#000000"),
+                shadowBlurPct = input.getFloat("shadowBlur", 4f),
+                shadowOffsetXPct = input.getFloat("shadowX", 2f),
+                shadowOffsetYPct = input.getFloat("shadowY", 3f),
+                glowHex = input.getString("glowColor", "#FFE082"),
+                glowStrengthPct = input.getFloat("glow", 35f).toInt(),
+                paddingPct = input.getFloat("padding", 8f).toInt()
+            )
+            val outFile = ctx.storage.createOutputFile("IMG_SHADOW", "png")
+            ImageIO.encode(out, outFile, "PNG", 100)
+            outFile to "${out.width}×${out.height}"
+        } finally {
+            if (out != null && out !== source && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -282,19 +295,24 @@ private fun stickerTool(): Tool = object : Tool {
         val emoji = input.getString("emoji", "⭐").ifBlank { "⭐" }
         emit(ToolProgress.Running(30, "Mendekode gambar..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        val out = ImageOverlayEngine.addSticker(
-            source = source,
-            emoji = emoji,
-            xPct = input.getFloat("xPct", 75f),
-            yPct = input.getFloat("yPct", 25f),
-            sizePct = input.getFloat("sizePct", 18f),
-            rotationDeg = input.getFloat("rotation", 0f),
-            opacityPct = input.getFloat("opacity", 100f).toInt()
-        )
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_STICKER", "png")
-        ImageIO.encode(out, dest, "PNG", 100)
-        out.recycle()
+        var out: Bitmap? = null
+        val dest = try {
+            out = ImageOverlayEngine.addSticker(
+                source = source,
+                emoji = emoji,
+                xPct = input.getFloat("xPct", 75f),
+                yPct = input.getFloat("yPct", 25f),
+                sizePct = input.getFloat("sizePct", 18f),
+                rotationDeg = input.getFloat("rotation", 0f),
+                opacityPct = input.getFloat("opacity", 100f).toInt()
+            )
+            val outFile = ctx.storage.createOutputFile("IMG_STICKER", "png")
+            ImageIO.encode(out, outFile, "PNG", 100)
+            outFile
+        } finally {
+            if (out != null && out !== source && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -348,24 +366,31 @@ private fun lutTool(): Tool = object : Tool {
                 }
                 emit(ToolProgress.Running(35, "Membaca strip PNG..."))
                 val strip = ImageIO.decodePreview(ctx.appContext, input.uris[1], 4096)
-                val size = sqrt(strip.width.toFloat()).roundToInt()
-                require(size * size == strip.width) {
-                    "Lebar strip ${strip.width}px bukan kuadrat sempurna (butuh size×size)."
+                try {
+                    val size = sqrt(strip.width.toFloat()).roundToInt()
+                    require(size * size == strip.width) {
+                        "Lebar strip ${strip.width}px bukan kuadrat sempurna (butuh size×size)."
+                    }
+                    ImageLutEngine.fromPngStrip(strip, size)
+                } finally {
+                    if (!strip.isRecycled) strip.recycle()
                 }
-                val cube = ImageLutEngine.fromPngStrip(strip, size)
-                strip.recycle()
-                cube
             }
             else -> ImageLutEngine.preset(input.getString("preset", "Teal & Orange"))
         }
         emit(ToolProgress.Running(55, "Mendekode foto..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri, 36_000_000L)
-        emit(ToolProgress.Running(75, "Menerapkan LUT ${lut.title} (${lut.size}³)..."))
-        val out = ImageLutEngine.apply(source, lut, input.getFloat("intensity", 85f).toInt())
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_LUT", "png")
-        ImageIO.encode(out, dest, "PNG", 100)
-        out.recycle()
+        var out: Bitmap? = null
+        val dest = try {
+            emit(ToolProgress.Running(75, "Menerapkan LUT ${lut.title} (${lut.size}³)..."))
+            out = ImageLutEngine.apply(source, lut, input.getFloat("intensity", 85f).toInt())
+            val outFile = ctx.storage.createOutputFile("IMG_LUT", "png")
+            ImageIO.encode(out, outFile, "PNG", 100)
+            outFile
+        } finally {
+            if (out != null && out !== source && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -407,19 +432,24 @@ private fun vintageTool(): Tool = object : Tool {
         val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
         emit(ToolProgress.Running(25, "Mendekode gambar resolusi penuh..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        emit(ToolProgress.Running(60, "Merender grain & vignette..."))
-        val out = ImageOverlayEngine.vintageFilm(
-            source = source,
-            preset = input.getString("preset", "Kodak Portra"),
-            warmth = input.getFloat("warmth", 12f),
-            fadePct = input.getFloat("fade", 12f).toInt(),
-            grainPct = input.getFloat("grain", 18f).toInt(),
-            vignettePct = input.getFloat("vignette", 22f).toInt()
-        )
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_FILM", "jpg")
-        ImageIO.encode(out, dest, "JPG", 92)
-        out.recycle()
+        var out: Bitmap? = null
+        val dest = try {
+            emit(ToolProgress.Running(60, "Merender grain & vignette..."))
+            out = ImageOverlayEngine.vintageFilm(
+                source = source,
+                preset = input.getString("preset", "Kodak Portra"),
+                warmth = input.getFloat("warmth", 12f),
+                fadePct = input.getFloat("fade", 12f).toInt(),
+                grainPct = input.getFloat("grain", 18f).toInt(),
+                vignettePct = input.getFloat("vignette", 22f).toInt()
+            )
+            val outFile = ctx.storage.createOutputFile("IMG_FILM", "jpg")
+            ImageIO.encode(out, outFile, "JPG", 92)
+            outFile
+        } finally {
+            if (out != null && out !== source && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -456,19 +486,24 @@ private fun flareTool(): Tool = object : Tool {
         val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
         emit(ToolProgress.Running(30, "Mendekode gambar..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        val out = ImageOverlayEngine.lensFlare(
-            source = source,
-            xPct = input.getFloat("xPct", 78f),
-            yPct = input.getFloat("yPct", 22f),
-            intensityPct = input.getFloat("intensity", 60f).toInt(),
-            streakPct = input.getFloat("streak", 60f).toInt(),
-            ghostCount = input.getFloat("ghosts", 2f).toInt(),
-            warmHex = input.getString("warm", "#FFD9A0")
-        )
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_FLARE", "jpg")
-        ImageIO.encode(out, dest, "JPG", 93)
-        out.recycle()
+        var out: Bitmap? = null
+        val dest = try {
+            out = ImageOverlayEngine.lensFlare(
+                source = source,
+                xPct = input.getFloat("xPct", 78f),
+                yPct = input.getFloat("yPct", 22f),
+                intensityPct = input.getFloat("intensity", 60f).toInt(),
+                streakPct = input.getFloat("streak", 60f).toInt(),
+                ghostCount = input.getFloat("ghosts", 2f).toInt(),
+                warmHex = input.getString("warm", "#FFD9A0")
+            )
+            val outFile = ctx.storage.createOutputFile("IMG_FLARE", "jpg")
+            ImageIO.encode(out, outFile, "JPG", 93)
+            outFile
+        } finally {
+            if (out != null && out !== source && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -580,30 +615,34 @@ private fun batchTool(): Tool = object : Tool {
                                 else -> ImageIO.decodeFullGuarded(ctx.appContext, uri, 24_000_000L)
                             }
                             var bgDetail: String? = null
-                            val processed = when {
-                                operation == "Watermark" ->
-                                    ImageEngine.addWatermark(bitmap, watermark, 45, "Kanan Bawah", false)
-                                operation.startsWith("Hapus Latar") -> {
-                                    val mode = if (operation.contains("Dasar") || operation.contains("heuristik")) {
-                                        SegmentationMode.BASIC
-                                    } else {
-                                        SegmentationMode.FULL
-                                    }
-                                    val outcome = BackgroundSegmenters.default.removeBackground(
-                                        context = ctx.appContext,
-                                        source = bitmap,
-                                        request = BackgroundRemovalRequest(mode = mode)
-                                    )
-                                    bgDetail = outcome.engineSummary(ctx.isEnglish)
-                                    outcome.bitmap
-                                }
-                                else -> bitmap
-                            }
+                            var processed: Bitmap? = null
                             // Hapus latar butuh alpha ⇒ selalu PNG, apa pun format pilihan pengguna.
                             val outputLabel = if (operation.startsWith("Hapus Latar")) "PNG" else entry.id
-                            val bytes = ImageIO.encodeToBytes(processed, outputLabel, quality)
-                            if (processed !== bitmap) processed.recycle()
-                            bitmap.recycle()
+                            val bytes = try {
+                                processed = when {
+                                    operation == "Watermark" ->
+                                        ImageEngine.addWatermark(bitmap, watermark, 45, "Kanan Bawah", false)
+                                    operation.startsWith("Hapus Latar") -> {
+                                        val mode = if (operation.contains("Dasar") || operation.contains("heuristik")) {
+                                            SegmentationMode.BASIC
+                                        } else {
+                                            SegmentationMode.FULL
+                                        }
+                                        val outcome = BackgroundSegmenters.default.removeBackground(
+                                            context = ctx.appContext,
+                                            source = bitmap,
+                                            request = BackgroundRemovalRequest(mode = mode)
+                                        )
+                                        bgDetail = outcome.engineSummary(ctx.isEnglish)
+                                        outcome.bitmap
+                                    }
+                                    else -> bitmap
+                                }
+                                ImageIO.encodeToBytes(processed, outputLabel, quality)
+                            } finally {
+                                if (processed != null && processed !== bitmap && !processed.isRecycled) processed.recycle()
+                                if (!bitmap.isRecycled) bitmap.recycle()
+                            }
                             val outputExt = ImageFormatMatrix.extensionFor(outputLabel)
                             B2.addZipEntry(zip, "$renderedName.$outputExt", bytes)
                             val detail = listOfNotNull("${outputExt.uppercase()} ${bytes.size} byte", bgDetail)
@@ -658,14 +697,24 @@ private fun spriteSheetTool(): Tool = object : Tool {
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         require(input.uris.size >= 2) { "Pilih minimal 2 gambar" }
         emit(ToolProgress.Running(20, "Mendekode ${input.uris.size} frame..."))
-        val bitmaps = input.uris.map { ImageIO.decodePreview(ctx.appContext, it, 512) }
-        emit(ToolProgress.Running(60, "Menyusun sprite sheet..."))
+        val bitmaps = mutableListOf<Bitmap>()
+        var sheet: Bitmap? = null
         val cols = input.getFloat("cols", 3f).toInt()
-        val (sheet, atlasJson) = ImageEngine.createSpriteSheet(bitmaps, cols)
-        bitmaps.forEach { it.recycle() }
-        val dest = ctx.storage.createOutputFile("SPRITE", "png")
-        ImageIO.encode(sheet, dest, "PNG", 100)
-        sheet.recycle()
+        val (dest, atlasJson) = try {
+            input.uris.forEach { uri ->
+                currentCoroutineContext().ensureActive()
+                bitmaps += ImageIO.decodePreview(ctx.appContext, uri, 512)
+            }
+            emit(ToolProgress.Running(60, "Menyusun sprite sheet..."))
+            val (createdSheet, json) = ImageEngine.createSpriteSheet(bitmaps, cols)
+            sheet = createdSheet
+            val outFile = ctx.storage.createOutputFile("SPRITE", "png")
+            ImageIO.encode(createdSheet, outFile, "PNG", 100)
+            outFile to json
+        } finally {
+            if (sheet != null && !sheet.isRecycled) sheet.recycle()
+            bitmaps.forEach { if (!it.isRecycled) it.recycle() }
+        }
         val outputs = mutableListOf(ToolOutputFile(dest, "image/png", dest.name))
         if (input.getBoolean("atlas", true)) {
             val atlasFile = ctx.storage.createOutputFile("SPRITE_ATLAS", "json")
@@ -711,31 +760,43 @@ private fun gifTool(): Tool = object : Tool {
 
         emit(ToolProgress.Running(10, "Mendekode frame..."))
         val decoded = mutableListOf<Bitmap>()
-        input.uris.forEachIndexed { index, uri ->
-            currentCoroutineContext().ensureActive()
-            emit(ToolProgress.Running(10 + index * 30 / input.uris.size, "Frame ${index + 1}..."))
-            decoded += ImageIO.decodePreview(ctx.appContext, uri, maxWidth)
-        }
-        val longest = decoded.maxOfOrNull { max(it.width, it.height) } ?: maxWidth
-        val scale = (maxWidth.toFloat() / longest).coerceAtMost(1f)
-        val canvasW = (decoded.first().width * scale).roundToInt().coerceIn(2, maxWidth)
-        val canvasH = (decoded.first().height * scale).roundToInt().coerceIn(2, maxWidth)
-        val frames = decoded.map { frame ->
-            if (frame.width == canvasW && frame.height == canvasH) {
-                frame
-            } else {
-                ImageOverlayEngine.fitCenter(frame, canvasW, canvasH, Color.BLACK)
-            }
-        }
-        decoded.forEach { if (frames.none { f -> f === it }) it.recycle() }
-
-        emit(ToolProgress.Running(50, "Mengkuantisasi ${frames.size} frame (median-cut)..."))
+        val frames = mutableListOf<Bitmap>()
         val dest = ctx.storage.createOutputFile("ANIMASI", "gif")
-        val delay = (100f / fps).roundToInt().coerceAtLeast(2)
-        val written = FileOutputStream(dest).use { out ->
-            GifEncoder(canvasW, canvasH).encode(frames, delay, loop, out)
+        var written = 0
+        var canvasW = maxWidth
+        var canvasH = maxWidth
+        try {
+            input.uris.forEachIndexed { index, uri ->
+                currentCoroutineContext().ensureActive()
+                emit(ToolProgress.Running(10 + index * 30 / input.uris.size, "Frame ${index + 1}..."))
+                decoded += ImageIO.decodePreview(ctx.appContext, uri, maxWidth)
+            }
+            val longest = decoded.maxOfOrNull { max(it.width, it.height) } ?: maxWidth
+            val scale = (maxWidth.toFloat() / longest).coerceAtMost(1f)
+            canvasW = (decoded.first().width * scale).roundToInt().coerceIn(2, maxWidth)
+            canvasH = (decoded.first().height * scale).roundToInt().coerceIn(2, maxWidth)
+            decoded.forEach { frame ->
+                currentCoroutineContext().ensureActive()
+                frames += if (frame.width == canvasW && frame.height == canvasH) {
+                    frame
+                } else {
+                    ImageOverlayEngine.fitCenter(frame, canvasW, canvasH, Color.BLACK)
+                }
+            }
+            decoded.forEach { srcBmp ->
+                if (frames.none { f -> f === srcBmp } && !srcBmp.isRecycled) srcBmp.recycle()
+            }
+            decoded.clear()
+
+            emit(ToolProgress.Running(50, "Mengkuantisasi ${frames.size} frame (median-cut)..."))
+            val delay = (100f / fps).roundToInt().coerceAtLeast(2)
+            written = FileOutputStream(dest).use { out ->
+                GifEncoder(canvasW, canvasH).encode(frames, delay, loop, out)
+            }
+        } finally {
+            frames.forEach { if (!it.isRecycled) it.recycle() }
+            decoded.forEach { if (!it.isRecycled) it.recycle() }
         }
-        frames.forEach { it.recycle() }
         emit(
             ToolProgress.Done(
                 ToolResult(

@@ -141,9 +141,9 @@ class ToolJobWorker(
                     workDataOf(
                         KEY_OUTPUT_PATH to outFile.absolutePath,
                         KEY_OUTPUT_MIME to "text/plain",
-                        KEY_SUMMARY to summary,
-                        KEY_OUTPUTS_JSON to outputsJson,
-                        KEY_TEXT_OUTPUT to reportText
+                        KEY_SUMMARY to summary.take(512),
+                        KEY_OUTPUTS_JSON to if (outputsJson.length <= 2048) outputsJson else "",
+                        KEY_TEXT_OUTPUT to reportText.take(1500)
                     )
                 )
             } else {
@@ -249,6 +249,8 @@ class ToolJobWorker(
                 java.io.File(storage.createJobTempDir(jobId), "input.json")
                     .takeIf { it.exists() }?.readText(Charsets.UTF_8)
             }.getOrNull().orEmpty()
+        }.ifBlank {
+            jobDao.getById(jobId)?.inputJson.orEmpty()
         }
         if (tool == null) {
             val msg = "Tool $toolId tidak terdaftar"
@@ -349,9 +351,9 @@ class ToolJobWorker(
                         workDataOf(
                             KEY_OUTPUT_PATH to (first?.file?.absolutePath ?: ""),
                             KEY_OUTPUT_MIME to (first?.mimeType ?: "text/plain"),
-                            KEY_SUMMARY to summary,
-                            KEY_OUTPUTS_JSON to outputsJson,
-                            KEY_TEXT_OUTPUT to textOutput
+                            KEY_SUMMARY to summary.take(512),
+                            KEY_OUTPUTS_JSON to if (outputsJson.length <= 2048) outputsJson else "",
+                            KEY_TEXT_OUTPUT to textOutput.take(1500)
                         )
                     )
                 }

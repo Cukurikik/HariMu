@@ -66,20 +66,8 @@ object ImageEngine {
         return applyExifOrientation(raw, orientation)
     }
 
-    private fun applyExifOrientation(bmp: Bitmap, orientation: Int): Bitmap {
-        val m = Matrix()
-        when (orientation) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
-            ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
-            ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
-            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
-            ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
-            else -> return bmp
-        }
-        val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
-        if (rotated != bmp) bmp.recycle()
-        return rotated
-    }
+    private fun applyExifOrientation(bmp: Bitmap, orientation: Int): Bitmap =
+        ImageIO.applyOrientation(bmp, orientation)
 
     fun saveBitmap(
         bitmap: Bitmap,
@@ -344,17 +332,21 @@ object ImageEngine {
 
     fun createReflectionEffect(src: Bitmap, mode: String): Bitmap {
         return if (mode == "Cermin Horizontal") {
-            val halfW = src.width / 2
+            val halfW = (src.width / 2).coerceAtLeast(1)
             val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(out)
             val leftPart = Bitmap.createBitmap(src, 0, 0, halfW, src.height)
-            val m = Matrix().apply { postScale(-1f, 1f) }
-            val mirrored = Bitmap.createBitmap(leftPart, 0, 0, leftPart.width, leftPart.height, m, true)
-            canvas.drawBitmap(leftPart, 0f, 0f, null)
-            canvas.drawBitmap(mirrored, halfW.toFloat(), 0f, null)
-            leftPart.recycle()
-            mirrored.recycle()
-            out
+            var mirrored: Bitmap? = null
+            try {
+                val m = Matrix().apply { postScale(-1f, 1f) }
+                mirrored = Bitmap.createBitmap(leftPart, 0, 0, leftPart.width, leftPart.height, m, true)
+                canvas.drawBitmap(leftPart, 0f, 0f, null)
+                canvas.drawBitmap(mirrored, halfW.toFloat(), 0f, null)
+                out
+            } finally {
+                if (!leftPart.isRecycled) leftPart.recycle()
+                mirrored?.takeIf { !it.isRecycled }?.recycle()
+            }
         } else {
             val reflH = (src.height * 0.45f).roundToInt().coerceAtLeast(1)
             val out = Bitmap.createBitmap(src.width, src.height + reflH, Bitmap.Config.ARGB_8888)
@@ -363,10 +355,13 @@ object ImageEngine {
             canvas.drawBitmap(src, 0f, 0f, null)
             val m = Matrix().apply { postScale(1f, -1f) }
             val flipped = Bitmap.createBitmap(src, 0, src.height - reflH, src.width, reflH, m, true)
-            val reflPaint = Paint().apply { alpha = 120 }
-            canvas.drawBitmap(flipped, 0f, src.height.toFloat(), reflPaint)
-            flipped.recycle()
-            out
+            try {
+                val reflPaint = Paint().apply { alpha = 120 }
+                canvas.drawBitmap(flipped, 0f, src.height.toFloat(), reflPaint)
+                out
+            } finally {
+                if (!flipped.isRecycled) flipped.recycle()
+            }
         }
     }
 
@@ -436,8 +431,11 @@ object ImageEngine {
             val x = col * cellW
             val y = row * cellH
             val scaled = Bitmap.createScaledBitmap(bmp, cellW, cellH, true)
-            canvas.drawBitmap(scaled, x.toFloat(), y.toFloat(), null)
-            scaled.recycle()
+            try {
+                canvas.drawBitmap(scaled, x.toFloat(), y.toFloat(), null)
+            } finally {
+                if (scaled !== bmp && !scaled.isRecycled) scaled.recycle()
+            }
             atlas.append("    {\"index\": $idx, \"x\": $x, \"y\": $y, \"w\": $cellW, \"h\": $cellH}")
             if (idx < bitmaps.lastIndex) atlas.append(",")
             atlas.append("\n")
@@ -459,10 +457,13 @@ object ImageEngine {
         ZipOutputStream(FileOutputStream(destZip)).use { zos ->
             for ((path, size) in sizes) {
                 val scaled = Bitmap.createScaledBitmap(src, size, size, true)
-                zos.putNextEntry(ZipEntry(path))
-                scaled.compress(Bitmap.CompressFormat.PNG, 100, zos)
-                zos.closeEntry()
-                scaled.recycle()
+                try {
+                    zos.putNextEntry(ZipEntry(path))
+                    scaled.compress(Bitmap.CompressFormat.PNG, 100, zos)
+                    zos.closeEntry()
+                } finally {
+                    if (scaled !== src && !scaled.isRecycled) scaled.recycle()
+                }
             }
         }
         return destZip
@@ -472,8 +473,11 @@ object ImageEngine {
         val k = colorCount.coerceIn(3, 8)
         val thumb = Bitmap.createScaledBitmap(src, 96, 96, true)
         val pixels = IntArray(thumb.width * thumb.height)
-        thumb.getPixels(pixels, 0, thumb.width, 0, 0, thumb.width, thumb.height)
-        thumb.recycle()
+        try {
+            thumb.getPixels(pixels, 0, thumb.width, 0, 0, thumb.width, thumb.height)
+        } finally {
+            if (thumb !== src && !thumb.isRecycled) thumb.recycle()
+        }
 
         val centroids = ImageGeometryMath.kMeansPalette(pixels, k)
 
@@ -548,8 +552,11 @@ object ImageEngine {
         val bytes = Base64.decode(clean, Base64.DEFAULT)
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             ?: error("Data Base64 bukan gambar valid")
-        saveBitmap(bmp, dest, "PNG", 100)
-        bmp.recycle()
+        try {
+            saveBitmap(bmp, dest, "PNG", 100)
+        } finally {
+            if (!bmp.isRecycled) bmp.recycle()
+        }
         return dest
     }
 

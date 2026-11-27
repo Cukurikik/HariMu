@@ -36,11 +36,13 @@ import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolResult
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
+import java.util.zip.ZipFile
 
 /**
  * PDF Vault (FASE 12) — 21 tool katalog dengan engine PDFBox-Android + Tesseract4Android.
@@ -71,9 +73,29 @@ private class PdfVaultTool(
     override fun description(isEnglish: Boolean): String = if (isEnglish) descEn else descId
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-        emit(ToolProgress.Running(5, "Menyiapkan berkas..."))
-        val result = block(ctx, input) { percent, message ->
-            emit(ToolProgress.Running(percent.coerceIn(1, 99), message))
+        emit(ToolProgress.Running(5, if (ctx.isEnglish) "Preparing file..." else "Menyiapkan berkas..."))
+        val result = try {
+            block(ctx, input) { percent, message ->
+                emit(ToolProgress.Running(percent.coerceIn(1, 99), message))
+            }
+        } catch (e: InvalidPasswordException) {
+            throw IllegalStateException(
+                if (ctx.isEnglish) {
+                    "This PDF is encrypted or the password is incorrect. Unlock it in PDF Document Studio or decrypt first with PDF-11."
+                } else {
+                    "PDF ini terenkripsi atau kata sandi salah. Buka di PDF Document Studio atau dekripsi lebih dahulu dengan PDF-11."
+                },
+                e
+            )
+        } catch (e: SecurityException) {
+            throw IllegalStateException(
+                if (ctx.isEnglish) {
+                    "This PDF is password-protected. Unlock it in PDF Document Studio or decrypt first with PDF-11."
+                } else {
+                    "PDF ini dilindungi kata sandi. Buka di PDF Document Studio atau dekripsi lebih dahulu dengan PDF-11."
+                },
+                e
+            )
         }
         emit(ToolProgress.Done(result))
     }.flowOn(Dispatchers.IO)
@@ -86,8 +108,8 @@ private fun pagesParam(default: String = "") = ToolParam.TextParam(
 private fun slider(key: String, labelId: String, labelEn: String, min: Float, max: Float, default: Float, unit: String = "") =
     ToolParam.SliderParam(key, labelId, labelEn, min, max, default, 1f, unit)
 
-private fun pdfOf(input: ToolInput): android.net.Uri =
-    input.uris.firstOrNull() ?: error("Pilih satu berkas PDF terlebih dahulu")
+private fun pdfOf(input: ToolInput, isEnglish: Boolean): android.net.Uri =
+    input.uris.firstOrNull() ?: error(if (isEnglish) "Select a PDF file first" else "Pilih satu berkas PDF terlebih dahulu")
 
 private fun fileSummary(ctx: ToolContext, file: File): String =
     "${file.name} • ${ctx.storage.formatBytes(file.length())}"
@@ -104,7 +126,7 @@ private suspend fun ensureOcrLanguages(
     val missing = PdfOcrEngine.missing(ctx.appContext, codes)
     if (missing.isNotEmpty()) {
         progress(20, if (isEnglish) "Downloading OCR data: ${missing.joinToString(", ")}" else "Mengunduh data OCR: ${missing.joinToString(", ")}")
-        PdfOcrEngine.ensureTrainedData(ctx.appContext, codes) { pct, msg -> progress(20 + pct / 4, msg) }
+        PdfOcrEngine.ensureTrainedData(ctx.appContext, codes, isEnglish = isEnglish) { pct, msg -> progress(20 + pct / 4, msg) }
         if (isEnglish) progress(45, "OCR data ready")
     }
     return codes
@@ -122,13 +144,22 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Gabungkan beberapa PDF menjadi satu berkas utuh (objek asli, bukan raster).",
         descEn = "Combine multiple PDFs into one file, keeping original page objects.",
         block = { ctx, input, progress ->
-            require(input.uris.size >= 2) { "Pilih minimal 2 berkas PDF" }
-            progress(30, "Menggabungkan ${input.uris.size} dokumen...")
+            require(input.uris.size >= 2) {
+                if (ctx.isEnglish) "Select at least 2 PDF files" else "Pilih minimal 2 berkas PDF"
+            }
+            progress(
+                30,
+                if (ctx.isEnglish) "Merging ${input.uris.size} documents..." else "Menggabungkan ${input.uris.size} dokumen..."
+            )
             val dest = ctx.storage.createOutputFile("PDF_MERGE", "pdf")
             val pages = PdfVaultEngine.merge(ctx.appContext, ctx.storage, input.uris, dest)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Digabung: $pages halaman • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "Merged: $pages pages • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "Digabung: $pages halaman • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -142,15 +173,19 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Pecah PDF menjadi beberapa berkas per N halaman di dalam ZIP.",
         descEn = "Split a PDF into per-N-page files inside a ZIP.",
         block = { ctx, input, progress ->
-            progress(30, "Memisahkan halaman...")
+            progress(30, if (ctx.isEnglish) "Splitting pages..." else "Memisahkan halaman...")
             val dest = ctx.storage.createOutputFile("PDF_SPLIT", "zip")
             val (_, parts) = PdfVaultEngine.split(
-                ctx.appContext, ctx.storage, pdfOf(input), dest,
+                ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest,
                 input.getFloat("perSplit", 1f).toInt()
             )
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/zip", dest.name)),
-                summary = "Dipecah menjadi $parts berkas PDF di ZIP"
+                summary = if (ctx.isEnglish) {
+                    "Split into $parts PDF files inside ZIP"
+                } else {
+                    "Dipecah menjadi $parts berkas PDF di ZIP"
+                }
             )
         }
     ),
@@ -167,15 +202,20 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Putar halaman PDF 90/180/270 derajat. Kosongkan halaman untuk semua.",
         descEn = "Rotate PDF pages by 90/180/270 degrees. Leave pages empty for all.",
         block = { ctx, input, progress ->
-            progress(40, "Memutar halaman...")
+            progress(40, if (ctx.isEnglish) "Rotating pages..." else "Memutar halaman...")
             val angle = input.getString("angle", "90").toIntOrNull() ?: 90
+            val uri = pdfOf(input, ctx.isEnglish)
             val dest = ctx.storage.createOutputFile("PDF_ROTATE", "pdf")
-            val total = PdfVaultEngine.pageCount(ctx.appContext, ctx.storage, pdfOf(input))
+            val total = PdfVaultEngine.pageCount(ctx.appContext, ctx.storage, uri)
             val pages = PdfVaultEngine.parsePageRange(input.getString("pages", ""), total)
-            val count = PdfVaultEngine.rotate(ctx.appContext, ctx.storage, pdfOf(input), dest, angle, pages)
+            val count = PdfVaultEngine.rotate(ctx.appContext, ctx.storage, uri, dest, angle, pages)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$count halaman diputar ${angle}°"
+                summary = if (ctx.isEnglish) {
+                    "$count pages rotated ${angle}°"
+                } else {
+                    "$count halaman diputar ${angle}°"
+                }
             )
         }
     ),
@@ -189,21 +229,30 @@ fun pdfVaultTools(): List<Tool> = listOf(
                 "", "1,3,2", "1,3,2"
             )
         ),
-        titleId = "Susun Ulang Halaman (drag)",
-        titleEn = "Reorder Pages (drag)",
-        descId = "Seret thumbnail di panel pratinjau untuk mengubah urutan, atau tulis urutan manual.",
-        descEn = "Drag thumbnails in the preview panel to reorder, or type the order manually.",
+        titleId = "Susun Ulang Halaman",
+        titleEn = "Reorder Pages",
+        descId = "Atur ulang urutan halaman dengan tombol geser kiri/kanan di pratinjau atau tulis urutan manual.",
+        descEn = "Reorder pages using the left/right move buttons in the preview strip or type the order manually.",
         block = { ctx, input, progress ->
-            val uri = pdfOf(input)
+            val uri = pdfOf(input, ctx.isEnglish)
             val total = PdfVaultEngine.pageCount(ctx.appContext, ctx.storage, uri)
             val order = PdfVaultEngine.parseOrder(input.getString("order", ""), total)
-            require(order.isNotEmpty()) { "Urutan halaman tidak valid. Contoh: 2,1,3" }
-            progress(40, "Menyusun ulang ${order.size} halaman...")
+            require(order.isNotEmpty()) {
+                if (ctx.isEnglish) "Invalid page order. Example: 2,1,3" else "Urutan halaman tidak valid. Contoh: 2,1,3"
+            }
+            progress(
+                40,
+                if (ctx.isEnglish) "Reordering ${order.size} pages..." else "Menyusun ulang ${order.size} halaman..."
+            )
             val dest = ctx.storage.createOutputFile("PDF_REORDER", "pdf")
             val pages = PdfVaultEngine.reorder(ctx.appContext, ctx.storage, uri, dest, order)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Urutan baru: ${order.joinToString(",")} ($pages halaman)"
+                summary = if (ctx.isEnglish) {
+                    "New order: ${order.joinToString(",")} ($pages pages)"
+                } else {
+                    "Urutan baru: ${order.joinToString(",")} ($pages halaman)"
+                }
             )
         }
     ),
@@ -217,16 +266,25 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Ambil halaman tertentu menjadi PDF baru (mis. 1-3,7).",
         descEn = "Extract specific pages into a new PDF (e.g. 1-3,7).",
         block = { ctx, input, progress ->
-            val uri = pdfOf(input)
+            val uri = pdfOf(input, ctx.isEnglish)
             val total = PdfVaultEngine.pageCount(ctx.appContext, ctx.storage, uri)
             val pages = PdfVaultEngine.parsePageRange(input.getString("pages", ""), total)
-            require(pages.isNotEmpty()) { "Tidak ada halaman valid. Contoh: 1-3,7" }
-            progress(40, "Mengekstrak ${pages.size} halaman...")
+            require(pages.isNotEmpty()) {
+                if (ctx.isEnglish) "No valid pages specified. Example: 1-3,7" else "Tidak ada halaman valid. Contoh: 1-3,7"
+            }
+            progress(
+                40,
+                if (ctx.isEnglish) "Extracting ${pages.size} pages..." else "Mengekstrak ${pages.size} halaman..."
+            )
             val dest = ctx.storage.createOutputFile("PDF_EXTRACT", "pdf")
             val count = PdfVaultEngine.extract(ctx.appContext, ctx.storage, uri, dest, pages)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$count halaman diekstrak dari $total halaman"
+                summary = if (ctx.isEnglish) {
+                    "$count pages extracted out of $total pages"
+                } else {
+                    "$count halaman diekstrak dari $total halaman"
+                }
             )
         }
     ),
@@ -248,47 +306,62 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descEn = "Basic on-device: per-page text (Word/Excel) or page images (PowerPoint). " +
             "Layout, styled tables, and columns are not preserved.",
         block = { ctx, input, progress ->
-            val uri = pdfOf(input)
+            val uri = pdfOf(input, ctx.isEnglish)
             val target = input.getString("target", "Word (.docx)")
             val pages = PdfVaultEngine.pageCount(ctx.appContext, ctx.storage, uri)
             when {
                 target.startsWith("PowerPoint") -> {
-                    progress(25, "Merender $pages halaman untuk slide...")
-                    val bitmaps = mutableListOf<android.graphics.Bitmap>()
-                    PdfRenderUtils.renderPages(ctx.appContext, ctx.storage, uri, dpi = 110, maxPages = 60) { _, rendered, _ ->
-                        bitmaps.add(rendered.bitmap)
-                        true
-                    }
-                    val dest = ctx.storage.createOutputFile("PDF_TO_PPTX", "pptx")
-                    val count = OfficeConvertEngine.pdfToPptx(bitmaps, dest)
-                    bitmaps.forEach { it.recycle() }
-                    ToolResult(
-                        outputs = listOf(
-                            ToolOutputFile(
-                                dest,
-                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                dest.name
-                            )
-                        ),
-                        summary = "Dasar: $count slide gambar (${ctx.storage.formatBytes(dest.length())}). " +
-                            "Teks tidak bisa diedit; struktur OOXML minimal, belum diuji di PowerPoint asli."
+                    progress(
+                        25,
+                        if (ctx.isEnglish) "Rendering $pages pages for slides..." else "Merender $pages halaman untuk slide..."
                     )
+                    val bitmaps = mutableListOf<android.graphics.Bitmap>()
+                    try {
+                        PdfRenderUtils.renderPages(ctx.appContext, ctx.storage, uri, dpi = 110, maxPages = 60) { _, rendered, _ ->
+                            bitmaps.add(rendered.bitmap)
+                            true
+                        }
+                        val dest = ctx.storage.createOutputFile("PDF_TO_PPTX", "pptx")
+                        val count = OfficeConvertEngine.pdfToPptx(bitmaps, dest)
+                        ToolResult(
+                            outputs = listOf(
+                                ToolOutputFile(
+                                    dest,
+                                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                    dest.name
+                                )
+                            ),
+                            summary = if (ctx.isEnglish) {
+                                "Basic: $count image slides (${ctx.storage.formatBytes(dest.length())}). " +
+                                    "Text is not editable; minimal OOXML output."
+                            } else {
+                                "Dasar: $count slide gambar (${ctx.storage.formatBytes(dest.length())}). " +
+                                    "Teks tidak bisa diedit; struktur OOXML minimal."
+                            }
+                        )
+                    } finally {
+                        bitmaps.forEach { if (!it.isRecycled) it.recycle() }
+                    }
                 }
                 else -> {
-                    progress(35, "Mengekstrak teks...")
+                    progress(35, if (ctx.isEnglish) "Extracting text..." else "Mengekstrak teks...")
                     val raw = PdfVaultEngine.extractTextFile(ctx.appContext, ctx.storage, uri)
                     require(raw.isNotBlank()) {
-                        "PDF ini tidak punya lapisan teks (kemungkinan hasil pindai). Jalankan OCR (PDF-15) lebih dahulu."
+                        if (ctx.isEnglish) {
+                            "This PDF has no text layer (likely scanned). Run OCR (PDF-15) first."
+                        } else {
+                            "PDF ini tidak punya lapisan teks (kemungkinan hasil pindai). Jalankan OCR (PDF-15) lebih dahulu."
+                        }
                     }
                     val pageTexts = raw.split('\u000C')
                     val isExcel = target.startsWith("Excel")
                     val dest = ctx.storage.createOutputFile(if (isExcel) "PDF_TO_XLSX" else "PDF_TO_DOCX", if (isExcel) "xlsx" else "docx")
                     val info = if (isExcel) {
                         val rows = OfficeConvertEngine.pdfToXlsx(pageTexts, dest)
-                        "$rows baris teks"
+                        if (ctx.isEnglish) "$rows text rows" else "$rows baris teks"
                     } else {
                         val count = OfficeConvertEngine.pdfToDocx(pageTexts, dest)
-                        "$count halaman teks"
+                        if (ctx.isEnglish) "$count text pages" else "$count halaman teks"
                     }
                     ToolResult(
                         outputs = listOf(
@@ -299,7 +372,11 @@ fun pdfVaultTools(): List<Tool> = listOf(
                                 dest.name
                             )
                         ),
-                        summary = "Dasar: $info • ${fileSummary(ctx, dest)}. Format asli tidak dipertahankan."
+                        summary = if (ctx.isEnglish) {
+                            "Basic: $info • ${fileSummary(ctx, dest)}. Original layout is not preserved."
+                        } else {
+                            "Dasar: $info • ${fileSummary(ctx, dest)}. Format asli tidak dipertahankan."
+                        }
                     )
                 }
             }
@@ -315,17 +392,32 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Versi Dasar on-device: membaca paragraf teks dari .docx. Gambar, tabel bergaya, dan header/footer tidak ikut.",
         descEn = "Basic on-device: reads text paragraphs from .docx. Images, styled tables, and headers/footers are skipped.",
         block = { ctx, input, progress ->
-            val uri = input.uris.firstOrNull() ?: error("Pilih berkas .docx")
-            val name = ctx.storage.getDisplayName(uri).orEmpty()
-            require(name.endsWith(".docx", true)) { "Hanya .docx (Word 2007+) yang didukung versi Dasar ini" }
-            progress(35, "Membaca paragraf Word...")
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select a .docx file" else "Pilih berkas .docx"
+            )
+            progress(20, if (ctx.isEnglish) "Validating Word (.docx) container..." else "Memeriksa wadah Word (.docx)...")
             val temp = ctx.storage.copyUriToTemp(uri, "docx_in", "docx")
             try {
+                val isValidDocx = runCatching {
+                    ZipFile(temp).use { zip -> zip.getEntry("word/document.xml") != null }
+                }.getOrDefault(false)
+                require(isValidDocx) {
+                    if (ctx.isEnglish) {
+                        "Only .docx (Word 2007+) files are supported in this Basic converter"
+                    } else {
+                        "Hanya .docx (Word 2007+) yang didukung versi Dasar ini"
+                    }
+                }
+                progress(40, if (ctx.isEnglish) "Reading Word paragraphs..." else "Membaca paragraf Word...")
                 val dest = ctx.storage.createOutputFile("WORD_TO_PDF", "pdf")
                 val pages = OfficeConvertEngine.docxToPdf(temp, dest)
                 ToolResult(
                     outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                    summary = "Dasar: $pages halaman PDF dari teks Word • ${ctx.storage.formatBytes(dest.length())}"
+                    summary = if (ctx.isEnglish) {
+                        "Basic: $pages PDF pages from Word text • ${ctx.storage.formatBytes(dest.length())}"
+                    } else {
+                        "Dasar: $pages halaman PDF dari teks Word • ${ctx.storage.formatBytes(dest.length())}"
+                    }
                 )
             } finally {
                 temp.delete()
@@ -347,8 +439,13 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Susun beberapa gambar menjadi PDF. Bisa mengikuti ukuran gambar atau halaman A4/Letter.",
         descEn = "Combine images into a PDF, sized to each image or to A4/Letter pages.",
         block = { ctx, input, progress ->
-            require(input.uris.isNotEmpty()) { "Pilih minimal 1 gambar" }
-            progress(35, "Menyusun ${input.uris.size} gambar...")
+            require(input.uris.isNotEmpty()) {
+                if (ctx.isEnglish) "Select at least 1 image" else "Pilih minimal 1 gambar"
+            }
+            progress(
+                35,
+                if (ctx.isEnglish) "Building PDF from ${input.uris.size} images..." else "Menyusun ${input.uris.size} gambar..."
+            )
             val sizeMode = when (input.getString("size", "Sesuai Gambar")) {
                 "A4" -> "A4"
                 "Letter" -> "Letter"
@@ -358,7 +455,11 @@ fun pdfVaultTools(): List<Tool> = listOf(
             val pages = PdfVaultEngine.imagesToPdf(ctx.appContext, input.uris, dest, pageSizeMode = sizeMode)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages halaman PDF • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "$pages PDF pages • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "$pages halaman PDF • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -372,13 +473,13 @@ fun pdfVaultTools(): List<Tool> = listOf(
         ),
         titleId = "Kompres PDF",
         titleEn = "Compress PDF",
-        descId = "Kecilkan PDF dengan rasterisasi ulang halaman (text menjadi gambar). Ukuran sebelum/sesudah ditampilkan.",
+        descId = "Kecilkan PDF dengan rasterisasi ulang halaman (teks menjadi gambar). Ukuran sebelum/sesudah ditampilkan.",
         descEn = "Shrink a PDF by re-rasterizing pages (text becomes image). Before/after sizes are shown.",
         block = { ctx, input, progress ->
-            progress(30, "Merasterisasi halaman...")
+            progress(30, if (ctx.isEnglish) "Rasterizing pages..." else "Merasterisasi halaman...")
             val dest = ctx.storage.createOutputFile("PDF_COMPRESS", "pdf")
             val report = PdfVaultEngine.compress(
-                ctx.appContext, ctx.storage, pdfOf(input), dest,
+                ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest,
                 input.getFloat("dpi", 150f).toInt(),
                 input.getFloat("quality", 70f).toInt()
             )
@@ -387,9 +488,15 @@ fun pdfVaultTools(): List<Tool> = listOf(
             } else 0
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "${report.pages} halaman • sebelum ${ctx.storage.formatBytes(report.beforeBytes)} → " +
-                    "sesudah ${ctx.storage.formatBytes(report.afterBytes)} ($savedPct% lebih kecil). " +
-                    "Catatan: teks berubah menjadi gambar."
+                summary = if (ctx.isEnglish) {
+                    "${report.pages} pages • before ${ctx.storage.formatBytes(report.beforeBytes)} → " +
+                        "after ${ctx.storage.formatBytes(report.afterBytes)} ($savedPct% smaller). " +
+                        "Note: page text is rasterized to images."
+                } else {
+                    "${report.pages} halaman • sebelum ${ctx.storage.formatBytes(report.beforeBytes)} → " +
+                        "sesudah ${ctx.storage.formatBytes(report.afterBytes)} ($savedPct% lebih kecil). " +
+                        "Catatan: teks berubah menjadi gambar."
+                }
             )
         }
     ),
@@ -410,7 +517,9 @@ fun pdfVaultTools(): List<Tool> = listOf(
         block = { ctx, input, progress ->
             val userPwd = input.getString("userPwd", "")
             val ownerPwd = input.getString("ownerPwd", "")
-            require(userPwd.isNotBlank() || ownerPwd.isNotBlank()) { "Isi minimal satu password" }
+            require(userPwd.isNotBlank() || ownerPwd.isNotBlank()) {
+                if (ctx.isEnglish) "Enter at least one password" else "Isi minimal satu password"
+            }
             val keyAlgo = input.getString("key", "AES-256")
             val keyBits = when (keyAlgo) {
                 "AES-128" -> 128
@@ -418,12 +527,16 @@ fun pdfVaultTools(): List<Tool> = listOf(
                 else -> 256
             }
             val preferAes = keyAlgo != "RC4-128"
-            progress(40, "Menerapkan enkripsi...")
+            progress(40, if (ctx.isEnglish) "Applying encryption..." else "Menerapkan enkripsi...")
             val dest = ctx.storage.createOutputFile("PDF_ENCRYPT", "pdf")
-            val pages = PdfVaultEngine.encrypt(ctx.appContext, ctx.storage, pdfOf(input), dest, userPwd, ownerPwd, keyBits, preferAes)
+            val pages = PdfVaultEngine.encrypt(ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest, userPwd, ownerPwd, keyBits, preferAes)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages halaman terenkripsi $keyAlgo • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "$pages pages encrypted with $keyAlgo • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "$pages halaman terenkripsi $keyAlgo • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -437,14 +550,18 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Hapus enkripsi dari PDF yang Anda miliki password-nya.",
         descEn = "Remove encryption from a PDF you have the password for.",
         block = { ctx, input, progress ->
-            progress(40, "Membuka enkripsi...")
+            progress(40, if (ctx.isEnglish) "Removing encryption..." else "Membuka enkripsi...")
             val dest = ctx.storage.createOutputFile("PDF_DECRYPT", "pdf")
             val pages = PdfVaultEngine.decrypt(
-                ctx.appContext, ctx.storage, pdfOf(input), dest, input.getString("password", "")
+                ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest, input.getString("password", "")
             )
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages halaman tanpa enkripsi • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "$pages pages decrypted • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "$pages halaman tanpa enkripsi • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -467,26 +584,37 @@ fun pdfVaultTools(): List<Tool> = listOf(
             val mode = input.getString("mode", "Teks")
             val dest = ctx.storage.createOutputFile("PDF_WATERMARK", "pdf")
             val pages = if (mode == "Gambar") {
-                val imageUri = input.secondaryUri ?: error("Pilih gambar watermark pada kolom kedua")
-                progress(45, "Menempelkan watermark gambar...")
+                val imageUri = input.secondaryUri ?: error(
+                    if (ctx.isEnglish) "Select a watermark image in the second field" else "Pilih gambar watermark pada kolom kedua"
+                )
+                progress(45, if (ctx.isEnglish) "Applying image watermark..." else "Menempelkan watermark gambar...")
                 PdfVaultEngine.addImageWatermark(
-                    ctx.appContext, ctx.storage, pdfOf(input), imageUri, dest,
+                    ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), imageUri, dest,
                     input.getFloat("opacity", 25f).toInt(),
                     input.getFloat("size", 10f).toInt().coerceAtLeast(10)
                 )
             } else {
-                val text = input.getString("text", "").ifBlank { error("Teks watermark masih kosong") }
-                progress(45, "Menempelkan watermark teks...")
+                val text = input.getString("text", "").ifBlank {
+                    error(if (ctx.isEnglish) "Watermark text is blank" else "Teks watermark masih kosong")
+                }
+                progress(45, if (ctx.isEnglish) "Applying text watermark..." else "Menempelkan watermark teks...")
                 PdfVaultEngine.addTextWatermark(
-                    ctx.appContext, ctx.storage, pdfOf(input), dest, text,
+                    ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest, text,
                     input.getFloat("opacity", 25f).toInt(),
                     input.getFloat("angle", -35f).toInt(),
                     input.getFloat("size", 10f).toInt()
                 )
             }
+            val modeLabel = if (ctx.isEnglish) {
+                if (mode == "Gambar") "image" else "text"
+            } else mode
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Watermark $mode pada $pages halaman • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "Applied $modeLabel watermark across $pages pages • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "Watermark $modeLabel pada $pages halaman • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -500,16 +628,24 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Menghapus watermark berbentuk anotasi/layer terpisah. Watermark yang menyatu ke konten tidak bisa dihapus — batas ini nyata.",
         descEn = "Removes watermark annotations/optional-content layers. Watermarks burned into page content cannot be removed — a real limit.",
         block = { ctx, input, progress ->
-            progress(40, "Memindai anotasi dan layer...")
+            progress(40, if (ctx.isEnglish) "Scanning annotations and layers..." else "Memindai anotasi dan layer...")
             val dest = ctx.storage.createOutputFile("PDF_UNWATERMARK", "pdf")
-            val removed = PdfVaultEngine.removeWatermarkObjects(ctx.appContext, ctx.storage, pdfOf(input), dest)
+            val removed = PdfVaultEngine.removeWatermarkObjects(ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
                 summary = if (removed == 0) {
-                    "Tidak ada anotasi/layer yang bisa dihapus. Watermark tampaknya menyatu ke aliran konten; " +
-                        "gunakan Redaksi (PDF-14) untuk menutup permanen area tertentu."
+                    if (ctx.isEnglish) {
+                        "No removable annotation/layer objects found. Watermarks burned into page content require Redaction (PDF-14)."
+                    } else {
+                        "Tidak ada anotasi/layer yang bisa dihapus. Watermark tampaknya menyatu ke aliran konten; " +
+                            "gunakan Redaksi (PDF-14) untuk menutup permanen area tertentu."
+                    }
                 } else {
-                    "$removed objek watermark (anotasi/layer) dihapus • ${ctx.storage.formatBytes(dest.length())}"
+                    if (ctx.isEnglish) {
+                        "$removed watermark objects (annotations/layers) removed • ${ctx.storage.formatBytes(dest.length())}"
+                    } else {
+                        "$removed objek watermark (anotasi/layer) dihapus • ${ctx.storage.formatBytes(dest.length())}"
+                    }
                 }
             )
         }
@@ -531,22 +667,40 @@ fun pdfVaultTools(): List<Tool> = listOf(
                 .split(',', ';', '\n')
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
-            require(terms.isNotEmpty()) { "Isi minimal satu istilah yang ingin dihapus" }
-            progress(35, "Mencari istilah dan meratakan halaman...")
+            require(terms.isNotEmpty()) {
+                if (ctx.isEnglish) "Enter at least one term to redact" else "Isi minimal satu istilah yang ingin dihapus"
+            }
+            progress(
+                35,
+                if (ctx.isEnglish) "Locating terms and flattening pages..." else "Mencari istilah dan meratakan halaman..."
+            )
             val dest = ctx.storage.createOutputFile("PDF_REDACT", "pdf")
             val report = PdfVaultEngine.redact(
-                ctx.appContext, ctx.storage, pdfOf(input), dest, terms,
+                ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest, terms,
                 input.getFloat("dpi", 150f).toInt()
             )
-            val verifyNote = when {
-                report.boxes == 0 -> report.note
-                report.verified -> "Verifikasi ekstraksi teks: LULUS (istilah tidak ditemukan lagi)."
-                else -> "Verifikasi ekstraksi teks: GAGAL — periksa hasil sebelum dibagikan."
+            val verifyNote = if (ctx.isEnglish) {
+                when {
+                    report.boxes == 0 -> "No matching terms found; pages were flattened."
+                    report.verified -> "Text verification: PASSED (terms no longer extracted)."
+                    else -> "Text verification: FAILED — inspect output before sharing."
+                }
+            } else {
+                when {
+                    report.boxes == 0 -> report.note
+                    report.verified -> "Verifikasi ekstraksi teks: LULUS (istilah tidak ditemukan lagi)."
+                    else -> "Verifikasi ekstraksi teks: GAGAL — periksa hasil sebelum dibagikan."
+                }
             }
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "${report.boxes} area ditutup pada ${report.pages} halaman; sisa teks ${report.remainingTextChars} karakter. " +
-                    verifyNote + " ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "${report.boxes} regions redacted across ${report.pages} pages; ${report.remainingTextChars} extracted chars. " +
+                        verifyNote + " ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "${report.boxes} area ditutup pada ${report.pages} halaman; sisa teks ${report.remainingTextChars} karakter. " +
+                        verifyNote + " ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -564,16 +718,20 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "OCR on-device untuk PDF hasil pindai (8 bahasa; data bahasa diunduh saat pertama dipakai).",
         descEn = "On-device OCR for scanned PDFs (8 languages; language data is downloaded on first use).",
         block = { ctx, input, progress ->
-            val uri = pdfOf(input)
+            val uri = pdfOf(input, ctx.isEnglish)
             val codes = ensureOcrLanguages(ctx, listOf(input.getString("language", "Indonesia")), ctx.isEnglish, progress)
             val total = PdfRenderUtils.pageCount(ctx.appContext, ctx.storage, uri)
-            require(total > 0) { "PDF tidak punya halaman" }
+            require(total > 0) { if (ctx.isEnglish) "PDF has no pages" else "PDF tidak punya halaman" }
             val builder = StringBuilder()
-            progress(50, "OCR $total halaman...")
+            progress(50, if (ctx.isEnglish) "Running OCR on $total pages..." else "OCR $total halaman...")
             PdfRenderUtils.renderPages(ctx.appContext, ctx.storage, uri, dpi = 200) { index, rendered, _ ->
-                val text = PdfOcrEngine.recognize(ctx.appContext, rendered.bitmap, codes)
-                rendered.bitmap.recycle()
-                builder.append("=== Halaman ${index + 1} ===\n").append(text).append("\n\n")
+                val text = try {
+                    PdfOcrEngine.recognize(ctx.appContext, rendered.bitmap, codes, isEnglish = ctx.isEnglish)
+                } finally {
+                    if (!rendered.bitmap.isRecycled) rendered.bitmap.recycle()
+                }
+                val pageHeader = if (ctx.isEnglish) "Page ${index + 1}" else "Halaman ${index + 1}"
+                builder.append("=== $pageHeader ===\n").append(text).append("\n\n")
                 true
             }
             val dest = ctx.storage.createOutputFile("PDF_OCR_TEXT", "txt")
@@ -581,7 +739,11 @@ fun pdfVaultTools(): List<Tool> = listOf(
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
                 textOutput = builder.toString().trim().take(4000),
-                summary = "OCR ${codes.joinToString("+")} pada $total halaman • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    "OCR ${codes.joinToString("+")} on $total pages • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    "OCR ${codes.joinToString("+")} pada $total halaman • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -601,25 +763,37 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Buat PDF dari gambar dengan lapisan teks tak terlihat hasil OCR, sehingga bisa dicari dan disalin.",
         descEn = "Build a PDF from images with an invisible OCR text layer, so it is searchable and copyable.",
         block = { ctx, input, progress ->
-            require(input.uris.isNotEmpty()) { "Pilih minimal 1 gambar" }
+            require(input.uris.isNotEmpty()) {
+                if (ctx.isEnglish) "Select at least 1 image" else "Pilih minimal 1 gambar"
+            }
             val label = input.getString("language", "Indonesia")
             val labels = if (label.contains("+")) label.split("+").map { it.trim() } else listOf(label)
             val codes = ensureOcrLanguages(ctx, labels, ctx.isEnglish, progress)
             val bitmaps = mutableListOf<android.graphics.Bitmap>()
             val texts = mutableListOf<String>()
-            input.uris.forEachIndexed { index, uri ->
-                progress(50 + index * 40 / input.uris.size, "OCR gambar ${index + 1}/${input.uris.size}...")
-                val bitmap = com.harimu.app.core.engines.ImageEngine.decodeBitmapSafe(ctx.appContext, uri, 2400)
-                texts.add(PdfOcrEngine.recognize(ctx.appContext, bitmap, codes))
-                bitmaps.add(bitmap)
+            try {
+                input.uris.forEachIndexed { index, uri ->
+                    progress(
+                        50 + index * 40 / input.uris.size,
+                        if (ctx.isEnglish) "OCR image ${index + 1}/${input.uris.size}..." else "OCR gambar ${index + 1}/${input.uris.size}..."
+                    )
+                    val bitmap = com.harimu.app.core.engines.ImageEngine.decodeBitmapSafe(ctx.appContext, uri, 2400)
+                    bitmaps.add(bitmap)
+                    texts.add(PdfOcrEngine.recognize(ctx.appContext, bitmap, codes, isEnglish = ctx.isEnglish))
+                }
+                val dest = ctx.storage.createOutputFile("IMG_SEARCHABLE_PDF", "pdf")
+                val pages = PdfVaultEngine.bitmapsToPdf(ctx.appContext, bitmaps, texts, dest)
+                ToolResult(
+                    outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
+                    summary = if (ctx.isEnglish) {
+                        "$pages pages with OCR text layer (${codes.joinToString("+")}) • ${ctx.storage.formatBytes(dest.length())}"
+                    } else {
+                        "$pages halaman dengan lapisan teks OCR (${codes.joinToString("+")}) • ${ctx.storage.formatBytes(dest.length())}"
+                    }
+                )
+            } finally {
+                bitmaps.forEach { if (!it.isRecycled) it.recycle() }
             }
-            val dest = ctx.storage.createOutputFile("IMG_SEARCHABLE_PDF", "pdf")
-            val pages = PdfVaultEngine.bitmapsToPdf(ctx.appContext, bitmaps, texts, dest)
-            bitmaps.forEach { it.recycle() }
-            ToolResult(
-                outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages halaman dengan lapisan teks OCR (${codes.joinToString("+")}) • ${ctx.storage.formatBytes(dest.length())}"
-            )
         }
     ),
     PdfVaultTool(
@@ -634,18 +808,28 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Kenali struktur dokumen (judul, bagian, tabel, daftar) lewat AI Gateway. Butuh URL gateway + kredensial di Pengaturan.",
         descEn = "Recognize document structure (title, sections, tables, lists) via the AI Gateway. Requires a gateway URL and credentials in Settings.",
         block = { ctx, input, progress ->
-            val ai = ctx.ai ?: error("Klien AI tidak tersedia pada konteks ini")
+            val ai = ctx.ai ?: error(
+                if (ctx.isEnglish) "AI client is unavailable in this context" else "Klien AI tidak tersedia pada konteks ini"
+            )
             val maxPages = input.getFloat("maxPages", 2f).toInt()
-            progress(20, "Merender halaman untuk analisis...")
+            val password = input.getString("password", "")
+            progress(20, if (ctx.isEnglish) "Rendering pages for analysis..." else "Merender halaman untuk analisis...")
             val images = mutableListOf<ByteArray>()
-            PdfRenderUtils.renderPages(ctx.appContext, ctx.storage, pdfOf(input), dpi = 130, maxPages = maxPages) { _, rendered, _ ->
-                val buffer = java.io.ByteArrayOutputStream()
-                rendered.bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, buffer)
-                rendered.bitmap.recycle()
-                images.add(buffer.toByteArray())
+            PdfRenderUtils.renderPages(
+                ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dpi = 130, maxPages = maxPages, password = password
+            ) { _, rendered, _ ->
+                try {
+                    val buffer = java.io.ByteArrayOutputStream()
+                    rendered.bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, buffer)
+                    images.add(buffer.toByteArray())
+                } finally {
+                    if (!rendered.bitmap.isRecycled) rendered.bitmap.recycle()
+                }
                 true
             }
-            require(images.isNotEmpty()) { "Tidak ada halaman yang bisa dianalisis" }
+            require(images.isNotEmpty()) {
+                if (ctx.isEnglish) "No pages available to analyze" else "Tidak ada halaman yang bisa dianalisis"
+            }
             val prompt = buildString {
                 append("Ekstrak struktur dokumen ini sebagai JSON ringkas: ")
                 append("{\"judul\":\"...\",\"ringkasan\":\"...\",\"bagian\":[\"...\"],\"tabel\":[{\"judul\":\"...\",\"kolom\":[\"...\"]}],")
@@ -655,18 +839,27 @@ fun pdfVaultTools(): List<Tool> = listOf(
             val report = StringBuilder()
             var mock = false
             images.forEachIndexed { index, bytes ->
-                progress(40 + index * 40 / images.size, "Menganalisis halaman ${index + 1}/${images.size}...")
+                progress(
+                    40 + index * 40 / images.size,
+                    if (ctx.isEnglish) "Analyzing page ${index + 1}/${images.size}..." else "Menganalisis halaman ${index + 1}/${images.size}..."
+                )
                 val result = ai.analyzeImage(bytes, "image/jpeg", prompt)
                 mock = mock || result.mock
-                report.append("=== Halaman ${index + 1} ===\n").append(result.text.trim()).append("\n\n")
+                val pageHeader = if (ctx.isEnglish) "Page ${index + 1}" else "Halaman ${index + 1}"
+                report.append("=== $pageHeader ===\n").append(result.text.trim()).append("\n\n")
             }
             val dest = ctx.storage.createOutputFile("PDF_AI_STRUCTURE", "txt")
             dest.writeText(report.toString().trim())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
                 textOutput = report.toString().trim().take(4000),
-                summary = (if (mock) "Hasil MOCK (gateway tanpa model) " else "Analisis struktur selesai ") +
-                    "• ${images.size} halaman • ${ctx.storage.formatBytes(dest.length())}"
+                summary = if (ctx.isEnglish) {
+                    (if (mock) "MOCK output (gateway unconfigured) " else "Structure analysis finished ") +
+                        "• ${images.size} pages • ${ctx.storage.formatBytes(dest.length())}"
+                } else {
+                    (if (mock) "Hasil MOCK (gateway tanpa model) " else "Analisis struktur selesai ") +
+                        "• ${images.size} halaman • ${ctx.storage.formatBytes(dest.length())}"
+                }
             )
         }
     ),
@@ -689,10 +882,10 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Tambahkan nomor halaman dengan pola {n} dan {total}.",
         descEn = "Add page numbers using {n} and {total} placeholders.",
         block = { ctx, input, progress ->
-            progress(40, "Menambahkan nomor halaman...")
+            progress(40, if (ctx.isEnglish) "Adding page numbers..." else "Menambahkan nomor halaman...")
             val dest = ctx.storage.createOutputFile("PDF_NUMBERS", "pdf")
             val pages = PdfVaultEngine.addPageNumbers(
-                ctx.appContext, ctx.storage, pdfOf(input), dest,
+                ctx.appContext, ctx.storage, pdfOf(input, ctx.isEnglish), dest,
                 input.getString("pattern", "{n} / {total}").ifBlank { "{n}" },
                 input.getFloat("start", 1f).toInt(),
                 input.getString("position", "Tengah Bawah"),
@@ -700,7 +893,11 @@ fun pdfVaultTools(): List<Tool> = listOf(
             )
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Nomor halaman ditambahkan ke $pages halaman"
+                summary = if (ctx.isEnglish) {
+                    "Page numbers added to $pages pages"
+                } else {
+                    "Nomor halaman ditambahkan ke $pages halaman"
+                }
             )
         }
     ),
@@ -719,22 +916,30 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Lihat dan ubah Judul/Penulis/Subjek/Kata Kunci. Kolom kosong tidak diubah.",
         descEn = "View and edit Title/Author/Subject/Keywords. Blank fields are left unchanged.",
         block = { ctx, input, progress ->
-            val before = PdfVaultEngine.readMetadata(ctx.appContext, ctx.storage, pdfOf(input))
+            val uri = pdfOf(input, ctx.isEnglish)
+            val before = PdfVaultEngine.readMetadata(ctx.appContext, ctx.storage, uri)
             val values = mapOf(
                 "title" to input.getString("title", ""),
                 "author" to input.getString("author", ""),
                 "subject" to input.getString("subject", ""),
                 "keywords" to input.getString("keywords", "")
             ).filterValues { it.isNotBlank() }
-            require(values.isNotEmpty()) { "Isi minimal satu kolom metadata" }
-            progress(45, "Menulis metadata...")
+            require(values.isNotEmpty()) {
+                if (ctx.isEnglish) "Fill at least one metadata field" else "Isi minimal satu kolom metadata"
+            }
+            progress(45, if (ctx.isEnglish) "Writing metadata..." else "Menulis metadata...")
             val dest = ctx.storage.createOutputFile("PDF_METADATA", "pdf")
-            val pages = PdfVaultEngine.writeMetadata(ctx.appContext, ctx.storage, pdfOf(input), dest, values)
+            val pages = PdfVaultEngine.writeMetadata(ctx.appContext, ctx.storage, uri, dest, values)
             val changed = values.keys.joinToString(", ")
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Metadata ($changed) diperbarui pada $pages halaman. " +
-                    "Sebelum: judul=\"${before["title"].orEmpty()}\", penulis=\"${before["author"].orEmpty()}\""
+                summary = if (ctx.isEnglish) {
+                    "Metadata ($changed) updated across $pages pages. " +
+                        "Before: title=\"${before["title"].orEmpty()}\", author=\"${before["author"].orEmpty()}\""
+                } else {
+                    "Metadata ($changed) diperbarui pada $pages halaman. " +
+                        "Sebelum: judul=\"${before["title"].orEmpty()}\", penulis=\"${before["author"].orEmpty()}\""
+                }
             )
         }
     ),
@@ -746,26 +951,40 @@ fun pdfVaultTools(): List<Tool> = listOf(
         engineLabel = "LIB+NAT",
         titleId = "Bandingkan Dokumen",
         titleEn = "Compare Documents",
-        descId = "Bandingkan teks (baris ditambah/dihapus) dan tampilan tiap halaman (gambar diff merah).",
-        descEn = "Compare text (added/removed lines) and page appearance (red diff images).",
+        descId = "Bandingkan teks (baris unik ditambah/dihapus) dan tampilan tiap halaman (gambar diff merah).",
+        descEn = "Compare text (added/removed unique lines) and page appearance (red diff images).",
         block = { ctx, input, progress ->
-            require(input.uris.size >= 2) { "Pilih 2 berkas PDF" }
-            progress(30, "Membandingkan teks dan halaman...")
+            require(input.uris.size >= 2) {
+                if (ctx.isEnglish) "Select 2 PDF files" else "Pilih 2 berkas PDF"
+            }
+            progress(30, if (ctx.isEnglish) "Comparing text and pages..." else "Membandingkan teks dan halaman...")
             val zip = ctx.storage.createOutputFile("PDF_DIFF_IMG", "zip")
             val report = PdfVaultEngine.compare(
                 ctx.appContext, ctx.storage, input.uris[0], input.uris[1], zip
             )
             val textFile = ctx.storage.createOutputFile("PDF_DIFF_REPORT", "txt")
             val body = buildString {
-                appendLine("Perbandingan dokumen")
-                appendLine("A: ${ctx.storage.getDisplayName(input.uris[0]).orEmpty()} (${report.pagesA} halaman)")
-                appendLine("B: ${ctx.storage.getDisplayName(input.uris[1]).orEmpty()} (${report.pagesB} halaman)")
-                appendLine("Halaman identik: ${report.identicalPages}")
-                appendLine("Halaman berbeda: ${report.differentPages}")
-                appendLine("Baris hanya di A: ${report.removedLines}")
-                appendLine("Baris hanya di B: ${report.addedLines}")
-                appendLine()
-                appendLine("Catatan: diff teks berbasis baris unik (bukan LCS), diff visual memakai grid 8 px.")
+                if (ctx.isEnglish) {
+                    appendLine("Document comparison")
+                    appendLine("A: ${ctx.storage.getDisplayName(input.uris[0]).orEmpty()} (${report.pagesA} pages)")
+                    appendLine("B: ${ctx.storage.getDisplayName(input.uris[1]).orEmpty()} (${report.pagesB} pages)")
+                    appendLine("Identical pages: ${report.identicalPages}")
+                    appendLine("Different pages: ${report.differentPages}")
+                    appendLine("Lines only in A: ${report.removedLines}")
+                    appendLine("Lines only in B: ${report.addedLines}")
+                    appendLine()
+                    appendLine("Note: text diff compares unique-line sets (not LCS); visual diff uses an 8 px grid.")
+                } else {
+                    appendLine("Perbandingan dokumen")
+                    appendLine("A: ${ctx.storage.getDisplayName(input.uris[0]).orEmpty()} (${report.pagesA} halaman)")
+                    appendLine("B: ${ctx.storage.getDisplayName(input.uris[1]).orEmpty()} (${report.pagesB} halaman)")
+                    appendLine("Halaman identik: ${report.identicalPages}")
+                    appendLine("Halaman berbeda: ${report.differentPages}")
+                    appendLine("Baris hanya di A: ${report.removedLines}")
+                    appendLine("Baris hanya di B: ${report.addedLines}")
+                    appendLine()
+                    appendLine("Catatan: diff teks berbasis baris unik (bukan LCS), diff visual memakai grid 8 px.")
+                }
             }
             textFile.writeText(body)
             ToolResult(
@@ -774,8 +993,13 @@ fun pdfVaultTools(): List<Tool> = listOf(
                     ToolOutputFile(zip, "application/zip", zip.name)
                 ),
                 textOutput = body,
-                summary = "${report.differentPages} halaman berbeda, ${report.identicalPages} identik • " +
-                    "${report.addedLines}+ / ${report.removedLines}- baris"
+                summary = if (ctx.isEnglish) {
+                    "${report.differentPages} pages different, ${report.identicalPages} identical • " +
+                        "${report.addedLines}+ / ${report.removedLines}- lines"
+                } else {
+                    "${report.differentPages} halaman berbeda, ${report.identicalPages} identik • " +
+                        "${report.addedLines}+ / ${report.removedLines}- baris"
+                }
             )
         }
     ),
@@ -796,7 +1020,7 @@ fun pdfVaultTools(): List<Tool> = listOf(
         descId = "Isi field AcroForm. Biarkan kosong untuk melihat daftar field yang tersedia.",
         descEn = "Fill AcroForm fields. Leave empty to list available fields.",
         block = { ctx, input, progress ->
-            val uri = pdfOf(input)
+            val uri = pdfOf(input, ctx.isEnglish)
             val fields = PdfVaultEngine.listFormFields(ctx.appContext, ctx.storage, uri)
             val raw = input.getString("values", "")
             val values = raw.split('|', '\n')
@@ -807,25 +1031,41 @@ fun pdfVaultTools(): List<Tool> = listOf(
                 .toMap()
             if (values.isEmpty()) {
                 val listing = if (fields.isEmpty()) {
-                    "PDF ini tidak memiliki form AcroForm."
+                    if (ctx.isEnglish) "This PDF has no AcroForm fields." else "PDF ini tidak memiliki form AcroForm."
                 } else {
                     fields.joinToString("\n") { "${it.first} = ${it.second}" }
                 }
                 ToolResult(
                     textOutput = listing,
-                    summary = if (fields.isEmpty()) "Tidak ada field AcroForm" else "${fields.size} field: " +
-                        fields.take(4).joinToString(", ") { it.first }
+                    summary = if (fields.isEmpty()) {
+                        if (ctx.isEnglish) "No AcroForm fields found" else "Tidak ada field AcroForm"
+                    } else {
+                        if (ctx.isEnglish) {
+                            "${fields.size} fields: " + fields.take(4).joinToString(", ") { it.first }
+                        } else {
+                            "${fields.size} field: " + fields.take(4).joinToString(", ") { it.first }
+                        }
+                    }
                 )
             } else {
-                progress(45, "Mengisi ${values.size} field...")
+                progress(
+                    45,
+                    if (ctx.isEnglish) "Filling ${values.size} fields..." else "Mengisi ${values.size} field..."
+                )
                 val dest = ctx.storage.createOutputFile("PDF_FORM", "pdf")
                 val filled = PdfVaultEngine.fillForm(ctx.appContext, ctx.storage, uri, dest, values)
                 val unknown = values.keys - fields.map { it.first }.toSet()
                 ToolResult(
                     outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                    summary = "$filled dari ${values.size} field terisi" +
-                        (if (unknown.isEmpty()) "" else " • tidak ditemukan: ${unknown.joinToString(", ")}") +
-                        " • ${ctx.storage.formatBytes(dest.length())}"
+                    summary = if (ctx.isEnglish) {
+                        "$filled of ${values.size} fields filled" +
+                            (if (unknown.isEmpty()) "" else " • not found: ${unknown.joinToString(", ")}") +
+                            " • ${ctx.storage.formatBytes(dest.length())}"
+                    } else {
+                        "$filled dari ${values.size} field terisi" +
+                            (if (unknown.isEmpty()) "" else " • tidak ditemukan: ${unknown.joinToString(", ")}") +
+                            " • ${ctx.storage.formatBytes(dest.length())}"
+                    }
                 )
             }
         }

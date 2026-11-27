@@ -255,7 +255,8 @@ object OfficeConvertEngine {
                 content.setFont(font, fontSize)
                 content.setNonStrokingColor(0.1f, 0.1f, 0.1f)
                 paragraphs.forEach { paragraph ->
-                    wrapText(paragraph, font, fontSize, maxWidth).forEach { line ->
+                    val safeParagraph = PdfVaultEngine.sanitizeWinAnsi(paragraph, font)
+                    wrapText(safeParagraph, font, fontSize, maxWidth).forEach { line ->
                         if (y < margin + leading) {
                             content.endText()
                             content.close()
@@ -284,7 +285,7 @@ object OfficeConvertEngine {
 
     /** Pembungkus teks sederhana berbasis metrik font. Murni & deterministik (diuji unit). */
     fun wrapText(text: String, font: PDType1Font, fontSize: Float, maxWidth: Float): List<String> {
-        val words = text.split(' ').filter { it.isNotEmpty() }
+        val words = PdfVaultEngine.sanitizeWinAnsi(text, font).split(' ').filter { it.isNotEmpty() }
         if (words.isEmpty()) return emptyList()
         val lines = mutableListOf<String>()
         val current = StringBuilder()

@@ -227,7 +227,21 @@ fun DetailedResultView(
                         effectiveResult.outputs.size == 1 &&
                         toolId != "TXT"
                 if (!isAudioWithExistingBeforeAfter && !skipRedundantTextPreview) {
-                    ToolResultPreview(output = out, storage = container.storage)
+                    val beforeUri = if (
+                        toolGroup == ToolGroup.IMAGE &&
+                        state.selectedUris.size == 1 &&
+                        effectiveResult.outputs.size == 1 &&
+                        toolId != "IMG-35"
+                    ) {
+                        state.selectedUris.firstOrNull()
+                    } else {
+                        null
+                    }
+                    ToolResultPreview(
+                        output = out,
+                        storage = container.storage,
+                        beforeImageUri = beforeUri
+                    )
                 }
             }
         }

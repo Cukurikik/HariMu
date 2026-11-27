@@ -2,11 +2,13 @@ package com.harimu.app.feature.toolscreen
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import com.harimu.app.R
 import com.harimu.app.core.design.ParamValidation
 import com.harimu.app.core.design.ParamValidator
 import com.harimu.app.core.design.ParamValidators
 import com.harimu.app.core.jobs.JobInputValidator
+import com.harimu.app.core.pdf.PdfVaultEngine
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.ModelSpec
 import com.harimu.app.core.toolapi.Tool
@@ -146,14 +148,41 @@ object ToolWorkspaceValidator {
             return WorkspaceValidationResult(isValid = true, stage = WorkspaceStage.READY)
         }
 
-        when (tool.inputSpec) {
-            InputSpec.None -> Unit
-            is InputSpec.TextInput -> {
-                if (input.textInput.isBlank()) {
+        val isDecodeBase64 = (tool.id == "IMG-25" || tool.id == "CNV-12") &&
+            input.getString("mode", "Encode").startsWith("Decode")
+
+        when {
+            tool.inputSpec == InputSpec.None -> Unit
+            tool.inputSpec is InputSpec.TextInput -> {
+                if (input.textInput.isBlank() && input.uris.isEmpty()) {
                     return WorkspaceValidationResult(
                         isValid = false,
                         stage = WorkspaceStage.INPUT_MISSING,
                         errorMessage = context.getString(R.string.workspace_state_input_missing_text)
+                    )
+                }
+                if (input.textInput.isBlank() && checkUriReadability && input.uris.any { !JobInputValidator.isUriReadable(context, it) }) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.workspace_state_invalid_uri)
+                    )
+                }
+            }
+            isDecodeBase64 -> {
+                val hasTextData = input.getString("data", "").isNotBlank() || input.textInput.isNotBlank()
+                if (!hasTextData && input.uris.isEmpty()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INPUT_MISSING,
+                        errorMessage = context.getString(R.string.workspace_state_input_missing_text)
+                    )
+                }
+                if (!hasTextData && checkUriReadability && input.uris.any { !JobInputValidator.isUriReadable(context, it) }) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.workspace_state_invalid_uri)
                     )
                 }
             }
@@ -248,6 +277,128 @@ object ToolWorkspaceValidator {
             }
         }
 
+        when (tool.id) {
+            "PDF-04" -> {
+                val order = PdfVaultEngine.parseOrder(input.getString("order", ""), 20_000)
+                if (order.isEmpty()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_invalid_order)
+                    )
+                }
+            }
+            "PDF-05" -> {
+                val pagesRaw = input.getString("pages", "")
+                if (pagesRaw.isBlank() || PdfVaultEngine.parsePagesLoose(pagesRaw).isEmpty()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_invalid_pages)
+                    )
+                }
+            }
+            "PDF-07" -> {
+                val firstUri = input.uris.firstOrNull()
+                if (firstUri != null) {
+                    val header = if (checkUriReadability) readHeaderBytes(context, firstUri) else null
+                    val looksZip = header != null && header.size >= 2 &&
+                        header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte()
+                    val displayName = resolveDisplayName(context, firstUri).orEmpty()
+                    val invalidDocx = if (header != null && header.isNotEmpty()) {
+                        !looksZip
+                    } else {
+                        displayName.isNotBlank() && !displayName.endsWith(".docx", ignoreCase = true)
+                    }
+                    if (invalidDocx) {
+                        return WorkspaceValidationResult(
+                            isValid = false,
+                            stage = WorkspaceStage.INVALID_INPUT,
+                            errorMessage = context.getString(R.string.pdf_err_docx_only)
+                        )
+                    }
+                }
+            }
+            "CNV-13" -> {
+                val firstUri = input.uris.firstOrNull()
+                if (firstUri != null && checkUriReadability) {
+                    val header = readHeaderBytes(context, firstUri)
+                    if (header != null && header.isNotEmpty()) {
+                        val isPdf = header.size >= 5 && header.copyOfRange(0, 5).contentEquals("%PDF-".toByteArray(Charsets.US_ASCII))
+                        val isZip = header.size >= 2 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte()
+                        if (!isPdf && !isZip) {
+                            return WorkspaceValidationResult(
+                                isValid = false,
+                                stage = WorkspaceStage.INVALID_INPUT,
+                                errorMessage = context.getString(R.string.converter_honest_cnv13)
+                            )
+                        }
+                    }
+                }
+            }
+            "CNV-18" -> {
+                val mode = input.getString("mode", "Enkripsi ZIP AES-256")
+                val pwd = input.getString("password", "")
+                val isDecrypt = mode.startsWith("Dekripsi")
+                if (isDecrypt && pwd.isBlank()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_password_required)
+                    )
+                }
+                if (!isDecrypt && pwd.length < 8) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.param_err_aes_password)
+                    )
+                }
+            }
+            "PDF-10" -> {
+                if (input.getString("userPwd", "").isBlank() && input.getString("ownerPwd", "").isBlank()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_password_required)
+                    )
+                }
+            }
+            "PDF-12" -> {
+                if (input.getString("mode", "Teks") != "Gambar" && input.getString("text", "").isBlank()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_watermark_text_required)
+                    )
+                }
+            }
+            "PDF-14" -> {
+                val terms = input.getString("terms", "")
+                    .split(',', ';', '\n')
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                if (terms.isEmpty()) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_redact_terms_required)
+                    )
+                }
+            }
+            "PDF-19" -> {
+                val anyMeta = listOf("title", "author", "subject", "keywords")
+                    .any { input.getString(it, "").isNotBlank() }
+                if (!anyMeta) {
+                    return WorkspaceValidationResult(
+                        isValid = false,
+                        stage = WorkspaceStage.INVALID_INPUT,
+                        errorMessage = context.getString(R.string.pdf_err_metadata_empty)
+                    )
+                }
+            }
+        }
+
         val validators = buildParamValidators(context, tool)
         for (param in tool.params) {
             val validator = validators[param.key] ?: continue
@@ -263,6 +414,22 @@ object ToolWorkspaceValidator {
         }
 
         return WorkspaceValidationResult(isValid = true, stage = WorkspaceStage.READY)
+    }
+
+    private fun readHeaderBytes(context: Context, uri: Uri): ByteArray? = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            val buf = ByteArray(16)
+            val n = stream.read(buf)
+            if (n > 0) buf.copyOf(n) else ByteArray(0)
+        }
+    }.getOrNull()
+
+    private fun resolveDisplayName(context: Context, uri: Uri): String? {
+        if (uri.scheme == "file") return uri.lastPathSegment
+        return runCatching {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        }.getOrNull()
     }
 
     fun evaluateReadiness(

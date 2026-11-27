@@ -56,6 +56,31 @@ object PdfVaultEngine {
         initialized = true
     }
 
+    /** Replaces punctuation/unsupported chars so Type1 Helvetica never throws on WinAnsi encoding. */
+    fun sanitizeWinAnsi(text: String, font: PDType1Font = PDType1Font.HELVETICA): String {
+        if (text.isEmpty()) return ""
+        val normalized = text
+            .replace('\u2018', '\'')
+            .replace('\u2019', '\'')
+            .replace('\u201C', '"')
+            .replace('\u201D', '"')
+            .replace('\u2013', '-')
+            .replace('\u2014', '-')
+            .replace("\u2026", "...")
+            .replace('\u00A0', ' ')
+            .replace(Regex("[\\u0000-\\u001F]"), " ")
+        return buildString(normalized.length) {
+            for (ch in normalized) {
+                if (ch.code in 0x20..0x7E) {
+                    append(ch)
+                } else {
+                    val ok = runCatching { font.encode(ch.toString()) }.isSuccess
+                    append(if (ok) ch else '?')
+                }
+            }
+        }
+    }
+
     // ------------------------------------------------------------ load/save
 
     data class Loaded(val doc: PDDocument, val tempFile: File) : AutoCloseable {
@@ -165,23 +190,38 @@ object PdfVaultEngine {
         storage: FileStorageManager,
         uri: Uri,
         password: String = ""
-    ): File {
+    ): File = prepareRenderableTempWithCount(context, storage, uri, password).first
+
+    fun prepareRenderableTempWithCount(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        password: String = ""
+    ): Pair<File, Int> {
         val temp = storage.copyUriToTemp(uri, "pdf_render_ready", "pdf")
-        if (password.isBlank()) return temp
         return try {
             ensureInit(context)
-            PDDocument.load(temp, password).use { doc ->
-                if (!doc.isEncrypted) return temp
-                doc.isAllSecurityToBeRemoved = true
+            val doc = if (password.isNotBlank()) PDDocument.load(temp, password) else PDDocument.load(temp)
+            doc.use { pd ->
+                val count = pd.numberOfPages
+                if (!pd.isEncrypted) return temp to count
+                pd.isAllSecurityToBeRemoved = true
                 val unlocked = storage.createTempFile("pdf_render_unlocked", "pdf")
-                doc.save(unlocked)
+                pd.save(unlocked)
                 temp.delete()
-                unlocked
+                unlocked to count
             }
         } catch (t: Throwable) {
             temp.delete()
             throw t
         }
+    }
+
+    private fun saveUnlocked(doc: PDDocument, dest: File) {
+        if (doc.isEncrypted) {
+            doc.isAllSecurityToBeRemoved = true
+        }
+        doc.save(dest)
     }
 
     // -------------------------------------------------------------- halaman
@@ -242,9 +282,10 @@ object PdfVaultEngine {
         uri: Uri,
         dest: File,
         angle: Int,
-        pages: List<Int> = emptyList()
+        pages: List<Int> = emptyList(),
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val targets = if (pages.isEmpty()) (1..loaded.doc.numberOfPages).toList() else pages
             targets.forEach { pageNumber ->
                 if (pageNumber in 1..loaded.doc.numberOfPages) {
@@ -252,7 +293,7 @@ object PdfVaultEngine {
                     page.rotation = ((page.rotation + angle) % 360 + 360) % 360
                 }
             }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return targets.size
         }
     }
@@ -262,9 +303,10 @@ object PdfVaultEngine {
         storage: FileStorageManager,
         uri: Uri,
         dest: File,
-        order: List<Int>
+        order: List<Int>,
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val total = loaded.doc.numberOfPages
             val valid = order.filter { it in 1..total }
             require(valid.isNotEmpty()) { "Urutan halaman kosong setelah divalidasi" }
@@ -281,9 +323,10 @@ object PdfVaultEngine {
         storage: FileStorageManager,
         uri: Uri,
         dest: File,
-        pages: List<Int>
+        pages: List<Int>,
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val total = loaded.doc.numberOfPages
             val valid = pages.filter { it in 1..total }
             require(valid.isNotEmpty()) { "Tidak ada halaman valid untuk diekstrak" }
@@ -305,11 +348,13 @@ object PdfVaultEngine {
         text: String,
         opacityPct: Int,
         angleDeg: Int,
-        sizePct: Int
+        sizePct: Int,
+        password: String = ""
     ): Int {
         require(text.isNotBlank()) { "Teks watermark kosong" }
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val font = PDType1Font.HELVETICA_BOLD
+            val safeText = sanitizeWinAnsi(text, font).ifBlank { "?" }
             val graphicsState = PDExtendedGraphicsState().apply {
                 nonStrokingAlphaConstant = (opacityPct.coerceIn(5, 100) / 100f)
             }
@@ -318,7 +363,7 @@ object PdfVaultEngine {
                 val w = box.width
                 val h = box.height
                 val fontSize = (min(w, h) * sizePct.coerceIn(2, 30) / 100f).coerceAtLeast(8f)
-                val textWidth = font.getStringWidth(text) / 1000f * fontSize
+                val textWidth = font.getStringWidth(safeText) / 1000f * fontSize
                 val angleRad = Math.toRadians(angleDeg.toDouble())
                 val startX = (w / 2f - cos(angleRad).toFloat() * textWidth / 2f).coerceAtLeast(2f)
                 val startY = (h / 2f - sin(angleRad).toFloat() * textWidth / 2f).coerceAtLeast(2f)
@@ -335,12 +380,12 @@ object PdfVaultEngine {
                     stream.setFont(font, fontSize)
                     stream.setNonStrokingColor(0.75f, 0.1f, 0.1f)
                     stream.setTextMatrix(Matrix.getRotateInstance(angleRad, startX, startY))
-                    stream.showText(text)
+                    stream.showText(safeText)
                     stream.endText()
                     stream.restoreGraphicsState()
                 }
             }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return loaded.doc.numberOfPages
         }
     }
@@ -352,16 +397,20 @@ object PdfVaultEngine {
         imageUri: Uri,
         dest: File,
         opacityPct: Int,
-        scalePct: Int
+        scalePct: Int,
+        password: String = ""
     ): Int {
         ensureInit(context)
         val bitmap = ImageEngine.decodeBitmapSafe(context, imageUri, 1200)
-        val pngBytes = ByteArrayOutputStream().use { buffer ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer)
-            bitmap.recycle()
-            buffer.toByteArray()
+        val pngBytes = try {
+            ByteArrayOutputStream().use { buffer ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer)
+                buffer.toByteArray()
+            }
+        } finally {
+            if (!bitmap.isRecycled) bitmap.recycle()
         }
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val image = PDImageXObject.createFromByteArray(loaded.doc, pngBytes, "watermark.png")
             val graphicsState = PDExtendedGraphicsState().apply {
                 nonStrokingAlphaConstant = (opacityPct.coerceIn(5, 100) / 100f)
@@ -390,7 +439,7 @@ object PdfVaultEngine {
                     stream.restoreGraphicsState()
                 }
             }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return loaded.doc.numberOfPages
         }
     }
@@ -405,13 +454,14 @@ object PdfVaultEngine {
         userPassword: String,
         ownerPassword: String,
         keyBits: Int,
-        preferAes: Boolean = keyBits != 40
+        preferAes: Boolean = keyBits != 40,
+        password: String = ""
     ): Int {
         require(userPassword.isNotBlank() || ownerPassword.isNotBlank()) {
             "Isi minimal satu password (pengguna atau pemilik)"
         }
         val resolvedOwner = ownerPassword.ifBlank { userPassword }
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val permission = AccessPermission().apply {
                 setCanPrint(true)
                 setCanModify(true)
@@ -546,34 +596,45 @@ object PdfVaultEngine {
             ParcelFileDescriptor.open(tempPdf, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                 PdfRenderer(descriptor).use { renderer ->
                     for (index in 0 until renderer.pageCount) {
+                        var bitmap: Bitmap? = null
                         val page = renderer.openPage(index)
-                        val scale = dpi.coerceIn(72, 300) / 72f
-                        val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-                        val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                        bitmap.eraseColor(Color.WHITE)
-                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-                        page.close()
-                        val rects = hits[index + 1].orEmpty()
-                        if (rects.isNotEmpty()) {
-                            val canvas = android.graphics.Canvas(bitmap)
-                            val paint = Paint().apply { color = Color.BLACK }
-                            val scaleX = width / pageSizes[index].first
-                            val scaleY = height / pageSizes[index].second
-                            rects.forEach { rect ->
-                                canvas.drawRect(
-                                    rect.left * scaleX,
-                                    rect.top * scaleY,
-                                    rect.right * scaleX,
-                                    rect.bottom * scaleY,
-                                    paint
-                                )
-                            }
+                        val width: Int
+                        val height: Int
+                        try {
+                            val scale = dpi.coerceIn(72, 300) / 72f
+                            width = (page.width * scale).roundToInt().coerceAtLeast(1)
+                            height = (page.height * scale).roundToInt().coerceAtLeast(1)
+                            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                            bitmap.eraseColor(Color.WHITE)
+                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                        } finally {
+                            page.close()
                         }
-                        val buffer = ByteArrayOutputStream()
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, buffer)
-                        bitmap.recycle()
-                        val image = PDImageXObject.createFromByteArray(document, buffer.toByteArray(), "page_$index.jpg")
+                        val jpgBytes = try {
+                            val rects = hits[index + 1].orEmpty()
+                            if (rects.isNotEmpty()) {
+                                val canvas = android.graphics.Canvas(bitmap!!)
+                                val paint = Paint().apply { color = Color.BLACK }
+                                val scaleX = width / pageSizes[index].first
+                                val scaleY = height / pageSizes[index].second
+                                rects.forEach { rect ->
+                                    canvas.drawRect(
+                                        rect.left * scaleX,
+                                        rect.top * scaleY,
+                                        rect.right * scaleX,
+                                        rect.bottom * scaleY,
+                                        paint
+                                    )
+                                }
+                            }
+                            ByteArrayOutputStream().use { buffer ->
+                                bitmap!!.compress(Bitmap.CompressFormat.JPEG, 90, buffer)
+                                buffer.toByteArray()
+                            }
+                        } finally {
+                            bitmap?.takeIf { !it.isRecycled }?.recycle()
+                        }
+                        val image = PDImageXObject.createFromByteArray(document, jpgBytes, "page_$index.jpg")
                         val pdfPage = PDPage(PDRectangle(width.toFloat(), height.toFloat()))
                         document.addPage(pdfPage)
                         PDPageContentStream(document, pdfPage).use { stream ->
@@ -611,9 +672,10 @@ object PdfVaultEngine {
         context: Context,
         storage: FileStorageManager,
         uri: Uri,
-        dest: File
+        dest: File,
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             var removed = 0
             loaded.doc.pages.forEach { page ->
                 val annotations: List<PDAnnotation> = page.annotations
@@ -624,7 +686,7 @@ object PdfVaultEngine {
             if (catalog.ocProperties != null) {
                 catalog.ocProperties = null
             }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return removed
         }
     }
@@ -668,8 +730,9 @@ object PdfVaultEngine {
     fun readMetadata(
         context: Context,
         storage: FileStorageManager,
-        uri: Uri
-    ): Map<String, String> = load(context, storage, uri).use { loaded ->
+        uri: Uri,
+        password: String = ""
+    ): Map<String, String> = load(context, storage, uri, password).use { loaded ->
         val info = loaded.doc.documentInformation
         linkedMapOf(
             "title" to info.title.orEmpty(),
@@ -686,16 +749,17 @@ object PdfVaultEngine {
         storage: FileStorageManager,
         uri: Uri,
         dest: File,
-        values: Map<String, String>
+        values: Map<String, String>,
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val info = loaded.doc.documentInformation
             values["title"]?.let { info.title = it }
             values["author"]?.let { info.author = it }
             values["subject"]?.let { info.subject = it }
             values["keywords"]?.let { info.keywords = it }
             values["creator"]?.let { info.creator = it }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return loaded.doc.numberOfPages
         }
     }
@@ -710,18 +774,20 @@ object PdfVaultEngine {
         pattern: String,
         startNumber: Int,
         position: String,
-        fontSizePct: Int
+        fontSizePct: Int,
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val font = PDType1Font.HELVETICA
             val total = loaded.doc.numberOfPages
             loaded.doc.pages.forEachIndexed { index, page ->
                 val w = page.mediaBox.width
                 val h = page.mediaBox.height
                 val fontSize = (min(w, h) * fontSizePct.coerceIn(2, 10) / 100f).coerceAtLeast(6f)
-                val label = pattern
+                val rawLabel = pattern
                     .replace("{n}", (startNumber + index).toString())
                     .replace("{total}", total.toString())
+                val label = sanitizeWinAnsi(rawLabel, font)
                 val textWidth = font.getStringWidth(label) / 1000f * fontSize
                 val margin = fontSize * 1.2f
                 val x = when (position) {
@@ -745,7 +811,7 @@ object PdfVaultEngine {
                     stream.endText()
                 }
             }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return total
         }
     }
@@ -761,29 +827,41 @@ object PdfVaultEngine {
         uri: Uri,
         dest: File,
         dpi: Int,
-        qualityPct: Int
+        qualityPct: Int,
+        password: String = ""
     ): CompressReport {
         val sourceFile = storage.copyUriToTemp(uri, "pdf_compress_src", "pdf")
         val before = sourceFile.length()
         sourceFile.delete()
-        val tempPdf = storage.copyUriToTemp(uri, "pdf_compress_render", "pdf")
+        val tempPdf = prepareRenderableTemp(context, storage, uri, password)
         val document = PDDocument()
         try {
             ParcelFileDescriptor.open(tempPdf, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                 PdfRenderer(descriptor).use { renderer ->
                     for (index in 0 until renderer.pageCount) {
+                        var bitmap: Bitmap? = null
                         val page = renderer.openPage(index)
-                        val scale = dpi.coerceIn(72, 200) / 72f
-                        val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-                        val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                        bitmap.eraseColor(Color.WHITE)
-                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-                        page.close()
-                        val buffer = ByteArrayOutputStream()
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, qualityPct.coerceIn(30, 95), buffer)
-                        bitmap.recycle()
-                        val image = PDImageXObject.createFromByteArray(document, buffer.toByteArray(), "p$index.jpg")
+                        val width: Int
+                        val height: Int
+                        try {
+                            val scale = dpi.coerceIn(72, 200) / 72f
+                            width = (page.width * scale).roundToInt().coerceAtLeast(1)
+                            height = (page.height * scale).roundToInt().coerceAtLeast(1)
+                            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                            bitmap.eraseColor(Color.WHITE)
+                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                        } finally {
+                            page.close()
+                        }
+                        val jpgBytes = try {
+                            ByteArrayOutputStream().use { buffer ->
+                                bitmap!!.compress(Bitmap.CompressFormat.JPEG, qualityPct.coerceIn(30, 95), buffer)
+                                buffer.toByteArray()
+                            }
+                        } finally {
+                            bitmap?.takeIf { !it.isRecycled }?.recycle()
+                        }
+                        val image = PDImageXObject.createFromByteArray(document, jpgBytes, "p$index.jpg")
                         val pdfPage = PDPage(PDRectangle(width.toFloat(), height.toFloat()))
                         document.addPage(pdfPage)
                         PDPageContentStream(document, pdfPage).use { stream ->
@@ -817,25 +895,37 @@ object PdfVaultEngine {
         try {
             imageUris.forEachIndexed { index, uri ->
                 val bitmap = ImageEngine.decodeBitmapSafe(context, uri, 2400)
-                val buffer = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality.coerceIn(40, 100), buffer)
-                val pageRect = when (pageSizeMode) {
-                    "A4" -> PDRectangle.A4
-                    "Letter" -> PDRectangle.LETTER
-                    else -> PDRectangle(bitmap.width.toFloat(), bitmap.height.toFloat())
+                val jpgBytes: ByteArray
+                val pageRect: PDRectangle
+                val widthPt: Float
+                val heightPt: Float
+                val drawW: Float
+                val drawH: Float
+                val drawX: Float
+                val drawY: Float
+                try {
+                    val buffer = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality.coerceIn(40, 100), buffer)
+                    jpgBytes = buffer.toByteArray()
+                    pageRect = when (pageSizeMode) {
+                        "A4" -> PDRectangle.A4
+                        "Letter" -> PDRectangle.LETTER
+                        else -> PDRectangle(bitmap.width.toFloat(), bitmap.height.toFloat())
+                    }
+                    widthPt = pageRect.width
+                    heightPt = pageRect.height
+                    val margin = if (pageSizeMode == "Fit") 0f else 28f
+                    val availableW = widthPt - margin * 2
+                    val availableH = heightPt - margin * 2
+                    val scale = min(availableW / bitmap.width, availableH / bitmap.height)
+                    drawW = bitmap.width * scale
+                    drawH = bitmap.height * scale
+                    drawX = (widthPt - drawW) / 2f
+                    drawY = (heightPt - drawH) / 2f
+                } finally {
+                    if (!bitmap.isRecycled) bitmap.recycle()
                 }
-                val widthPt = pageRect.width
-                val heightPt = pageRect.height
-                val margin = if (pageSizeMode == "Fit") 0f else 28f
-                val availableW = widthPt - margin * 2
-                val availableH = heightPt - margin * 2
-                val scale = min(availableW / bitmap.width, availableH / bitmap.height)
-                val drawW = bitmap.width * scale
-                val drawH = bitmap.height * scale
-                val drawX = (widthPt - drawW) / 2f
-                val drawY = (heightPt - drawH) / 2f
-                bitmap.recycle()
-                val image = PDImageXObject.createFromByteArray(document, buffer.toByteArray(), "img$index.jpg")
+                val image = PDImageXObject.createFromByteArray(document, jpgBytes, "img$index.jpg")
                 val page = PDPage(pageRect)
                 document.addPage(page)
                 PDPageContentStream(document, page).use { stream ->
@@ -851,10 +941,9 @@ object PdfVaultEngine {
                         var y = heightPt - margin
                         text.lineSequence().take(200).forEach { line ->
                             if (line.isNotBlank()) {
-                                // Lebar baris dibatasi agar tidak melewati halaman.
-                                val trimmed = line.take(180)
+                                val trimmed = sanitizeWinAnsi(line.take(180), font)
                                 stream.setTextMatrix(Matrix.getTranslateInstance(margin, y))
-                                stream.showText(trimmed.replace(Regex("[\\u0000-\\u001F]"), " "))
+                                stream.showText(trimmed)
                                 y -= margin
                             }
                         }
@@ -875,8 +964,9 @@ object PdfVaultEngine {
     fun listFormFields(
         context: Context,
         storage: FileStorageManager,
-        uri: Uri
-    ): List<Pair<String, String>> = load(context, storage, uri).use { loaded ->
+        uri: Uri,
+        password: String = ""
+    ): List<Pair<String, String>> = load(context, storage, uri, password).use { loaded ->
         val form: PDAcroForm = loaded.doc.documentCatalog.acroForm ?: return emptyList()
         form.fieldTree.mapNotNull { field ->
             val value = runCatching { field.valueAsString }.getOrNull().orEmpty()
@@ -889,9 +979,10 @@ object PdfVaultEngine {
         storage: FileStorageManager,
         uri: Uri,
         dest: File,
-        values: Map<String, String>
+        values: Map<String, String>,
+        password: String = ""
     ): Int {
-        load(context, storage, uri).use { loaded ->
+        load(context, storage, uri, password).use { loaded ->
             val form = loaded.doc.documentCatalog.acroForm
                 ?: throw IllegalStateException("PDF ini tidak punya form AcroForm")
             var filled = 0
@@ -902,7 +993,7 @@ object PdfVaultEngine {
                         .onSuccess { filled += 1 }
                 }
             }
-            loaded.doc.save(dest)
+            saveUnlocked(loaded.doc, dest)
             return filled
         }
     }
@@ -925,10 +1016,12 @@ object PdfVaultEngine {
         uriA: Uri,
         uriB: Uri,
         diffZip: File?,
-        dpi: Int = 96
+        dpi: Int = 96,
+        passwordA: String = "",
+        passwordB: String = ""
     ): CompareReport {
-        val textA = extractTextFile(context, storage, uriA)
-        val textB = extractTextFile(context, storage, uriB)
+        val textA = extractTextFile(context, storage, uriA, passwordA)
+        val textB = extractTextFile(context, storage, uriB, passwordB)
         val linesA = textA.lines().map { it.trim() }.filter { it.isNotEmpty() }
         val linesB = textB.lines().map { it.trim() }.filter { it.isNotEmpty() }
         val setA = linesA.toSet()
@@ -936,17 +1029,21 @@ object PdfVaultEngine {
         val removed = setA.count { it !in setB }
         val added = setB.count { it !in setA }
 
-        val tempA = storage.copyUriToTemp(uriA, "cmp_a", "pdf")
-        val tempB = storage.copyUriToTemp(uriB, "cmp_b", "pdf")
+        val tempA = prepareRenderableTemp(context, storage, uriA, passwordA)
+        val tempB = prepareRenderableTemp(context, storage, uriB, passwordB)
         var identical = 0
         var different = 0
+        var pagesA = 0
+        var pagesB = 0
         val zipStream = diffZip?.let { ZipOutputStream(FileOutputStream(it)) }
         try {
             ParcelFileDescriptor.open(tempA, ParcelFileDescriptor.MODE_READ_ONLY).use { descA ->
                 ParcelFileDescriptor.open(tempB, ParcelFileDescriptor.MODE_READ_ONLY).use { descB ->
                     PdfRenderer(descA).use { rendererA ->
                         PdfRenderer(descB).use { rendererB ->
-                            val pages = max(rendererA.pageCount, rendererB.pageCount)
+                            pagesA = rendererA.pageCount
+                            pagesB = rendererB.pageCount
+                            val pages = max(pagesA, pagesB)
                             for (index in 0 until pages) {
                                 val bitmapA = renderBitmap(rendererA, index, dpi)
                                 val bitmapB = renderBitmap(rendererB, index, dpi)
@@ -956,17 +1053,23 @@ object PdfVaultEngine {
                                     bitmapB?.recycle()
                                     continue
                                 }
-                                val diff = buildDiffBitmap(bitmapA, bitmapB)
-                                val changed = diff.changed
-                                if (changed) different += 1 else identical += 1
-                                if (changed && zipStream != null) {
-                                    zipStream.putNextEntry(ZipEntry("diff_hal_${index + 1}.png"))
-                                    diff.bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipStream)
-                                    zipStream.closeEntry()
+                                try {
+                                    val diff = buildDiffBitmap(bitmapA, bitmapB)
+                                    try {
+                                        val changed = diff.changed
+                                        if (changed) different += 1 else identical += 1
+                                        if (changed && zipStream != null) {
+                                            zipStream.putNextEntry(ZipEntry("diff_hal_${index + 1}.png"))
+                                            diff.bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipStream)
+                                            zipStream.closeEntry()
+                                        }
+                                    } finally {
+                                        if (!diff.bitmap.isRecycled) diff.bitmap.recycle()
+                                    }
+                                } finally {
+                                    if (!bitmapA.isRecycled) bitmapA.recycle()
+                                    if (!bitmapB.isRecycled) bitmapB.recycle()
                                 }
-                                diff.bitmap.recycle()
-                                bitmapA.recycle()
-                                bitmapB.recycle()
                             }
                         }
                     }
@@ -978,8 +1081,8 @@ object PdfVaultEngine {
             zipStream?.let { runCatching { it.close() } }
         }
         return CompareReport(
-            pagesA = pageCount(context, storage, uriA),
-            pagesB = pageCount(context, storage, uriB),
+            pagesA = pagesA,
+            pagesB = pagesB,
             identicalPages = identical,
             differentPages = different,
             addedLines = added,
@@ -1003,10 +1106,12 @@ object PdfVaultEngine {
         uriA: Uri,
         uriB: Uri,
         pageIndex: Int,
-        dpi: Int = 100
+        dpi: Int = 100,
+        passwordA: String = "",
+        passwordB: String = ""
     ): ComparisonPagePreview {
-        val tempA = storage.copyUriToTemp(uriA, "cmp_prev_a", "pdf")
-        val tempB = storage.copyUriToTemp(uriB, "cmp_prev_b", "pdf")
+        val tempA = prepareRenderableTemp(context, storage, uriA, passwordA)
+        val tempB = prepareRenderableTemp(context, storage, uriB, passwordB)
         try {
             ParcelFileDescriptor.open(tempA, ParcelFileDescriptor.MODE_READ_ONLY).use { descA ->
                 ParcelFileDescriptor.open(tempB, ParcelFileDescriptor.MODE_READ_ONLY).use { descB ->
@@ -1040,16 +1145,19 @@ object PdfVaultEngine {
     private data class DiffResult(val bitmap: Bitmap, val changed: Boolean)
 
     private fun renderBitmap(renderer: PdfRenderer, index: Int, dpi: Int): Bitmap? {
-        if (index >= renderer.pageCount) return null
+        if (index < 0 || index >= renderer.pageCount) return null
         val page = renderer.openPage(index)
-        val scale = dpi.coerceIn(60, 150) / 72f
-        val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-        val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.WHITE)
-        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-        page.close()
-        return bitmap
+        return try {
+            val scale = dpi.coerceIn(60, 150) / 72f
+            val width = (page.width * scale).roundToInt().coerceAtLeast(1)
+            val height = (page.height * scale).roundToInt().coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(Color.WHITE)
+            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+            bitmap
+        } finally {
+            page.close()
+        }
     }
 
     private fun buildDiffBitmap(a: Bitmap, b: Bitmap, tolerance: Int = 24): DiffResult {
@@ -1180,7 +1288,7 @@ object PdfVaultEngine {
                         text.lineSequence().take(300).forEach { line ->
                             if (line.isNotBlank()) {
                                 stream.setTextMatrix(Matrix.getTranslateInstance(fontSize * 1.5f, y))
-                                stream.showText(line.take(160).replace(Regex("[\\u0000-\\u001F]"), " "))
+                                stream.showText(sanitizeWinAnsi(line.take(160), font))
                                 y -= fontSize * 1.4f
                             }
                         }

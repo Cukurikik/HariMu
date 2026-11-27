@@ -18,6 +18,7 @@ import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.core.toolapi.ToolResult
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -100,9 +101,11 @@ data class PdfStudioUiState(
     val comparePageIndex: Int = 0,
     val comparePreview: PdfVaultEngine.ComparisonPagePreview? = null,
     val isLoadingComparePreview: Boolean = false,
+    val compareError: String? = null,
     // Job execution
     val isRunning: Boolean = false,
-    val progress: ToolProgress? = null
+    val progress: ToolProgress? = null,
+    val deletedOutputPaths: Set<String> = emptySet()
 )
 
 class PdfStudioViewModel(
@@ -123,6 +126,9 @@ class PdfStudioViewModel(
     val state: StateFlow<PdfStudioUiState> = _state.asStateFlow()
 
     private var activeJob: Job? = null
+    private var inspectJob: Job? = null
+    private var scanRedactJob: Job? = null
+    private var comparePreviewJob: Job? = null
 
     fun setTab(tab: PdfStudioTab) {
         _state.update { it.copy(activeTab = tab) }
@@ -156,7 +162,8 @@ class PdfStudioViewModel(
         val current = _state.value
         val uri = current.primaryUri ?: return
         val password = current.unlockPassword
-        viewModelScope.launch {
+        inspectJob?.cancel()
+        inspectJob = viewModelScope.launch {
             _state.update { it.copy(isInspecting = true, docError = null) }
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -187,15 +194,29 @@ class PdfStudioViewModel(
                         compareUriA = s.compareUriA ?: uri,
                         compareNameA = if (s.compareNameA.isBlank()) s.primaryName else s.compareNameA,
                         docError = if (info.requiresPassword) {
-                            appContext.getString(R.string.pdf_preview_encrypted)
+                            if (password.isNotBlank()) {
+                                appContext.getString(R.string.pdf_preview_wrong_password)
+                            } else {
+                                appContext.getString(R.string.pdf_preview_encrypted)
+                            }
                         } else null
                     )
                 }
             }.onFailure { err ->
+                if (err is CancellationException) throw err
+                val message = when (err) {
+                    is InvalidPasswordException -> if (password.isNotBlank()) {
+                        appContext.getString(R.string.pdf_preview_wrong_password)
+                    } else {
+                        appContext.getString(R.string.pdf_preview_encrypted)
+                    }
+                    is SecurityException -> appContext.getString(R.string.pdf_preview_encrypted)
+                    else -> err.localizedMessage ?: appContext.getString(R.string.pdf_preview_error)
+                }
                 _state.update {
                     it.copy(
                         isInspecting = false,
-                        docError = err.localizedMessage ?: appContext.getString(R.string.pdf_preview_error)
+                        docError = message
                     )
                 }
             }
@@ -235,7 +256,8 @@ class PdfStudioViewModel(
                         uri = uri,
                         name = name,
                         pageCount = info?.pageCount ?: 0,
-                        sizeBytes = info?.fileSizeBytes ?: 0L
+                        sizeBytes = info?.fileSizeBytes ?: 0L,
+                        isEncrypted = info?.isEncrypted == true || info?.requiresPassword == true
                     )
                 }
             }
@@ -315,10 +337,12 @@ class PdfStudioViewModel(
         val uri = s.primaryUri ?: return
         val terms = parseTerms(s.redactTermsText)
         if (terms.isEmpty()) {
-            _state.update { it.copy(redactPreview = null) }
+            scanRedactJob?.cancel()
+            _state.update { it.copy(isScanningRedact = false, redactPreview = null) }
             return
         }
-        viewModelScope.launch {
+        scanRedactJob?.cancel()
+        scanRedactJob = viewModelScope.launch {
             _state.update { it.copy(isScanningRedact = true, docError = null) }
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -335,10 +359,16 @@ class PdfStudioViewModel(
                     )
                 }
             }.onFailure { err ->
+                if (err is CancellationException) throw err
+                val message = when (err) {
+                    is InvalidPasswordException -> appContext.getString(R.string.pdf_preview_wrong_password)
+                    is SecurityException -> appContext.getString(R.string.pdf_preview_encrypted)
+                    else -> err.localizedMessage ?: appContext.getString(R.string.pdf_preview_error)
+                }
                 _state.update {
                     it.copy(
                         isScanningRedact = false,
-                        docError = err.localizedMessage ?: "Scan gagal"
+                        docError = message
                     )
                 }
             }
@@ -363,13 +393,13 @@ class PdfStudioViewModel(
     // --------------------------------------------------------------- Compare
     fun setCompareDocA(uri: Uri) {
         val name = container.storage.getDisplayName(uri) ?: "docA.pdf"
-        _state.update { it.copy(compareUriA = uri, compareNameA = name, comparePageIndex = 0) }
+        _state.update { it.copy(compareUriA = uri, compareNameA = name, comparePageIndex = 0, compareError = null) }
         refreshComparePagePreview(0)
     }
 
     fun setCompareDocB(uri: Uri) {
         val name = container.storage.getDisplayName(uri) ?: "docB.pdf"
-        _state.update { it.copy(compareUriB = uri, compareNameB = name, comparePageIndex = 0) }
+        _state.update { it.copy(compareUriB = uri, compareNameB = name, comparePageIndex = 0, compareError = null) }
         refreshComparePagePreview(0)
     }
 
@@ -377,20 +407,48 @@ class PdfStudioViewModel(
         val s = _state.value
         val uriA = s.compareUriA ?: return
         val uriB = s.compareUriB ?: return
-        viewModelScope.launch {
-            _state.update { it.copy(isLoadingComparePreview = true, comparePageIndex = pageIndex.coerceAtLeast(0)) }
+        comparePreviewJob?.cancel()
+        comparePreviewJob = viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    isLoadingComparePreview = true,
+                    comparePageIndex = pageIndex.coerceAtLeast(0),
+                    compareError = null
+                )
+            }
             val old = _state.value.comparePreview
-            val next = withContext(Dispatchers.IO) {
+            val result = withContext(Dispatchers.IO) {
                 runCatching {
                     PdfVaultEngine.renderComparisonPagePreview(appContext, container.storage, uriA, uriB, pageIndex.coerceAtLeast(0))
-                }.getOrNull()
+                }
             }
-            old?.let { prev ->
-                prev.bitmapA?.takeIf { !it.isRecycled }?.recycle()
-                prev.bitmapB?.takeIf { !it.isRecycled }?.recycle()
-                prev.diffBitmap?.takeIf { !it.isRecycled }?.recycle()
+            result.onSuccess { next ->
+                old?.let { prev ->
+                    prev.bitmapA?.takeIf { !it.isRecycled }?.recycle()
+                    prev.bitmapB?.takeIf { !it.isRecycled }?.recycle()
+                    prev.diffBitmap?.takeIf { !it.isRecycled }?.recycle()
+                }
+                _state.update {
+                    it.copy(
+                        isLoadingComparePreview = false,
+                        comparePreview = next,
+                        compareError = null
+                    )
+                }
+            }.onFailure { err ->
+                if (err is CancellationException) throw err
+                val errMsg = when (err) {
+                    is InvalidPasswordException, is SecurityException ->
+                        appContext.getString(R.string.pdf_studio_compare_encrypted_error)
+                    else -> err.localizedMessage ?: appContext.getString(R.string.pdf_studio_compare_failed)
+                }
+                _state.update {
+                    it.copy(
+                        isLoadingComparePreview = false,
+                        compareError = errMsg
+                    )
+                }
             }
-            _state.update { it.copy(isLoadingComparePreview = false, comparePreview = next) }
         }
     }
 
@@ -399,6 +457,11 @@ class PdfStudioViewModel(
         activeJob?.cancel()
         activeJob = null
         _state.update { it.copy(isRunning = false, progress = null) }
+    }
+
+    fun deleteOutputFile(output: ToolOutputFile) {
+        runCatching { output.file.delete() }
+        _state.update { it.copy(deletedOutputPaths = it.deletedOutputPaths + output.file.absolutePath) }
     }
 
     fun mergeQueuedPdfs(isEnglish: Boolean) {
@@ -410,9 +473,14 @@ class PdfStudioViewModel(
             emitProgress(30, if (isEnglish) "Merging ${uris.size} documents..." else "Menggabungkan ${uris.size} dokumen...")
             val dest = container.storage.createOutputFile("PDF_MERGE", "pdf")
             val pages = PdfVaultEngine.merge(appContext, container.storage, uris, dest)
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages halaman digabung (${container.storage.formatBytes(dest.length())})"
+                summary = if (isEnglish) {
+                    "$pages pages merged ($sizeLabel)"
+                } else {
+                    "$pages halaman digabung ($sizeLabel)"
+                }
             )
         }
     }
@@ -424,9 +492,14 @@ class PdfStudioViewModel(
             emitProgress(35, if (isEnglish) "Splitting pages..." else "Memisahkan halaman...")
             val dest = container.storage.createOutputFile("PDF_SPLIT", "zip")
             val (_, parts) = PdfVaultEngine.split(appContext, container.storage, uri, dest, s.splitPerFile, s.unlockPassword)
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/zip", dest.name)),
-                summary = "$parts berkas PDF di ZIP (${container.storage.formatBytes(dest.length())})"
+                summary = if (isEnglish) {
+                    "$parts PDF files in ZIP ($sizeLabel)"
+                } else {
+                    "$parts berkas PDF di ZIP ($sizeLabel)"
+                }
             )
         }
     }
@@ -438,10 +511,15 @@ class PdfStudioViewModel(
         runStudioJob("PDF-03", isEnglish) {
             emitProgress(40, if (isEnglish) "Rotating pages..." else "Memutar halaman...")
             val dest = container.storage.createOutputFile("PDF_ROTATE", "pdf")
-            val count = PdfVaultEngine.rotate(appContext, container.storage, uri, dest, angle, targets)
+            val count = PdfVaultEngine.rotate(appContext, container.storage, uri, dest, angle, targets, password = s.unlockPassword)
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$count halaman diputar ${angle}° • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "$count pages rotated ${angle}° • $sizeLabel"
+                } else {
+                    "$count halaman diputar ${angle}° • $sizeLabel"
+                }
             )
         }
     }
@@ -455,10 +533,14 @@ class PdfStudioViewModel(
             }
             emitProgress(40, if (isEnglish) "Reordering pages..." else "Menyusun ulang halaman...")
             val dest = container.storage.createOutputFile("PDF_REORDER", "pdf")
-            val count = PdfVaultEngine.reorder(appContext, container.storage, uri, dest, s.pageOrder)
+            val count = PdfVaultEngine.reorder(appContext, container.storage, uri, dest, s.pageOrder, password = s.unlockPassword)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Urutan baru: ${s.pageOrder.joinToString(",")} ($count halaman)"
+                summary = if (isEnglish) {
+                    "New order: ${s.pageOrder.joinToString(",")} ($count pages)"
+                } else {
+                    "Urutan baru: ${s.pageOrder.joinToString(",")} ($count halaman)"
+                }
             )
         }
     }
@@ -472,10 +554,15 @@ class PdfStudioViewModel(
             }
             emitProgress(40, if (isEnglish) "Extracting ${s.selectedPages.size} pages..." else "Mengekstrak ${s.selectedPages.size} halaman...")
             val dest = container.storage.createOutputFile("PDF_EXTRACT", "pdf")
-            val count = PdfVaultEngine.extract(appContext, container.storage, uri, dest, s.selectedPages)
+            val count = PdfVaultEngine.extract(appContext, container.storage, uri, dest, s.selectedPages, password = s.unlockPassword)
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$count halaman diekstrak • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "$count pages extracted • $sizeLabel"
+                } else {
+                    "$count halaman diekstrak • $sizeLabel"
+                }
             )
         }
     }
@@ -489,9 +576,14 @@ class PdfStudioViewModel(
             emitProgress(40, if (isEnglish) "Building PDF from ${s.imageQueue.size} images..." else "Menyusun PDF dari ${s.imageQueue.size} gambar...")
             val dest = container.storage.createOutputFile("IMG_TO_PDF", "pdf")
             val count = PdfVaultEngine.imagesToPdf(appContext, s.imageQueue, dest, pageSizeMode = s.imagePageSizeMode)
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$count halaman PDF • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "$count PDF pages • $sizeLabel"
+                } else {
+                    "$count halaman PDF • $sizeLabel"
+                }
             )
         }
     }
@@ -502,13 +594,22 @@ class PdfStudioViewModel(
         runStudioJob("PDF-09", isEnglish) {
             emitProgress(35, if (isEnglish) "Rasterizing pages..." else "Merasterisasi halaman...")
             val dest = container.storage.createOutputFile("PDF_COMPRESS", "pdf")
-            val report = PdfVaultEngine.compress(appContext, container.storage, uri, dest, s.compressDpi, s.compressQuality)
+            val report = PdfVaultEngine.compress(
+                appContext, container.storage, uri, dest,
+                s.compressDpi, s.compressQuality, password = s.unlockPassword
+            )
             val savedPct = if (report.beforeBytes > 0) {
                 ((report.beforeBytes - report.afterBytes) * 100.0 / report.beforeBytes).toInt()
             } else 0
+            val beforeLabel = container.storage.formatBytes(report.beforeBytes)
+            val afterLabel = container.storage.formatBytes(report.afterBytes)
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "${report.pages} hal • ${container.storage.formatBytes(report.beforeBytes)} → ${container.storage.formatBytes(report.afterBytes)} ($savedPct%)"
+                summary = if (isEnglish) {
+                    "${report.pages} pages • $beforeLabel → $afterLabel ($savedPct%)"
+                } else {
+                    "${report.pages} hal • $beforeLabel → $afterLabel ($savedPct%)"
+                }
             )
         }
     }
@@ -530,11 +631,17 @@ class PdfStudioViewModel(
             val dest = container.storage.createOutputFile("PDF_ENCRYPT", "pdf")
             val pages = PdfVaultEngine.encrypt(
                 appContext, container.storage, uri, dest,
-                s.encryptUserPwd, s.encryptOwnerPwd, keyBits, preferAes
+                s.encryptUserPwd, s.encryptOwnerPwd, keyBits, preferAes,
+                password = s.unlockPassword
             )
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages hal terenkripsi ${s.encryptKeyAlgo} • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "$pages pages encrypted (${s.encryptKeyAlgo}) • $sizeLabel"
+                } else {
+                    "$pages hal terenkripsi ${s.encryptKeyAlgo} • $sizeLabel"
+                }
             )
         }
     }
@@ -547,9 +654,14 @@ class PdfStudioViewModel(
             val dest = container.storage.createOutputFile("PDF_DECRYPT", "pdf")
             val pwd = s.unlockPassword.ifBlank { s.encryptUserPwd }
             val pages = PdfVaultEngine.decrypt(appContext, container.storage, uri, dest, pwd)
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$pages hal bebas enkripsi • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "$pages pages decrypted • $sizeLabel"
+                } else {
+                    "$pages hal bebas enkripsi • $sizeLabel"
+                }
             )
         }
     }
@@ -566,7 +678,8 @@ class PdfStudioViewModel(
                 emitProgress(45, if (isEnglish) "Applying image watermark..." else "Menempelkan watermark gambar...")
                 PdfVaultEngine.addImageWatermark(
                     appContext, container.storage, uri, img, dest,
-                    s.watermarkOpacityPct, s.watermarkSizePct.coerceAtLeast(10)
+                    s.watermarkOpacityPct, s.watermarkSizePct.coerceAtLeast(10),
+                    password = s.unlockPassword
                 )
             } else {
                 require(s.watermarkText.isNotBlank()) {
@@ -575,12 +688,18 @@ class PdfStudioViewModel(
                 emitProgress(45, if (isEnglish) "Applying text watermark..." else "Menempelkan watermark teks...")
                 PdfVaultEngine.addTextWatermark(
                     appContext, container.storage, uri, dest,
-                    s.watermarkText, s.watermarkOpacityPct, s.watermarkAngleDeg, s.watermarkSizePct
+                    s.watermarkText, s.watermarkOpacityPct, s.watermarkAngleDeg, s.watermarkSizePct,
+                    password = s.unlockPassword
                 )
             }
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Watermark pada $pages halaman • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "Watermark applied to $pages pages • $sizeLabel"
+                } else {
+                    "Watermark pada $pages halaman • $sizeLabel"
+                }
             )
         }
     }
@@ -591,7 +710,10 @@ class PdfStudioViewModel(
         runStudioJob("PDF-13", isEnglish) {
             emitProgress(45, if (isEnglish) "Scanning annotations & layers..." else "Memindai anotasi & layer...")
             val dest = container.storage.createOutputFile("PDF_UNWATERMARK", "pdf")
-            val removed = PdfVaultEngine.removeWatermarkObjects(appContext, container.storage, uri, dest)
+            val removed = PdfVaultEngine.removeWatermarkObjects(
+                appContext, container.storage, uri, dest, password = s.unlockPassword
+            )
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
                 summary = if (removed == 0) {
@@ -601,7 +723,11 @@ class PdfStudioViewModel(
                         "0 objek anotasi/OCG terhapus (watermark menyatu tidak bisa dihapus otomatis)."
                     }
                 } else {
-                    "$removed objek watermark dihapus • ${container.storage.formatBytes(dest.length())}"
+                    if (isEnglish) {
+                        "$removed watermark objects removed • $sizeLabel"
+                    } else {
+                        "$removed objek watermark dihapus • $sizeLabel"
+                    }
                 }
             )
         }
@@ -627,7 +753,11 @@ class PdfStudioViewModel(
             }
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "${report.boxes} area ditutup pada ${report.pages} hal • $verifyBadge"
+                summary = if (isEnglish) {
+                    "${report.boxes} regions redacted across ${report.pages} pages • $verifyBadge"
+                } else {
+                    "${report.boxes} area ditutup pada ${report.pages} hal • $verifyBadge"
+                }
             )
         }
     }
@@ -640,29 +770,40 @@ class PdfStudioViewModel(
             val missing = PdfOcrEngine.missing(appContext, listOf(code))
             if (missing.isNotEmpty()) {
                 emitProgress(20, if (isEnglish) "Downloading OCR data: $code..." else "Mengunduh data OCR: $code...")
-                PdfOcrEngine.ensureTrainedData(appContext, listOf(code)) { pct, msg ->
+                PdfOcrEngine.ensureTrainedData(appContext, listOf(code), isEnglish = isEnglish) { pct, msg ->
                     emitProgress(20 + pct / 4, msg)
                 }
                 _state.update { it.copy(ocrDataInstalled = true) }
             }
-            val total = PdfRenderUtils.pageCount(appContext, container.storage, uri)
-            require(total > 0) { "PDF tidak punya halaman" }
+            val total = PdfRenderUtils.pageCount(appContext, container.storage, uri, password = s.unlockPassword)
+            require(total > 0) { if (isEnglish) "PDF has no pages" else "PDF tidak punya halaman" }
             val builder = StringBuilder()
-            emitProgress(55, "OCR $total halaman ($code)...")
-            PdfRenderUtils.renderPages(appContext, container.storage, uri, dpi = 200) { idx, rendered, _ ->
-                val text = PdfOcrEngine.recognize(appContext, rendered.bitmap, listOf(code))
-                rendered.bitmap.recycle()
-                builder.append("=== Halaman ${idx + 1} ===\n").append(text).append("\n\n")
+            emitProgress(55, if (isEnglish) "OCR $total pages ($code)..." else "OCR $total halaman ($code)...")
+            PdfRenderUtils.renderPages(
+                appContext, container.storage, uri, dpi = 200, password = s.unlockPassword
+            ) { idx, rendered, _ ->
+                val text = try {
+                    PdfOcrEngine.recognize(appContext, rendered.bitmap, listOf(code), isEnglish = isEnglish)
+                } finally {
+                    if (!rendered.bitmap.isRecycled) rendered.bitmap.recycle()
+                }
+                val pageHeader = if (isEnglish) "=== Page ${idx + 1} ===" else "=== Halaman ${idx + 1} ==="
+                builder.append(pageHeader).append("\n").append(text).append("\n\n")
                 true
             }
             val dest = container.storage.createOutputFile("PDF_OCR_TEXT", "txt")
             val fullText = builder.toString().trim()
             dest.writeText(fullText)
             _state.update { it.copy(extractedText = fullText.take(6000)) }
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
                 textOutput = fullText.take(4000),
-                summary = "OCR $code ($total hal) • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "OCR $code ($total pages) • $sizeLabel"
+                } else {
+                    "OCR $code ($total hal) • $sizeLabel"
+                }
             )
         }
     }
@@ -680,7 +821,13 @@ class PdfStudioViewModel(
                 models = container.modelManager
             )
             var terminal: ToolResult? = null
-            tool.run(ctx, ToolInput(uris = listOf(uri), params = mapOf("maxPages" to 2f))).collect { p ->
+            tool.run(
+                ctx,
+                ToolInput(
+                    uris = listOf(uri),
+                    params = mapOf("maxPages" to 2f, "password" to s.unlockPassword)
+                )
+            ).collect { p ->
                 when (p) {
                     is ToolProgress.Running -> emitProgress(p.percent, p.message)
                     is ToolProgress.Done -> terminal = p.result
@@ -704,10 +851,17 @@ class PdfStudioViewModel(
             )
             emitProgress(45, if (isEnglish) "Writing metadata..." else "Menyimpan metadata...")
             val dest = container.storage.createOutputFile("PDF_METADATA", "pdf")
-            val pages = PdfVaultEngine.writeMetadata(appContext, container.storage, uri, dest, values)
+            val pages = PdfVaultEngine.writeMetadata(
+                appContext, container.storage, uri, dest, values, password = s.unlockPassword
+            )
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Metadata diperbarui pada $pages halaman • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "Metadata saved across $pages pages • $sizeLabel"
+                } else {
+                    "Metadata diperbarui pada $pages halaman • $sizeLabel"
+                }
             )
         }
     }
@@ -723,11 +877,16 @@ class PdfStudioViewModel(
                 s.pageNumPattern.ifBlank { "{n}" },
                 s.pageNumStart,
                 s.pageNumPosition,
-                s.pageNumSizePct
+                s.pageNumSizePct,
+                password = s.unlockPassword
             )
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "Nomor halaman ditambahkan ke $pages halaman"
+                summary = if (isEnglish) {
+                    "Page numbers added to $pages pages"
+                } else {
+                    "Nomor halaman ditambahkan ke $pages halaman"
+                }
             )
         }
     }
@@ -741,10 +900,17 @@ class PdfStudioViewModel(
             }
             emitProgress(45, if (isEnglish) "Filling AcroForm fields..." else "Mengisi field form...")
             val dest = container.storage.createOutputFile("PDF_FORM", "pdf")
-            val filled = PdfVaultEngine.fillForm(appContext, container.storage, uri, dest, s.formValues)
+            val filled = PdfVaultEngine.fillForm(
+                appContext, container.storage, uri, dest, s.formValues, password = s.unlockPassword
+            )
+            val sizeLabel = container.storage.formatBytes(dest.length())
             ToolResult(
                 outputs = listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                summary = "$filled field AcroForm tersimpan • ${container.storage.formatBytes(dest.length())}"
+                summary = if (isEnglish) {
+                    "$filled AcroForm fields saved • $sizeLabel"
+                } else {
+                    "$filled field AcroForm tersimpan • $sizeLabel"
+                }
             )
         }
     }
@@ -761,14 +927,28 @@ class PdfStudioViewModel(
             val zip = container.storage.createOutputFile("PDF_DIFF_IMG", "zip")
             val report = PdfVaultEngine.compare(appContext, container.storage, uriA, uriB, zip)
             val txt = container.storage.createOutputFile("PDF_DIFF_REPORT", "txt")
-            val body = buildString {
-                appendLine("Perbandingan dokumen")
-                appendLine("A: ${s.compareNameA} (${report.pagesA} halaman)")
-                appendLine("B: ${s.compareNameB} (${report.pagesB} halaman)")
-                appendLine("Halaman identik: ${report.identicalPages}")
-                appendLine("Halaman berbeda: ${report.differentPages}")
-                appendLine("Baris hanya di A: ${report.removedLines}")
-                appendLine("Baris hanya di B: ${report.addedLines}")
+            val body = if (isEnglish) {
+                buildString {
+                    appendLine("Document Comparison")
+                    appendLine("A: ${s.compareNameA} (${report.pagesA} pages)")
+                    appendLine("B: ${s.compareNameB} (${report.pagesB} pages)")
+                    appendLine("Identical pages: ${report.identicalPages}")
+                    appendLine("Different pages: ${report.differentPages}")
+                    appendLine("Unique lines only in A: ${report.removedLines}")
+                    appendLine("Unique lines only in B: ${report.addedLines}")
+                    appendLine("Method: unique-line set diff; 8 px grid visual comparison.")
+                }
+            } else {
+                buildString {
+                    appendLine("Perbandingan dokumen")
+                    appendLine("A: ${s.compareNameA} (${report.pagesA} halaman)")
+                    appendLine("B: ${s.compareNameB} (${report.pagesB} halaman)")
+                    appendLine("Halaman identik: ${report.identicalPages}")
+                    appendLine("Halaman berbeda: ${report.differentPages}")
+                    appendLine("Baris unik hanya di A: ${report.removedLines}")
+                    appendLine("Baris unik hanya di B: ${report.addedLines}")
+                    appendLine("Metode: diff himpunan baris unik; diff visual pada kisi 8 px.")
+                }
             }
             txt.writeText(body)
             ToolResult(
@@ -777,7 +957,11 @@ class PdfStudioViewModel(
                     ToolOutputFile(zip, "application/zip", zip.name)
                 ),
                 textOutput = body,
-                summary = "${report.differentPages} hal berbeda, ${report.identicalPages} identik • +${report.addedLines}/-${report.removedLines} baris"
+                summary = if (isEnglish) {
+                    "${report.differentPages} different, ${report.identicalPages} identical pages • +${report.addedLines}/-${report.removedLines} unique lines"
+                } else {
+                    "${report.differentPages} hal berbeda, ${report.identicalPages} identik • +${report.addedLines}/-${report.removedLines} baris unik"
+                }
             )
         }
     }
@@ -808,6 +992,7 @@ class PdfStudioViewModel(
             _state.update {
                 it.copy(
                     isRunning = true,
+                    deletedOutputPaths = emptySet(),
                     progress = ToolProgress.Running(10, appContext.getString(R.string.progress_queued))
                 )
             }
@@ -828,6 +1013,20 @@ class PdfStudioViewModel(
             } catch (ce: CancellationException) {
                 _state.update { it.copy(isRunning = false, progress = null) }
                 throw ce
+            } catch (_: InvalidPasswordException) {
+                val msg = if (_state.value.unlockPassword.isNotBlank()) {
+                    appContext.getString(R.string.pdf_preview_wrong_password)
+                } else {
+                    appContext.getString(R.string.pdf_preview_encrypted)
+                }
+                _state.update { it.copy(isRunning = false, progress = ToolProgress.Failed(msg)) }
+            } catch (_: SecurityException) {
+                _state.update {
+                    it.copy(
+                        isRunning = false,
+                        progress = ToolProgress.Failed(appContext.getString(R.string.pdf_preview_encrypted))
+                    )
+                }
             } catch (t: Throwable) {
                 _state.update {
                     it.copy(

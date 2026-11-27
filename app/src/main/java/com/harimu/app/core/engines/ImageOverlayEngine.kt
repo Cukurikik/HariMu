@@ -75,14 +75,17 @@ object ImageOverlayEngine {
         } else {
             Bitmap.createScaledBitmap(top, targetWidth, targetHeight, true)
         }
-        val left = (out.width - targetWidth) / 2f + offsetXPct.coerceIn(-200f, 200f) / 100f * out.width / 2f
-        val topY = (out.height - targetHeight) / 2f + offsetYPct.coerceIn(-200f, 200f) / 100f * out.height / 2f
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
-            alpha = (opacityPct.coerceIn(0, 100) / 100f * 255).roundToInt()
-            ImageBlendModes.applyTo(this, blendMode)
+        try {
+            val left = (out.width - targetWidth) / 2f + offsetXPct.coerceIn(-200f, 200f) / 100f * out.width / 2f
+            val topY = (out.height - targetHeight) / 2f + offsetYPct.coerceIn(-200f, 200f) / 100f * out.height / 2f
+            val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
+                alpha = (opacityPct.coerceIn(0, 100) / 100f * 255).roundToInt()
+                ImageBlendModes.applyTo(this, blendMode)
+            }
+            canvas.drawBitmap(scaled, left, topY, paint)
+        } finally {
+            if (scaled !== top && !scaled.isRecycled) scaled.recycle()
         }
-        canvas.drawBitmap(scaled, left, topY, paint)
-        if (scaled !== top) scaled.recycle()
         return out
     }
 
@@ -112,32 +115,51 @@ object ImageOverlayEngine {
         } else {
             tintedSilhouette(source, Color.WHITE)
         }
-        val shadowColor = ImageEngine.parseColorSafe(shadowHex, Color.BLACK)
-        val glowColor = ImageEngine.parseColorSafe(glowHex, Color.parseColor("#FFE082"))
+        try {
+            val shadowColor = ImageEngine.parseColorSafe(shadowHex, Color.BLACK)
+            val glowColor = ImageEngine.parseColorSafe(glowHex, Color.parseColor("#FFE082"))
 
-        val shadowBlur = ((shadowBlurPct.coerceIn(0f, 30f) / 100f) * max(source.width, source.height))
-            .roundToInt()
-            .coerceAtLeast(1)
-        val glowBlur = (shadowBlur * 2).coerceAtLeast(2)
+            val shadowBlur = ((shadowBlurPct.coerceIn(0f, 30f) / 100f) * max(source.width, source.height))
+                .roundToInt()
+                .coerceAtLeast(1)
+            val glowBlur = (shadowBlur * 2).coerceAtLeast(2)
 
-        // Glow first (widest), then shadow, then the artwork itself.
-        if (glowStrengthPct > 0) {
-            val glow = ImageFilterPipeline.blurredCopy(tintedSilhouette(silhouette, glowColor), glowBlur)
-            val glowPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
-                alpha = (glowStrengthPct.coerceIn(0, 100) / 100f * 255).roundToInt()
+            // Glow first (widest), then shadow, then the artwork itself.
+            if (glowStrengthPct > 0) {
+                val glowTinted = tintedSilhouette(silhouette, glowColor)
+                val glow = try {
+                    ImageFilterPipeline.blurredCopy(glowTinted, glowBlur)
+                } finally {
+                    if (!glowTinted.isRecycled) glowTinted.recycle()
+                }
+                try {
+                    val glowPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+                        alpha = (glowStrengthPct.coerceIn(0, 100) / 100f * 255).roundToInt()
+                    }
+                    canvas.drawBitmap(glow, padding.toFloat(), padding.toFloat(), glowPaint)
+                } finally {
+                    if (!glow.isRecycled) glow.recycle()
+                }
             }
-            canvas.drawBitmap(glow, padding.toFloat(), padding.toFloat(), glowPaint)
-            glow.recycle()
+            if (shadowBlurPct > 0f) {
+                val shadowTinted = tintedSilhouette(silhouette, shadowColor)
+                val shadow = try {
+                    ImageFilterPipeline.blurredCopy(shadowTinted, shadowBlur)
+                } finally {
+                    if (!shadowTinted.isRecycled) shadowTinted.recycle()
+                }
+                try {
+                    val dx = shadowOffsetXPct.coerceIn(-40f, 40f) / 100f * source.width
+                    val dy = shadowOffsetYPct.coerceIn(-40f, 40f) / 100f * source.height
+                    canvas.drawBitmap(shadow, padding + dx, padding + dy, null)
+                } finally {
+                    if (!shadow.isRecycled) shadow.recycle()
+                }
+            }
+            canvas.drawBitmap(source, padding.toFloat(), padding.toFloat(), null)
+        } finally {
+            if (!silhouette.isRecycled) silhouette.recycle()
         }
-        if (shadowBlurPct > 0f) {
-            val shadow = ImageFilterPipeline.blurredCopy(tintedSilhouette(silhouette, shadowColor), shadowBlur)
-            val dx = shadowOffsetXPct.coerceIn(-40f, 40f) / 100f * source.width
-            val dy = shadowOffsetYPct.coerceIn(-40f, 40f) / 100f * source.height
-            canvas.drawBitmap(shadow, padding + dx, padding + dy, null)
-            shadow.recycle()
-        }
-        canvas.drawBitmap(source, padding.toFloat(), padding.toFloat(), null)
-        silhouette.recycle()
         return out
     }
 
@@ -327,12 +349,15 @@ object ImageOverlayEngine {
         val scaledW = (source.width * scale).roundToInt().coerceAtLeast(1)
         val scaledH = (source.height * scale).roundToInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(source, scaledW, scaledH, true)
-        val left = ((scaledW - targetW) / 2).coerceAtLeast(0)
-        val top = ((scaledH - targetH) / 2).coerceAtLeast(0)
-        val out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
-        Canvas(out).drawBitmap(scaled, -left.toFloat(), -top.toFloat(), null)
-        if (scaled !== source) scaled.recycle()
-        return out
+        return try {
+            val left = ((scaledW - targetW) / 2).coerceAtLeast(0)
+            val top = ((scaledH - targetH) / 2).coerceAtLeast(0)
+            val out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+            Canvas(out).drawBitmap(scaled, -left.toFloat(), -top.toFloat(), null)
+            out
+        } finally {
+            if (scaled !== source && !scaled.isRecycled) scaled.recycle()
+        }
     }
 
     fun fitCenter(source: Bitmap, targetW: Int, targetH: Int, background: Int = Color.TRANSPARENT): Bitmap {
@@ -343,8 +368,11 @@ object ImageOverlayEngine {
         val drawW = (source.width * scale).roundToInt().coerceAtLeast(1)
         val drawH = (source.height * scale).roundToInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(source, drawW, drawH, true)
-        canvas.drawBitmap(scaled, (targetW - drawW) / 2f, (targetH - drawH) / 2f, null)
-        if (scaled !== source) scaled.recycle()
+        try {
+            canvas.drawBitmap(scaled, (targetW - drawW) / 2f, (targetH - drawH) / 2f, null)
+        } finally {
+            if (scaled !== source && !scaled.isRecycled) scaled.recycle()
+        }
         return out
     }
 

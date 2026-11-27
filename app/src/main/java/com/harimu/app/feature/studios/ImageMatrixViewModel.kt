@@ -1,12 +1,14 @@
 package com.harimu.app.feature.studios
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.ai.BackgroundRemovalRequest
 import com.harimu.app.core.ai.BackgroundSegmenters
 import com.harimu.app.core.ai.SegmentationMode
@@ -20,6 +22,7 @@ import com.harimu.app.core.engines.MatrixLayerMath
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -30,6 +33,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -70,10 +74,24 @@ class ImageMatrixViewModel(
 
     private val history = LayerHistory()
     private val bitmaps = ConcurrentHashMap<String, Bitmap>()
+    private var retiredPreview: Bitmap? = null
     private var renderJob: Job? = null
+    private var exportJob: Job? = null
+    private var isEnglish: Boolean = Locale.getDefault().language.equals("en", ignoreCase = true)
 
     val canvasPresets: List<Pair<String, Pair<Int, Int>>> get() = ImageLayerCompositor.canvasPresets()
     val blendModes: List<String> get() = ImageLayerCompositor.layerBlendLabels()
+
+    fun setLanguage(english: Boolean) {
+        isEnglish = english
+    }
+
+    private fun str(resId: Int, vararg args: Any): String {
+        val targetLocale = if (isEnglish) Locale.ENGLISH else Locale.forLanguageTag("id")
+        val config = Configuration(appContext.resources.configuration).apply { setLocale(targetLocale) }
+        val localized = appContext.createConfigurationContext(config)
+        return localized.getString(resId, *args)
+    }
 
     fun initialize() {
         if (_state.value.preview == null && renderJob == null) scheduleRender(0L)
@@ -84,18 +102,21 @@ class ImageMatrixViewModel(
     fun addImage(uri: Uri) {
         viewModelScope.launch {
             val key = uri.toString()
-            if (bitmaps.size >= MAX_CACHED_BITMAPS && !bitmaps.containsKey(key)) {
-                _state.update { it.copy(lastMessage = "Batas $MAX_CACHED_BITMAPS gambar tercapai; hapus layer lama dulu") }
-                return@launch
+            val cached = bitmaps[key]
+            if (cached == null || cached.isRecycled) {
+                if (bitmaps.size >= MAX_CACHED_BITMAPS && !bitmaps.containsKey(key)) {
+                    _state.update { it.copy(lastMessage = str(R.string.image_matrix_msg_max_images, MAX_CACHED_BITMAPS)) }
+                    return@launch
+                }
+                val bitmap = withContext(Dispatchers.IO) {
+                    runCatching { ImageIO.decodePreview(appContext, uri, 2048) }.getOrNull()
+                }
+                if (bitmap == null) {
+                    _state.update { it.copy(lastMessage = str(R.string.image_matrix_msg_decode_failed)) }
+                    return@launch
+                }
+                bitmaps[key] = bitmap
             }
-            val bitmap = withContext(Dispatchers.IO) {
-                runCatching { ImageIO.decodePreview(appContext, uri, 2048) }.getOrNull()
-            }
-            if (bitmap == null) {
-                _state.update { it.copy(lastMessage = "Gambar tidak dapat dibaca") }
-                return@launch
-            }
-            bitmaps[key] = bitmap
             val layer = ImageLayerCompositor.defaultImageLayer(UUID.randomUUID().toString(), key)
             pushLayers(history.current + layer)
             _state.update { it.copy(selectedLayerId = layer.id) }
@@ -104,7 +125,7 @@ class ImageMatrixViewModel(
 
     fun addText(text: String) {
         if (text.isBlank()) {
-            _state.update { it.copy(lastMessage = "Tulis teks layer terlebih dahulu") }
+            _state.update { it.copy(lastMessage = str(R.string.image_matrix_msg_text_empty)) }
             return
         }
         val layer = ImageLayerCompositor.defaultTextLayer(UUID.randomUUID().toString(), text.trim())
@@ -169,6 +190,7 @@ class ImageMatrixViewModel(
         val current = _state.value.layers
         if (current == history.current) return
         history.push(current)
+        releaseUnreferencedBitmaps()
         _state.update { it.copy(canUndo = history.canUndo, canRedo = history.canRedo) }
     }
 
@@ -180,25 +202,34 @@ class ImageMatrixViewModel(
     fun removeBackgroundOfLayer(id: String, mode: SegmentationMode = SegmentationMode.FULL) {
         val layer = history.current.firstOrNull { it.id == id } ?: return
         if (layer.kind != MatrixLayerKind.IMAGE) return
-        val source = bitmaps[layer.uri] ?: return
+        val source = bitmaps[layer.uri]?.takeIf { !it.isRecycled } ?: return
         viewModelScope.launch {
             _state.update { it.copy(isRendering = true) }
-            val outcome = runCatching {
-                BackgroundSegmenters.default.removeBackground(
-                    context = appContext,
-                    source = source,
-                    request = BackgroundRemovalRequest(mode = mode)
-                )
-            }.getOrNull()
-            _state.update { it.copy(isRendering = false) }
+            val outcome = try {
+                withContext(Dispatchers.Default) {
+                    BackgroundSegmenters.default.removeBackground(
+                        context = appContext,
+                        source = source,
+                        request = BackgroundRemovalRequest(mode = mode)
+                    )
+                }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (_: Throwable) {
+                null
+            } finally {
+                _state.update { it.copy(isRendering = false) }
+            }
             if (outcome == null) {
-                _state.update { it.copy(lastMessage = "Hapus latar gagal (gambar terlalu besar?)") }
+                _state.update { it.copy(lastMessage = str(R.string.image_matrix_msg_remove_bg_failed)) }
                 return@launch
             }
             val key = "${layer.uri}#nobg-${System.currentTimeMillis()}"
             bitmaps[key] = outcome.bitmap
             updateLayer(id) { it.copy(uri = key) }
-            _state.update { it.copy(lastMessage = "Latar layer dihapus (${outcome.engineSummary(false)})") }
+            _state.update {
+                it.copy(lastMessage = str(R.string.image_matrix_msg_remove_bg_done, outcome.engineSummary(isEnglish)))
+            }
         }
     }
 
@@ -216,7 +247,6 @@ class ImageMatrixViewModel(
         val next = history.current.filterNot { it.id == id }
         if (next.size == history.current.size) return
         pushLayers(next)
-        releaseUnreferencedBitmaps(next)
         if (_state.value.selectedLayerId == id) {
             _state.update { it.copy(selectedLayerId = next.lastOrNull()?.id) }
         }
@@ -256,6 +286,7 @@ class ImageMatrixViewModel(
     }
 
     private fun applyHistory(layers: List<MatrixLayer>) {
+        releaseUnreferencedBitmaps()
         val currentSelection = _state.value.selectedLayerId
         _state.update {
             it.copy(
@@ -270,6 +301,7 @@ class ImageMatrixViewModel(
 
     private fun pushLayers(next: List<MatrixLayer>) {
         history.push(next)
+        releaseUnreferencedBitmaps()
         _state.update {
             it.copy(layers = next, canUndo = history.canUndo, canRedo = history.canRedo)
         }
@@ -312,9 +344,12 @@ class ImageMatrixViewModel(
                     canvasWidth = previewW,
                     canvasHeight = previewH,
                     backgroundHex = snapshot.backgroundHex,
-                    bitmapFor = { layer -> bitmaps[layer.uri] }
+                    bitmapFor = { layer -> bitmaps[layer.uri]?.takeIf { !it.isRecycled } }
                 )
             }
+            val previous = _state.value.preview
+            retiredPreview?.takeIf { !it.isRecycled && it !== bitmap && it !== previous }?.recycle()
+            retiredPreview = previous?.takeIf { it !== bitmap }
             _state.update { it.copy(preview = bitmap, isRendering = false) }
         }
     }
@@ -325,6 +360,18 @@ class ImageMatrixViewModel(
         exportComposition(format = "PNG", quality = 100, trackExportDialog = false, onDone = onDone)
     }
 
+    fun cancelExport() {
+        val job = exportJob ?: return
+        exportJob = null
+        job.cancel()
+        _state.update {
+            it.copy(
+                isExporting = false,
+                exportProgress = ToolProgress.Failed(str(R.string.image_matrix_msg_export_cancelled))
+            )
+        }
+    }
+
     fun exportComposition(
         format: String = "PNG",
         quality: Int = 95,
@@ -333,7 +380,7 @@ class ImageMatrixViewModel(
     ) {
         val snapshot = _state.value
         if (snapshot.layers.isEmpty()) {
-            val msg = "Tambahkan minimal 1 layer sebelum ekspor"
+            val msg = str(R.string.image_matrix_msg_export_need_layer)
             if (trackExportDialog) _state.update { it.copy(exportProgress = ToolProgress.Failed(msg)) }
             onDone(null, msg)
             return
@@ -343,32 +390,47 @@ class ImageMatrixViewModel(
         _state.update {
             it.copy(
                 isExporting = true,
-                exportProgress = if (trackExportDialog) ToolProgress.Running(20, "Merender komposisi...") else null
+                exportProgress = if (trackExportDialog) {
+                    ToolProgress.Running(20, str(R.string.image_matrix_msg_export_rendering))
+                } else null
             )
         }
 
-        viewModelScope.launch {
+        exportJob = viewModelScope.launch {
             val entry = runCatching { ImageFormatMatrix.requireEncodable(format) }
                 .getOrElse { ImageFormatMatrix.requireEncodable("PNG") }
             val (canvasW, canvasH) = snapshot.canvasSize
-            val result = runCatching {
-                val bitmap = withContext(Dispatchers.Default) {
+            var composedBitmap: Bitmap? = null
+            try {
+                composedBitmap = withContext(Dispatchers.Default) {
                     ImageLayerCompositor.compose(
                         layers = snapshot.layers,
                         canvasWidth = canvasW,
                         canvasHeight = canvasH,
                         backgroundHex = snapshot.backgroundHex,
-                        bitmapFor = { layer -> bitmaps[layer.uri] }
+                        bitmapFor = { layer -> bitmaps[layer.uri]?.takeIf { !it.isRecycled } }
                     )
                 }
                 if (trackExportDialog) {
-                    _state.update { it.copy(exportProgress = ToolProgress.Running(75, "Menyimpan ${entry.id}...")) }
+                    _state.update {
+                        it.copy(exportProgress = ToolProgress.Running(75, str(R.string.image_matrix_msg_export_saving, entry.id)))
+                    }
                 }
                 val dest = container.storage.createOutputFile("MATRIX", ImageFormatMatrix.extensionFor(entry.id))
                 val mime = ImageFormatMatrix.mimeTypeFor(entry.id)
-                withContext(Dispatchers.IO) { ImageIO.encode(bitmap, dest, entry.id, quality) }
-                bitmap.recycle()
-                val summary = "Komposisi ${snapshot.layers.size} layer ${canvasW}×${canvasH} (${entry.id} • ${container.storage.formatBytes(dest.length())})"
+                val encoded = composedBitmap
+                withContext(Dispatchers.IO) { ImageIO.encode(encoded, dest, entry.id, quality) }
+                encoded.recycle()
+                composedBitmap = null
+                val formattedSize = container.storage.formatBytes(dest.length())
+                val summary = str(
+                    R.string.image_matrix_msg_export_summary,
+                    snapshot.layers.size,
+                    canvasW,
+                    canvasH,
+                    entry.id,
+                    formattedSize
+                )
                 container.workspace.recordHistory(
                     toolId = "IMG-47",
                     toolTitle = "Image Matrix Studio",
@@ -377,37 +439,38 @@ class ImageMatrixViewModel(
                     mimeType = mime,
                     summary = summary
                 )
-                Triple(dest, mime, summary)
-            }
-            _state.update { it.copy(isExporting = false) }
-            result.fold(
-                onSuccess = { (file, mime, summary) ->
-                    val outputFile = ToolOutputFile(file, mime, file.name)
-                    if (trackExportDialog) {
-                        _state.update {
-                            it.copy(
-                                exportProgress = ToolProgress.Done(
-                                    ToolResult(outputs = listOf(outputFile), summary = summary)
-                                )
-                            )
-                        }
-                    }
-                    onDone(file, "Diekspor ${file.name} (${container.storage.formatBytes(file.length())})")
-                },
-                onFailure = { error ->
-                    val message = error.localizedMessage ?: "Ekspor gagal"
-                    if (trackExportDialog) {
-                        _state.update { it.copy(exportProgress = ToolProgress.Failed(message)) }
-                    }
-                    onDone(null, message)
+                val outputFile = ToolOutputFile(dest, mime, dest.name)
+                _state.update {
+                    it.copy(
+                        isExporting = false,
+                        exportProgress = if (trackExportDialog) {
+                            ToolProgress.Done(ToolResult(outputs = listOf(outputFile), summary = summary))
+                        } else it.exportProgress
+                    )
                 }
-            )
+                onDone(dest, str(R.string.image_matrix_msg_export_done, dest.name, formattedSize))
+            } catch (c: CancellationException) {
+                _state.update { it.copy(isExporting = false) }
+                throw c
+            } catch (error: Throwable) {
+                val message = error.localizedMessage ?: str(R.string.image_matrix_msg_export_failed)
+                _state.update {
+                    it.copy(
+                        isExporting = false,
+                        exportProgress = if (trackExportDialog) ToolProgress.Failed(message) else it.exportProgress
+                    )
+                }
+                onDone(null, message)
+            } finally {
+                if (composedBitmap != null && !composedBitmap.isRecycled) composedBitmap.recycle()
+                exportJob = null
+            }
         }
     }
 
-    /** Lepas bitmap yang tidak lagi dirujuk layer mana pun (setelah hapus/undo/redo). */
-    private fun releaseUnreferencedBitmaps(layers: List<MatrixLayer>) {
-        val referenced = layers.map { it.uri }.toSet()
+    /** Lepas bitmap yang tidak lagi dirujuk snapshot mana pun di current, undoStack, maupun redoStack. */
+    private fun releaseUnreferencedBitmaps() {
+        val referenced = history.allReferencedUris()
         val stale = bitmaps.keys.filterNot { it in referenced }
         stale.forEach { key ->
             bitmaps.remove(key)?.takeIf { !it.isRecycled }?.recycle()
@@ -416,8 +479,11 @@ class ImageMatrixViewModel(
 
     override fun onCleared() {
         renderJob?.cancel()
+        exportJob?.cancel()
         bitmaps.values.forEach { if (!it.isRecycled) it.recycle() }
         bitmaps.clear()
+        retiredPreview?.takeIf { !it.isRecycled }?.recycle()
+        retiredPreview = null
         _state.value.preview?.takeIf { !it.isRecycled }?.recycle()
         super.onCleared()
     }

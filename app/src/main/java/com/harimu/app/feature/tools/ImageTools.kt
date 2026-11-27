@@ -1,5 +1,6 @@
 package com.harimu.app.feature.tools
 
+import android.graphics.Bitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BorderOuter
 import androidx.compose.material.icons.filled.Flip
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WaterDrop
 import com.harimu.app.core.engines.ImageEngine
+import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
@@ -51,14 +53,24 @@ fun imageTools(): List<Tool> =
         override fun description(isEnglish: Boolean) = if (isEnglish) "Resize image proportionally by percentage or max edge." else "Ubah dimensi gambar secara proporsional tanpa distorsi."
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
+            val scalePct = input.getFloat("scale", 50f).toInt()
+            val maxEdge = input.getFloat("maxEdge", 0f).toInt()
             emit(ToolProgress.Running(40, "Mengubah resolusi gambar..."))
-            val src = ImageEngine.decodeBitmapSafe(ctx.appContext, uri)
-            val resized = ImageEngine.resizeBitmap(src, input.getFloat("scale", 50f).toInt(), input.getFloat("maxEdge", 0f).toInt())
-            val dest = ctx.storage.createOutputFile("IMG_RESIZE", "png")
-            ImageEngine.saveBitmap(resized, dest, "PNG", 100)
-            val info = "${resized.width}×${resized.height}"
-            if (resized != src) src.recycle()
-            resized.recycle()
+            val src = if (maxEdge > 0) {
+                ImageIO.decodePreview(ctx.appContext, uri, (maxEdge * 2).coerceAtLeast(1024))
+            } else {
+                ImageIO.decodeFullGuarded(ctx.appContext, uri)
+            }
+            var resized: Bitmap? = null
+            val (info, dest) = try {
+                resized = ImageEngine.resizeBitmap(src, scalePct, maxEdge)
+                val outFile = ctx.storage.createOutputFile("IMG_RESIZE", "png")
+                ImageIO.encode(resized, outFile, "PNG", 100)
+                "${resized.width}×${resized.height}" to outFile
+            } finally {
+                if (resized != null && resized !== src && !resized.isRecycled) resized.recycle()
+                if (!src.isRecycled) src.recycle()
+            }
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Resolusi baru: $info")))
         }.flowOn(Dispatchers.IO)
     },
@@ -76,11 +88,17 @@ fun imageTools(): List<Tool> =
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
             val dir = input.getString("dir", "Horizontal")
-            val src = ImageEngine.decodeBitmapSafe(ctx.appContext, uri)
-            val out = ImageEngine.flipBitmap(src, dir != "Vertikal", dir != "Horizontal")
-            val dest = ctx.storage.createOutputFile("IMG_FLIP", "png")
-            ImageEngine.saveBitmap(out, dest)
-            src.recycle(); out.recycle()
+            val src = ImageIO.decodeFullGuarded(ctx.appContext, uri)
+            var out: Bitmap? = null
+            val dest = try {
+                out = ImageEngine.flipBitmap(src, dir != "Vertikal", dir != "Horizontal")
+                val outFile = ctx.storage.createOutputFile("IMG_FLIP", "png")
+                ImageIO.encode(out, outFile, "PNG", 100)
+                outFile
+            } finally {
+                if (out != null && out !== src && !out.isRecycled) out.recycle()
+                if (!src.isRecycled) src.recycle()
+            }
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Flip $dir selesai")))
         }.flowOn(Dispatchers.IO)
     },
@@ -100,17 +118,23 @@ fun imageTools(): List<Tool> =
         override fun description(isEnglish: Boolean) = if (isEnglish) "Overlay single or tiled text watermark on photos." else "Tambahkan watermark teks tunggal atau berulang pada foto."
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
-            val src = ImageEngine.decodeBitmapSafe(ctx.appContext, uri)
-            val out = ImageEngine.addWatermark(
-                src,
-                input.getString("text", "© HariMu"),
-                input.getFloat("opacity", 45f).toInt(),
-                input.getString("pos", "Kanan Bawah"),
-                input.getBoolean("tiled", false)
-            )
-            val dest = ctx.storage.createOutputFile("IMG_WM", "png")
-            ImageEngine.saveBitmap(out, dest)
-            src.recycle(); out.recycle()
+            val src = ImageIO.decodeFullGuarded(ctx.appContext, uri)
+            var out: Bitmap? = null
+            val dest = try {
+                out = ImageEngine.addWatermark(
+                    src,
+                    input.getString("text", "© HariMu"),
+                    input.getFloat("opacity", 45f).toInt(),
+                    input.getString("pos", "Kanan Bawah"),
+                    input.getBoolean("tiled", false)
+                )
+                val outFile = ctx.storage.createOutputFile("IMG_WM", "png")
+                ImageIO.encode(out, outFile, "PNG", 100)
+                outFile
+            } finally {
+                if (out != null && out !== src && !out.isRecycled) out.recycle()
+                if (!src.isRecycled) src.recycle()
+            }
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Watermark diterapkan")))
         }.flowOn(Dispatchers.IO)
     },
@@ -129,11 +153,22 @@ fun imageTools(): List<Tool> =
         override fun description(isEnglish: Boolean) = if (isEnglish) "Add clean gallery or Polaroid borders to photos." else "Tambahkan bingkai galeri atau Polaroid rapi di sekeliling foto."
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
-            val src = ImageEngine.decodeBitmapSafe(ctx.appContext, uri)
-            val out = ImageEngine.addBorderFrame(src, input.getFloat("pad", 6f).toInt(), input.getString("color", "#FFFFFF"), input.getBoolean("polaroid", true))
-            val dest = ctx.storage.createOutputFile("IMG_FRAME", "png")
-            ImageEngine.saveBitmap(out, dest)
-            src.recycle(); out.recycle()
+            val src = ImageIO.decodeFullGuarded(ctx.appContext, uri)
+            var out: Bitmap? = null
+            val dest = try {
+                out = ImageEngine.addBorderFrame(
+                    src,
+                    input.getFloat("pad", 6f).toInt(),
+                    input.getString("color", "#FFFFFF"),
+                    input.getBoolean("polaroid", true)
+                )
+                val outFile = ctx.storage.createOutputFile("IMG_FRAME", "png")
+                ImageIO.encode(out, outFile, "PNG", 100)
+                outFile
+            } finally {
+                if (out != null && out !== src && !out.isRecycled) out.recycle()
+                if (!src.isRecycled) src.recycle()
+            }
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Bingkai ditambahkan")))
         }.flowOn(Dispatchers.IO)
     },
@@ -150,9 +185,13 @@ fun imageTools(): List<Tool> =
         override fun description(isEnglish: Boolean) = if (isEnglish) "Create 1080×1350 quote cards directly from text." else "Ubah teks kutipan menjadi poster tipografi 1080×1350 PNG."
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val bmp = ImageEngine.createTypographyPoster(input.textInput, input.getString("style", "Sunset Amber"))
-            val dest = ctx.storage.createOutputFile("POSTER", "png")
-            ImageEngine.saveBitmap(bmp, dest)
-            bmp.recycle()
+            val dest = try {
+                val outFile = ctx.storage.createOutputFile("POSTER", "png")
+                ImageIO.encode(bmp, outFile, "PNG", 100)
+                outFile
+            } finally {
+                if (!bmp.isRecycled) bmp.recycle()
+            }
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Poster 1080×1350 dibuat")))
         }.flowOn(Dispatchers.IO)
     },
@@ -171,11 +210,22 @@ fun imageTools(): List<Tool> =
         override fun description(isEnglish: Boolean) = if (isEnglish) "Blend linear color gradient overlays over photos." else "Lapisi foto dengan efek gradien dua warna yang halus."
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
-            val src = ImageEngine.decodeBitmapSafe(ctx.appContext, uri)
-            val out = ImageEngine.applyGradientOverlay(src, input.getString("startHex", "#FF6B2C"), input.getString("endHex", "#00BFA5"), input.getFloat("opacity", 35f).toInt())
-            val dest = ctx.storage.createOutputFile("IMG_GRAD", "png")
-            ImageEngine.saveBitmap(out, dest)
-            src.recycle(); out.recycle()
+            val src = ImageIO.decodeFullGuarded(ctx.appContext, uri)
+            var out: Bitmap? = null
+            val dest = try {
+                out = ImageEngine.applyGradientOverlay(
+                    src,
+                    input.getString("startHex", "#FF6B2C"),
+                    input.getString("endHex", "#00BFA5"),
+                    input.getFloat("opacity", 35f).toInt()
+                )
+                val outFile = ctx.storage.createOutputFile("IMG_GRAD", "png")
+                ImageIO.encode(out, outFile, "PNG", 100)
+                outFile
+            } finally {
+                if (out != null && out !== src && !out.isRecycled) out.recycle()
+                if (!src.isRecycled) src.recycle()
+            }
             emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Gradien diterapkan")))
         }.flowOn(Dispatchers.IO)
     },
@@ -192,12 +242,19 @@ fun imageTools(): List<Tool> =
         override fun description(isEnglish: Boolean) = if (isEnglish) "Create water-like bottom reflections or symmetrical mirrors." else "Buat pantulan kaca bawah atau cermin simetris."
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
             val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
-            val src = ImageEngine.decodeBitmapSafe(ctx.appContext, uri)
-            val out = ImageEngine.createReflectionEffect(src, input.getString("mode", "Refleksi Bawah"))
-            val dest = ctx.storage.createOutputFile("IMG_REFL", "png")
-            ImageEngine.saveBitmap(out, dest)
-            src.recycle(); out.recycle()
-            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Efek ${input.getString("mode")} selesai")))
+            val mode = input.getString("mode", "Refleksi Bawah")
+            val src = ImageIO.decodeFullGuarded(ctx.appContext, uri)
+            var out: Bitmap? = null
+            val dest = try {
+                out = ImageEngine.createReflectionEffect(src, mode)
+                val outFile = ctx.storage.createOutputFile("IMG_REFL", "png")
+                ImageIO.encode(out, outFile, "PNG", 100)
+                outFile
+            } finally {
+                if (out != null && out !== src && !out.isRecycled) out.recycle()
+                if (!src.isRecycled) src.recycle()
+            }
+            emit(ToolProgress.Done(ToolResult(listOf(ToolOutputFile(dest, "image/png", dest.name)), summary = "Efek $mode selesai")))
         }.flowOn(Dispatchers.IO)
     }
 )

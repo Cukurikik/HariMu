@@ -105,7 +105,6 @@ object ArchiveEngine {
     }
 
     fun detectKind(context: Context, uri: Uri, displayName: String?): Kind? {
-        kindOf(displayName.orEmpty())?.let { return it }
         val header = runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 ByteArray(8).also { buf ->
@@ -115,16 +114,20 @@ object ArchiveEngine {
                         if (n <= 0) break
                         read += n
                     }
+                    if (read < buf.size) return@use buf.copyOf(read)
                 }
             }
-        }.getOrNull() ?: return null
-        return when {
-            header.size >= 2 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() -> Kind.ZIP
-            header.size >= 2 && header[0] == 0x1F.toByte() && header[1] == 0x8B.toByte() -> Kind.TAR_GZ
-            header.size >= 6 && header.copyOfRange(0, 6).contentEquals(byteArrayOf(0x37, 0x7A, 0xBC.toByte(), 0xAF.toByte(), 0x27, 0x1C)) -> Kind.SEVEN_Z
-            header.size >= 7 && header.copyOfRange(0, 7).contentEquals("Rar!\u001A\u0007".toByteArray(Charsets.ISO_8859_1)) -> Kind.RAR
-            else -> null
+        }.getOrNull()
+        if (header != null && header.isNotEmpty()) {
+            return when {
+                header.size >= 2 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() -> Kind.ZIP
+                header.size >= 2 && header[0] == 0x1F.toByte() && header[1] == 0x8B.toByte() -> Kind.TAR_GZ
+                header.size >= 6 && header.copyOfRange(0, 6).contentEquals(byteArrayOf(0x37, 0x7A, 0xBC.toByte(), 0xAF.toByte(), 0x27, 0x1C)) -> Kind.SEVEN_Z
+                header.size >= 4 && header.copyOfRange(0, 4).contentEquals("Rar!".toByteArray(Charsets.US_ASCII)) -> Kind.RAR
+                else -> null
+            }
         }
+        return kindOf(displayName.orEmpty())
     }
 
     // ---------------------------------------------------------------- keamanan

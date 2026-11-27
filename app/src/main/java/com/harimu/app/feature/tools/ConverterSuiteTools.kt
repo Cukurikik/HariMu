@@ -70,8 +70,10 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 berkas .svg")
-            emit(ToolProgress.Running(35, "Merender SVG…"))
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 .svg file" else "Pilih 1 berkas .svg"
+            )
+            emit(ToolProgress.Running(35, if (ctx.isEnglish) "Rendering SVG…" else "Merender SVG…"))
             val isJpeg = input.getString("fmt", "PNG").equals("JPG", true)
             val dest = ctx.storage.createOutputFile("SVG_RASTER", if (isJpeg) "jpg" else "png")
             val rendered = SvgEngine.render(
@@ -123,20 +125,27 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 berkas arsip")
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 archive file" else "Pilih 1 berkas arsip"
+            )
             val name = ctx.storage.getDisplayName(uri)
-            emit(ToolProgress.Running(20, "Membaca arsip…"))
+            emit(ToolProgress.Running(20, if (ctx.isEnglish) "Reading archive…" else "Membaca arsip…"))
             val dest = ctx.storage.createOutputFile("ARCHIVE", "zip")
             val result = ArchiveEngine.extractToZip(
                 ctx.appContext, ctx.storage, uri, dest,
                 input.getString("password", ""), name
             )
+            val summaryText = if (ctx.isEnglish) {
+                "${result.kind.label}: ${result.extracted}/${result.entries.size} entries extracted (${ctx.storage.formatBytes(dest.length())})"
+            } else {
+                "${result.kind.label}: ${result.extracted}/${result.entries.size} entri diekstrak (${ctx.storage.formatBytes(dest.length())})"
+            }
             emit(
                 ToolProgress.Done(
                     ToolResult(
                         listOf(ToolOutputFile(dest, "application/zip", dest.name)),
                         textOutput = result.report(ctx.storage, ctx.isEnglish),
-                        summary = "${result.kind.label}: ${result.extracted}/${result.entries.size} entri diekstrak (${ctx.storage.formatBytes(dest.length())})"
+                        summary = summaryText
                     )
                 )
             )
@@ -163,11 +172,13 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 berkas .epub")
-            emit(ToolProgress.Running(15, "Membaca paket EPUB…"))
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 .epub file" else "Pilih 1 berkas .epub"
+            )
+            emit(ToolProgress.Running(15, if (ctx.isEnglish) "Reading EPUB package…" else "Membaca paket EPUB…"))
             val epub = EbookEngine.readEpub(ctx.appContext, uri)
             val target = input.getString("target", "TXT").uppercase(Locale.US)
-            emit(ToolProgress.Running(60, "Menulis $target…"))
+            emit(ToolProgress.Running(60, if (ctx.isEnglish) "Writing $target…" else "Menulis $target…"))
             val output: ToolOutputFile = when (target) {
                 "HTML" -> {
                     val dest = ctx.storage.createOutputFile("EPUB_HTML", "html")
@@ -185,12 +196,18 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
                     ToolOutputFile(dest, "text/plain", dest.name)
                 }
             }
+            val chapCount = EbookEngine.chapterCount(epub)
+            val summaryText = if (ctx.isEnglish) {
+                "${epub.title} • $chapCount chapters → ${output.displayName} (${ctx.storage.formatBytes(output.file.length())})"
+            } else {
+                "${epub.title} • $chapCount bab → ${output.displayName} (${ctx.storage.formatBytes(output.file.length())})"
+            }
             emit(
                 ToolProgress.Done(
                     ToolResult(
                         listOf(output),
                         textOutput = epub.chapters.take(3).joinToString("\n\n").take(4000),
-                        summary = "${epub.title} • ${EbookEngine.chapterCount(epub)} bab → ${output.displayName} (${ctx.storage.formatBytes(output.file.length())})"
+                        summary = summaryText
                     )
                 )
             )
@@ -218,34 +235,63 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 berkas .cbz/.cbr")
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 .cbz/.cbr file" else "Pilih 1 berkas .cbz/.cbr"
+            )
             val name = ctx.storage.getDisplayName(uri).orEmpty()
-            val kind = if (name.endsWith(".cbr", true)) ArchiveEngine.Kind.RAR else ArchiveEngine.Kind.ZIP
-            emit(ToolProgress.Running(15, "Membaca halaman komik…"))
+            val header = runCatching {
+                ctx.appContext.contentResolver.openInputStream(uri)?.use { stream ->
+                    val buf = ByteArray(8)
+                    val n = stream.read(buf)
+                    if (n > 0) buf.copyOf(n) else ByteArray(0)
+                }
+            }.getOrNull() ?: ByteArray(0)
+            val kind = when {
+                header.size >= 4 && header.copyOfRange(0, 4).contentEquals("Rar!".toByteArray(Charsets.US_ASCII)) -> ArchiveEngine.Kind.RAR
+                header.size >= 2 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() -> ArchiveEngine.Kind.ZIP
+                header.isEmpty() && name.endsWith(".cbr", true) -> ArchiveEngine.Kind.RAR
+                header.isEmpty() && name.endsWith(".cbz", true) -> ArchiveEngine.Kind.ZIP
+                else -> error(
+                    if (ctx.isEnglish) {
+                        "Unsupported comic archive: expected CBZ (ZIP) or CBR (RAR) header."
+                    } else {
+                        "Arsip komik tidak didukung: diperlukan header CBZ (ZIP) atau CBR (RAR)."
+                    }
+                )
+            }
+            emit(ToolProgress.Running(15, if (ctx.isEnglish) "Reading comic pages…" else "Membaca halaman komik…"))
             val pages = EbookEngine.readComic(ctx.appContext, uri, kind)
-            val title = name.substringBeforeLast('.').ifBlank { "Komik" }
+            val title = name.substringBeforeLast('.').ifBlank { if (ctx.isEnglish) "Comic" else "Komik" }
             val target = input.getString("target", "PDF")
             if (target == "EPUB") {
                 val dest = ctx.storage.createOutputFile("COMIC_EPUB", "epub")
-                emit(ToolProgress.Running(65, "Menyusun EPUB…"))
+                emit(ToolProgress.Running(65, if (ctx.isEnglish) "Building EPUB…" else "Menyusun EPUB…"))
                 EbookEngine.comicToEpub(pages, title, dest)
                 emit(
                     ToolProgress.Done(
                         ToolResult(
                             listOf(ToolOutputFile(dest, "application/epub+zip", dest.name)),
-                            summary = "${pages.size} halaman → EPUB (${ctx.storage.formatBytes(dest.length())})"
+                            summary = if (ctx.isEnglish) {
+                                "${pages.size} pages → EPUB (${ctx.storage.formatBytes(dest.length())})"
+                            } else {
+                                "${pages.size} halaman → EPUB (${ctx.storage.formatBytes(dest.length())})"
+                            }
                         )
                     )
                 )
             } else {
                 val dest = ctx.storage.createOutputFile("COMIC_PDF", "pdf")
-                emit(ToolProgress.Running(65, "Menyusun PDF…"))
+                emit(ToolProgress.Running(65, if (ctx.isEnglish) "Building PDF…" else "Menyusun PDF…"))
                 EbookEngine.comicToPdf(ctx.appContext, pages, dest, input.getFloat("width", 2200f).toInt())
                 emit(
                     ToolProgress.Done(
                         ToolResult(
                             listOf(ToolOutputFile(dest, "application/pdf", dest.name)),
-                            summary = "${pages.size} halaman → PDF (${ctx.storage.formatBytes(dest.length())})"
+                            summary = if (ctx.isEnglish) {
+                                "${pages.size} pages → PDF (${ctx.storage.formatBytes(dest.length())})"
+                            } else {
+                                "${pages.size} halaman → PDF (${ctx.storage.formatBytes(dest.length())})"
+                            }
                         )
                     )
                 )
@@ -276,10 +322,12 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 berkas font")
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 font file" else "Pilih 1 berkas font"
+            )
             val bytes = ctx.appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: error("Gagal membaca berkas font")
-            emit(ToolProgress.Running(40, "Mengubah font…"))
+                ?: error(if (ctx.isEnglish) "Failed to read font file" else "Gagal membaca berkas font")
+            emit(ToolProgress.Running(40, if (ctx.isEnglish) "Converting font…" else "Mengubah font…"))
             val direction = input.getString("target", "TTF/OTF → WOFF")
             val conversion = FontEngine.convert(bytes, if (direction.startsWith("WOFF")) "SFNT" else "WOFF")
             val ext = when (conversion.to) {
@@ -338,19 +386,29 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 berkas font TTF/WOFF")
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 TTF/WOFF font file" else "Pilih 1 berkas font TTF/WOFF"
+            )
             val bytes = ctx.appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: error("Gagal membaca berkas font")
-            emit(ToolProgress.Running(30, "Membaca tabel font…"))
+                ?: error(if (ctx.isEnglish) "Failed to read font file" else "Gagal membaca berkas font")
+            emit(ToolProgress.Running(30, if (ctx.isEnglish) "Reading font tables…" else "Membaca tabel font…"))
             val subsetMode = input.getString("mode", "Subset karakter").startsWith("Subset")
             val chars = if (subsetMode) input.getString("chars", "") else ""
             val result = FontEngine.optimizeToWoff(bytes, chars)
             val dest = ctx.storage.createOutputFile("WEBFONT", "woff")
             dest.writeBytes(result.data)
             val note = if (subsetMode) {
-                "Glyph dipertahankan: ${result.keptGlyphs}" + if (result.droppedCodepoints > 0) ", ${result.droppedCodepoints} karakter tidak ada di font" else ""
+                if (ctx.isEnglish) {
+                    "Glyphs kept: ${result.keptGlyphs}" + if (result.droppedCodepoints > 0) ", ${result.droppedCodepoints} missing from font" else ""
+                } else {
+                    "Glyph dipertahankan: ${result.keptGlyphs}" + if (result.droppedCodepoints > 0) ", ${result.droppedCodepoints} karakter tidak ada di font" else ""
+                }
             } else {
-                "Semua glyph dipertahankan; tabel hinting/tata letak dibuang"
+                if (ctx.isEnglish) {
+                    "All glyphs kept; hinting/layout tables dropped"
+                } else {
+                    "Semua glyph dipertahankan; tabel hinting/tata letak dibuang"
+                }
             }
             emit(
                 ToolProgress.Done(
@@ -393,7 +451,11 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
                 isEnglish = ctx.isEnglish
             )
             if (!validation.valid) {
-                emit(ToolProgress.Failed(validation.errorMessage ?: "Video tidak valid"))
+                emit(
+                    ToolProgress.Failed(
+                        validation.errorMessage ?: if (ctx.isEnglish) "Invalid video" else "Video tidak valid"
+                    )
+                )
                 return@flow
             }
             val probe = validation.probes.first()
@@ -471,7 +533,11 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
                 ctx.appContext, ctx.storage, input.uris, 1, ctx.isEnglish
             )
             if (!validation.valid) {
-                emit(ToolProgress.Failed(validation.errorMessage ?: "Audio tidak valid"))
+                emit(
+                    ToolProgress.Failed(
+                        validation.errorMessage ?: if (ctx.isEnglish) "Invalid audio" else "Audio tidak valid"
+                    )
+                )
                 return@flow
             }
             val probe = validation.probes.first()
@@ -567,11 +633,46 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-            val uri = input.uris.firstOrNull() ?: error("Pilih berkas PDF atau .docx")
-            val name = ctx.storage.getDisplayName(uri).orEmpty()
-            val targetId = if (name.endsWith(".docx", true)) "PDF-07" else "PDF-06"
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select a PDF or .docx file" else "Pilih berkas PDF atau .docx"
+            )
+            val header = runCatching {
+                ctx.appContext.contentResolver.openInputStream(uri)?.use { stream ->
+                    val buf = ByteArray(8)
+                    val n = stream.read(buf)
+                    if (n > 0) buf.copyOf(n) else ByteArray(0)
+                }
+            }.getOrNull() ?: ByteArray(0)
+            val targetId = when {
+                header.size >= 5 && header.copyOfRange(0, 5).contentEquals("%PDF-".toByteArray(Charsets.US_ASCII)) -> "PDF-06"
+                header.size >= 2 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() -> {
+                    val temp = ctx.storage.copyUriToTemp(uri, "cnv13_chk", "zip")
+                    try {
+                        val hasDocxEntry = runCatching {
+                            java.util.zip.ZipFile(temp).use { zip -> zip.getEntry("word/document.xml") != null }
+                        }.getOrDefault(false)
+                        if (hasDocxEntry) "PDF-07"
+                        else error(
+                            if (ctx.isEnglish) {
+                                "ZIP archive is not a .docx document (missing word/document.xml)."
+                            } else {
+                                "Arsip ZIP ini bukan dokumen .docx (tidak ada word/document.xml)."
+                            }
+                        )
+                    } finally {
+                        temp.delete()
+                    }
+                }
+                else -> error(
+                    if (ctx.isEnglish) {
+                        "Unsupported file: select a valid PDF or Word (.docx) document."
+                    } else {
+                        "Format berkas tidak didukung: pilih dokumen PDF atau Word (.docx) yang valid."
+                    }
+                )
+            }
             val target = ToolRegistry.findById(targetId)
-                ?: error("Tool tujuan $targetId tidak tersedia")
+                ?: error(if (ctx.isEnglish) "Target tool $targetId unavailable" else "Tool tujuan $targetId tidak tersedia")
             emitAll(target.run(ctx, input))
         }.flowOn(Dispatchers.IO)
     }

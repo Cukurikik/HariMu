@@ -96,33 +96,44 @@ fun ToolScreen(
     val tool = state.tool ?: return
 
     // Auto-fill ID3 tags (AUD-18), PDF metadata (PDF-19), and AcroForm fields (PDF-21)
+    var lastAutoFilledPdfUri by remember(tool.id) { mutableStateOf<android.net.Uri?>(null) }
     LaunchedEffect(tool.id, state.selectedUris) {
-        if (tool.id == "AUD-18" && state.selectedUris.isNotEmpty()) {
+        val firstUri = state.selectedUris.firstOrNull()
+        if (firstUri == null) {
+            if (lastAutoFilledPdfUri != null) {
+                lastAutoFilledPdfUri = null
+            }
+            return@LaunchedEffect
+        }
+        if (tool.id == "AUD-18") {
             val existing = withContext(Dispatchers.IO) {
-                Id3TagHelper.readTags(context, state.selectedUris.first())
+                Id3TagHelper.readTags(context, firstUri)
             }
             if ((state.paramValues["title"]?.toString()).isNullOrBlank() && existing.title.isNotBlank()) vm.setParam("title", existing.title)
             if ((state.paramValues["artist"]?.toString()).isNullOrBlank() && existing.artist.isNotBlank()) vm.setParam("artist", existing.artist)
             if ((state.paramValues["album"]?.toString()).isNullOrBlank() && existing.album.isNotBlank()) vm.setParam("album", existing.album)
             if ((state.paramValues["year"]?.toString()).isNullOrBlank() && existing.year.isNotBlank()) vm.setParam("year", existing.year)
             if ((state.paramValues["genre"]?.toString()).isNullOrBlank() && existing.genre.isNotBlank()) vm.setParam("genre", existing.genre)
-        } else if (tool.id == "PDF-19" && state.selectedUris.isNotEmpty()) {
+        } else if (tool.id == "PDF-19" && lastAutoFilledPdfUri != firstUri) {
+            val password = state.paramValues["password"]?.toString().orEmpty()
             val existing = withContext(Dispatchers.IO) {
-                runCatching { PdfVaultEngine.readMetadata(context, container.storage, state.selectedUris.first()) }
-                    .getOrDefault(emptyMap())
+                runCatching { PdfVaultEngine.readMetadata(context, container.storage, firstUri, password) }
+                    .getOrNull()
             }
-            listOf("title", "author", "subject", "keywords").forEach { key ->
-                val cur = state.paramValues[key]?.toString().orEmpty()
-                val readVal = existing[key].orEmpty()
-                if (cur.isBlank() && readVal.isNotBlank()) vm.setParam(key, readVal)
+            if (existing != null) {
+                lastAutoFilledPdfUri = firstUri
+                listOf("title", "author", "subject", "keywords").forEach { key ->
+                    vm.setParam(key, existing[key].orEmpty())
+                }
             }
-        } else if (tool.id == "PDF-21" && state.selectedUris.isNotEmpty()) {
+        } else if (tool.id == "PDF-21" && lastAutoFilledPdfUri != firstUri) {
+            val password = state.paramValues["password"]?.toString().orEmpty()
             val fields = withContext(Dispatchers.IO) {
-                runCatching { PdfVaultEngine.listFormFields(context, container.storage, state.selectedUris.first()) }
-                    .getOrDefault(emptyList())
+                runCatching { PdfVaultEngine.listFormFields(context, container.storage, firstUri, password) }
+                    .getOrNull()
             }
-            val cur = state.paramValues["values"]?.toString().orEmpty()
-            if (cur.isBlank() && fields.isNotEmpty()) {
+            if (fields != null) {
+                lastAutoFilledPdfUri = firstUri
                 vm.setParam("values", fields.joinToString("|") { "${it.first}=${it.second}" })
             }
         }

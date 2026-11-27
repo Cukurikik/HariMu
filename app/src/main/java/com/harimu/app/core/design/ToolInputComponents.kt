@@ -385,6 +385,16 @@ fun ToolInputPreview(
                 modifier = modifier
             )
         }
+        InputSpec.AnyFile -> {
+            selectedUris.firstOrNull()?.let { uri ->
+                DocumentFileInfoPreviewCard(
+                    uri = uri,
+                    storage = storage,
+                    fileCount = selectedUris.size,
+                    modifier = modifier
+                )
+            }
+        }
         else -> Unit
     }
 }
@@ -656,6 +666,73 @@ private fun PdfPreviewCard(
         maxHeightDp = 240.dp,
         modifier = modifier
     )
+}
+
+@Composable
+private fun DocumentFileInfoPreviewCard(
+    uri: Uri,
+    storage: FileStorageManager,
+    fileCount: Int,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val displayName = remember(uri) { storage.getDisplayName(uri) ?: "document" }
+    var fileSizeBytes by remember(uri) { mutableStateOf<Long?>(null) }
+    LaunchedEffect(uri) {
+        fileSizeBytes = withContext(Dispatchers.IO) {
+            runCatching {
+                if (uri.scheme == "file") {
+                    uri.path?.let { java.io.File(it).length() }
+                } else {
+                    context.contentResolver.query(
+                        uri,
+                        arrayOf(android.provider.OpenableColumns.SIZE),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getLong(0).takeIf { it > 0L } else null
+                    }
+                }
+            }.getOrNull()
+        }
+    }
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("document_input_preview_card"),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Description,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(R.string.preview_document_file_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                val sizeSuffix = fileSizeBytes?.takeIf { it > 0L }?.let { " • ${storage.formatBytes(it)}" }.orEmpty()
+                val countSuffix = if (fileCount > 1) " (+${fileCount - 1})" else ""
+                Text(
+                    text = "$displayName$sizeSuffix$countSuffix",
+                    style = MonoTextStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
 
 @Composable

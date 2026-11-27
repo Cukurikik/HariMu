@@ -73,16 +73,21 @@ import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.pdf.PdfVaultEngine
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.coroutineContext
 import kotlin.math.roundToInt
 
 data class PdfQueueItem(
     val uri: Uri,
     val name: String,
     val pageCount: Int,
-    val sizeBytes: Long
+    val sizeBytes: Long,
+    val isEncrypted: Boolean = false
 )
 
 @Composable
@@ -171,6 +176,13 @@ fun PdfMergeQueueCard(
                                 style = MonoTextStyle,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (item.isEncrypted) {
+                                Text(
+                                    text = stringResource(R.string.pdf_preview_meta_locked),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                         IconButton(
                             onClick = { onMoveUp(index) },
@@ -218,47 +230,91 @@ fun PdfPageStripOrganizer(
     var totalPages by remember(pdfUri, password) { mutableIntStateOf(0) }
     var loading by remember(pdfUri, password) { mutableStateOf(true) }
     var encryptedError by remember(pdfUri, password) { mutableStateOf(false) }
+    var wrongPasswordError by remember(pdfUri, password) { mutableStateOf(false) }
+    var renderError by remember(pdfUri, password) { mutableStateOf<String?>(null) }
 
     DisposableEffect(pdfUri, password) {
         onDispose {
-            thumbnails.forEach { if (!it.isRecycled) it.recycle() }
+            val old = thumbnails.toList()
             thumbnails.clear()
+            old.forEach { if (!it.isRecycled) it.recycle() }
         }
     }
 
     LaunchedEffect(pdfUri, password) {
         loading = true
         encryptedError = false
-        thumbnails.forEach { if (!it.isRecycled) it.recycle() }
+        wrongPasswordError = false
+        renderError = null
+        totalPages = 0
+        val old = thumbnails.toList()
         thumbnails.clear()
+        old.forEach { if (!it.isRecycled) it.recycle() }
         withContext(Dispatchers.IO) {
             var temp: File? = null
             try {
-                temp = PdfVaultEngine.prepareRenderableTemp(context, storage, pdfUri, password)
-                ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
-                    PdfRenderer(descriptor).use { renderer ->
-                        totalPages = renderer.pageCount
-                        val limit = minOf(renderer.pageCount, 60)
-                        for (index in 0 until limit) {
-                            val page = renderer.openPage(index)
-                            val w = 132
-                            val h = (w * page.height.toFloat() / page.width.coerceAtLeast(1))
-                                .roundToInt()
-                                .coerceAtLeast(1)
-                            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                            bmp.eraseColor(AndroidColor.WHITE)
-                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            page.close()
-                            withContext(Dispatchers.Main) { thumbnails.add(bmp) }
+                val (renderFile, count) = PdfVaultEngine.prepareRenderableTempWithCount(
+                    context, storage, pdfUri, password
+                )
+                temp = renderFile
+                withContext(Dispatchers.Main) { totalPages = count }
+                runCatching {
+                    ParcelFileDescriptor.open(renderFile, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+                        PdfRenderer(descriptor).use { renderer ->
+                            val limit = minOf(renderer.pageCount, 60)
+                            for (index in 0 until limit) {
+                                if (!coroutineContext.isActive) break
+                                val page = renderer.openPage(index)
+                                var bmp: Bitmap? = null
+                                val rendered = try {
+                                    val w = 132
+                                    val h = (w * page.height.toFloat() / page.width.coerceAtLeast(1))
+                                        .roundToInt()
+                                        .coerceAtLeast(1)
+                                    Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                                        bmp = it
+                                        it.eraseColor(AndroidColor.WHITE)
+                                        page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                    }
+                                } catch (t: Throwable) {
+                                    bmp?.takeIf { !it.isRecycled }?.recycle()
+                                    throw t
+                                } finally {
+                                    page.close()
+                                }
+                                withContext(Dispatchers.Main) {
+                                    if (coroutineContext.isActive) {
+                                        thumbnails.add(rendered)
+                                    } else if (!rendered.isRecycled) {
+                                        rendered.recycle()
+                                    }
+                                }
+                            }
                         }
                     }
+                }.onFailure { err ->
+                    if (err is CancellationException) throw err
+                    // If PDFBox already parsed pageCount (>0), keep page selection/ordering working
+                    // with icon placeholders even when platform PdfRenderer fails to rasterize thumbnails.
+                }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: InvalidPasswordException) {
+                withContext(Dispatchers.Main) {
+                    encryptedError = true
+                    wrongPasswordError = password.isNotBlank()
                 }
             } catch (_: SecurityException) {
-                encryptedError = true
-            } catch (_: Throwable) {
-                encryptedError = false
+                withContext(Dispatchers.Main) {
+                    encryptedError = true
+                    wrongPasswordError = false
+                }
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main) {
+                    renderError = t.localizedMessage ?: context.getString(R.string.pdf_picker_render_error)
+                }
             } finally {
-                loading = false
+                withContext(Dispatchers.Main) { loading = false }
                 temp?.delete()
             }
         }
@@ -275,7 +331,18 @@ fun PdfPageStripOrganizer(
     ) {
         if (encryptedError) {
             Text(
-                text = stringResource(R.string.pdf_preview_encrypted),
+                text = stringResource(
+                    if (wrongPasswordError) R.string.pdf_preview_wrong_password
+                    else R.string.pdf_preview_encrypted
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            return@Column
+        }
+        renderError?.let { errMsg ->
+            Text(
+                text = errMsg,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
@@ -290,6 +357,14 @@ fun PdfPageStripOrganizer(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (totalPages > 60) {
+            Text(
+                text = stringResource(R.string.pdf_picker_thumb_limit_notice, totalPages),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("pdf_picker_thumb_limit_notice")
+            )
+        }
 
         if (!reorderMode && totalPages > 0) {
             FlowRow(
@@ -336,6 +411,7 @@ fun PdfPageStripOrganizer(
                             slotIndex = index,
                             totalSlots = effectiveOrder.size,
                             bitmap = thumbnails.getOrNull(pageNumber - 1),
+                            isLoadingThumb = loading && pageNumber <= 60,
                             rotationDeg = previewRotationDeg,
                             onMoveLeft = {
                                 if (index > 0) {
@@ -368,6 +444,7 @@ fun PdfPageStripOrganizer(
                         SelectablePageTile(
                             pageNumber = pageNumber,
                             bitmap = thumbnails.getOrNull(pageNumber - 1),
+                            isLoadingThumb = loading && pageNumber <= 60,
                             selected = isSelected,
                             rotationDeg = if (selectedPages.isEmpty() || isSelected) previewRotationDeg else 0,
                             onClick = {
@@ -386,6 +463,7 @@ fun PdfPageStripOrganizer(
 private fun SelectablePageTile(
     pageNumber: Int,
     bitmap: Bitmap?,
+    isLoadingThumb: Boolean,
     selected: Boolean,
     rotationDeg: Int,
     onClick: () -> Unit
@@ -422,8 +500,25 @@ private fun SelectablePageTile(
                         .fillMaxWidth()
                         .graphicsLayer { rotationZ = rotationDeg.toFloat() }
                 )
-            } else {
+            } else if (isLoadingThumb) {
                 Text("…", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PictureAsPdf,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.pdf_picker_page_short, pageNumber),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (selected) {
                 Box(
@@ -453,6 +548,7 @@ private fun ReorderPageTile(
     slotIndex: Int,
     totalSlots: Int,
     bitmap: Bitmap?,
+    isLoadingThumb: Boolean,
     rotationDeg: Int,
     onMoveLeft: () -> Unit,
     onMoveRight: () -> Unit,
@@ -481,8 +577,25 @@ private fun ReorderPageTile(
                         .fillMaxWidth()
                         .graphicsLayer { rotationZ = rotationDeg.toFloat() }
                 )
-            } else {
+            } else if (isLoadingThumb) {
                 Text("…", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PictureAsPdf,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.pdf_picker_page_short, pageNumber),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (onRemove != null) {
                 IconButton(

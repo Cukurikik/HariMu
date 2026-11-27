@@ -115,9 +115,16 @@ private object Batch1Support {
         val left = (source.width - side) / 2
         val top = (source.height - side) / 2
         val square = Bitmap.createBitmap(source, left, top, side, side)
-        val scaled = Bitmap.createScaledBitmap(square, size, size, true)
-        if (scaled != square) square.recycle()
-        return scaled
+        return try {
+            val scaled = Bitmap.createScaledBitmap(square, size, size, true)
+            if (scaled === square) {
+                square.copy(Bitmap.Config.ARGB_8888, false)
+            } else {
+                scaled
+            }
+        } finally {
+            if (!square.isRecycled) square.recycle()
+        }
     }
 
     fun circular(source: Bitmap): Bitmap {
@@ -137,13 +144,16 @@ private object Batch1Support {
         val canvas = Canvas(out)
         val inner = (size * 0.72f).roundToInt().coerceAtLeast(1)
         val scaled = Bitmap.createScaledBitmap(source, inner, inner, true)
-        canvas.drawBitmap(
-            scaled,
-            ((size - inner) / 2f),
-            ((size - inner) / 2f),
-            Paint(Paint.FILTER_BITMAP_FLAG)
-        )
-        scaled.recycle()
+        try {
+            canvas.drawBitmap(
+                scaled,
+                ((size - inner) / 2f),
+                ((size - inner) / 2f),
+                Paint(Paint.FILTER_BITMAP_FLAG)
+            )
+        } finally {
+            if (scaled !== source && !scaled.isRecycled) scaled.recycle()
+        }
         return out
     }
 
@@ -199,10 +209,14 @@ private fun cropProTool(): Tool = object : Tool {
         )
         emit(ToolProgress.Running(45, "Mendekode area ${rect.width}×${rect.height} (resolusi penuh)..."))
         val cropped = ImageIO.decodeRegionFullRes(ctx.appContext, uri, rect, info.orientation)
-        emit(ToolProgress.Running(80, "Menyimpan hasil..."))
-        val dest = ctx.storage.createOutputFile("IMG_CROP", ImageFormatMatrix.extensionFor(entry.id))
-        Batch1Support.encodeFile(cropped, dest, entry.id, 95)
-        cropped.recycle()
+        val dest = try {
+            emit(ToolProgress.Running(80, "Menyimpan hasil..."))
+            val outFile = ctx.storage.createOutputFile("IMG_CROP", ImageFormatMatrix.extensionFor(entry.id))
+            Batch1Support.encodeFile(cropped, outFile, entry.id, 95)
+            outFile
+        } finally {
+            if (!cropped.isRecycled) cropped.recycle()
+        }
         var extra = ""
         if (input.getBoolean("keepExif", true)) {
             val copied = ImageIO.copyExif(ctx.appContext, uri, dest)
@@ -249,14 +263,18 @@ private fun rotateTool(): Tool = object : Tool {
         val entry = ImageFormatMatrix.requireEncodable(input.getString("format", "JPG"))
         emit(ToolProgress.Running(20, "Mendekode gambar resolusi penuh..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        emit(ToolProgress.Running(60, "Memutar ${degrees.toInt()}°..."))
-        val matrix = Matrix().apply { postRotate(degrees) }
-        val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_ROT", ImageFormatMatrix.extensionFor(entry.id))
-        Batch1Support.encodeFile(rotated, dest, entry.id, 95)
-        val size = "${rotated.width}×${rotated.height}"
-        rotated.recycle()
+        var rotated: Bitmap? = null
+        val (dest, size) = try {
+            emit(ToolProgress.Running(60, "Memutar ${degrees.toInt()}°..."))
+            val matrix = Matrix().apply { postRotate(degrees) }
+            rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+            val outFile = ctx.storage.createOutputFile("IMG_ROT", ImageFormatMatrix.extensionFor(entry.id))
+            Batch1Support.encodeFile(rotated, outFile, entry.id, 95)
+            outFile to "${rotated.width}×${rotated.height}"
+        } finally {
+            if (rotated != null && rotated !== source && !rotated.isRecycled) rotated.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         if (input.getBoolean("keepExif", true)) ImageIO.copyExif(ctx.appContext, uri, dest)
         if (entry.id == "JPG") {
             val icc = ImageIO.readJpegIccProfile(ctx.appContext, uri)
@@ -301,39 +319,48 @@ private fun canvasExpanderTool(): Tool = object : Tool {
         }
         emit(ToolProgress.Running(25, "Mendekode gambar..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        val (outW, outH) = ImageGeometryMath.expandCanvasSize(source.width, source.height, ratio)
-        emit(ToolProgress.Running(60, "Menyusun kanvas ${outW}×${outH}..."))
-        val background = ImageEngine.parseColorSafe(
-            input.getString("bgHex", "#13161F"),
-            Color.parseColor("#13161F")
-        )
-        val out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(out)
-        canvas.drawColor(background)
-        if (input.getString("mode", "Blur latar") == "Blur latar") {
-            val coverScale = max(outW.toFloat() / source.width, outH.toFloat() / source.height)
-            val coverW = (source.width * coverScale).roundToInt().coerceAtLeast(1)
-            val coverH = (source.height * coverScale).roundToInt().coerceAtLeast(1)
-            val cover = Bitmap.createScaledBitmap(source, coverW, coverH, true)
-            val tinyW = max(1, outW / 32)
-            val tinyH = max(1, outH / 32)
-            val tiny = Bitmap.createScaledBitmap(cover, tinyW, tinyH, true)
-            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-            val target = Rect(
-                (outW - coverW) / 2,
-                (outH - coverH) / 2,
-                (outW - coverW) / 2 + coverW,
-                (outH - coverH) / 2 + coverH
+        var out: Bitmap? = null
+        val (outW, outH, dest) = try {
+            val (targetW, targetH) = ImageGeometryMath.expandCanvasSize(source.width, source.height, ratio)
+            emit(ToolProgress.Running(60, "Menyusun kanvas ${targetW}×${targetH}..."))
+            val background = ImageEngine.parseColorSafe(
+                input.getString("bgHex", "#13161F"),
+                Color.parseColor("#13161F")
             )
-            canvas.drawBitmap(tiny, null, RectF(target), paint)
-            tiny.recycle()
-            cover.recycle()
+            out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(out)
+            canvas.drawColor(background)
+            if (input.getString("mode", "Blur latar") == "Blur latar") {
+                val coverScale = max(targetW.toFloat() / source.width, targetH.toFloat() / source.height)
+                val coverW = (source.width * coverScale).roundToInt().coerceAtLeast(1)
+                val coverH = (source.height * coverScale).roundToInt().coerceAtLeast(1)
+                val cover = Bitmap.createScaledBitmap(source, coverW, coverH, true)
+                var tiny: Bitmap? = null
+                try {
+                    val tinyW = max(1, targetW / 32)
+                    val tinyH = max(1, targetH / 32)
+                    tiny = Bitmap.createScaledBitmap(cover, tinyW, tinyH, true)
+                    val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+                    val target = Rect(
+                        (targetW - coverW) / 2,
+                        (targetH - coverH) / 2,
+                        (targetW - coverW) / 2 + coverW,
+                        (targetH - coverH) / 2 + coverH
+                    )
+                    canvas.drawBitmap(tiny, null, RectF(target), paint)
+                } finally {
+                    if (tiny != null && tiny !== cover && !tiny.isRecycled) tiny.recycle()
+                    if (cover !== source && !cover.isRecycled) cover.recycle()
+                }
+            }
+            canvas.drawBitmap(source, (targetW - source.width) / 2f, (targetH - source.height) / 2f, null)
+            val outFile = ctx.storage.createOutputFile("IMG_CANVAS", "png")
+            Batch1Support.encodeFile(out, outFile, "PNG")
+            Triple(targetW, targetH, outFile)
+        } finally {
+            if (out != null && !out.isRecycled) out.recycle()
+            if (!source.isRecycled) source.recycle()
         }
-        canvas.drawBitmap(source, (outW - source.width) / 2f, (outH - source.height) / 2f, null)
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_CANVAS", "png")
-        Batch1Support.encodeFile(out, dest, "PNG")
-        out.recycle()
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -373,35 +400,36 @@ private fun perspectiveTool(): Tool = object : Tool {
         val entry = ImageFormatMatrix.requireEncodable(input.getString("format", "PNG"))
         emit(ToolProgress.Running(20, "Mendekode gambar..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        val quad = Quad.fromPercents(
-            source.width,
-            source.height,
-            input.getFloat("tlX", PERSPECTIVE_DEFAULT_TL_X),
-            input.getFloat("tlY", PERSPECTIVE_DEFAULT_TL_Y),
-            input.getFloat("trX", PERSPECTIVE_DEFAULT_TR_X),
-            input.getFloat("trY", PERSPECTIVE_DEFAULT_TR_Y),
-            input.getFloat("brX", PERSPECTIVE_DEFAULT_BR_X),
-            input.getFloat("brY", PERSPECTIVE_DEFAULT_BR_Y),
-            input.getFloat("blX", PERSPECTIVE_DEFAULT_BL_X),
-            input.getFloat("blY", PERSPECTIVE_DEFAULT_BL_Y)
-        )
-        ImageGeometryMath.quadValidationError(quad, source.width, source.height)?.let { reason ->
-            source.recycle()
-            throw IllegalStateException("$reason. Atur ulang 4 titik lewat kartu pratinjau.")
-        }
-        val (outW, outH) = ImageGeometryMath.perspectiveOutputSize(quad)
-        val values = ImageGeometryMath.perspectiveMatrixValues(quad, outW, outH)
-            ?: run {
-                source.recycle()
-                throw IllegalStateException("Homografi tidak dapat dihitung dari titik tersebut. Ubah posisi titik.")
+        var warped: Bitmap? = null
+        val (outW, outH, dest) = try {
+            val quad = Quad.fromPercents(
+                source.width,
+                source.height,
+                input.getFloat("tlX", PERSPECTIVE_DEFAULT_TL_X),
+                input.getFloat("tlY", PERSPECTIVE_DEFAULT_TL_Y),
+                input.getFloat("trX", PERSPECTIVE_DEFAULT_TR_X),
+                input.getFloat("trY", PERSPECTIVE_DEFAULT_TR_Y),
+                input.getFloat("brX", PERSPECTIVE_DEFAULT_BR_X),
+                input.getFloat("brY", PERSPECTIVE_DEFAULT_BR_Y),
+                input.getFloat("blX", PERSPECTIVE_DEFAULT_BL_X),
+                input.getFloat("blY", PERSPECTIVE_DEFAULT_BL_Y)
+            )
+            ImageGeometryMath.quadValidationError(quad, source.width, source.height)?.let { reason ->
+                throw IllegalStateException("$reason. Atur ulang 4 titik lewat kartu pratinjau.")
             }
-        emit(ToolProgress.Running(65, "Memetakan perspektif ke ${outW}×${outH}..."))
-        val matrix = Matrix().apply { setValues(values) }
-        val warped = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("IMG_PERSP", ImageFormatMatrix.extensionFor(entry.id))
-        Batch1Support.encodeFile(warped, dest, entry.id, 95)
-        warped.recycle()
+            val (targetW, targetH) = ImageGeometryMath.perspectiveOutputSize(quad)
+            val values = ImageGeometryMath.perspectiveMatrixValues(quad, targetW, targetH)
+                ?: throw IllegalStateException("Homografi tidak dapat dihitung dari titik tersebut. Ubah posisi titik.")
+            emit(ToolProgress.Running(65, "Memetakan perspektif ke ${targetW}×${targetH}..."))
+            val matrix = Matrix().apply { setValues(values) }
+            warped = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+            val outFile = ctx.storage.createOutputFile("IMG_PERSP", ImageFormatMatrix.extensionFor(entry.id))
+            Batch1Support.encodeFile(warped, outFile, entry.id, 95)
+            Triple(targetW, targetH, outFile)
+        } finally {
+            if (warped != null && warped !== source && !warped.isRecycled) warped.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -435,37 +463,41 @@ private fun straightenTool(): Tool = object : Tool {
         val angle = input.getFloat("angle", 3f)
         emit(ToolProgress.Running(20, "Mendekode gambar..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        val originalWidth = source.width
-        val originalHeight = source.height
-        val (canvasW, canvasH) = ImageGeometryMath.rotatedBounds(originalWidth, originalHeight, angle)
-        val rotated = Bitmap.createBitmap(canvasW, canvasH, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(rotated)
-        val background = if (input.getString("fill", "Potong otomatis") == "Warna latar") {
-            ImageEngine.parseColorSafe(input.getString("bgHex", "#13161F"), Color.parseColor("#13161F"))
-        } else {
-            Color.TRANSPARENT
+        var rotated: Bitmap? = null
+        var out: Bitmap? = null
+        val (dest, size) = try {
+            val originalWidth = source.width
+            val originalHeight = source.height
+            val (canvasW, canvasH) = ImageGeometryMath.rotatedBounds(originalWidth, originalHeight, angle)
+            rotated = Bitmap.createBitmap(canvasW, canvasH, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(rotated)
+            val background = if (input.getString("fill", "Potong otomatis") == "Warna latar") {
+                ImageEngine.parseColorSafe(input.getString("bgHex", "#13161F"), Color.parseColor("#13161F"))
+            } else {
+                Color.TRANSPARENT
+            }
+            canvas.drawColor(background)
+            val matrix = Matrix()
+            matrix.postTranslate((canvasW - source.width) / 2f, (canvasH - source.height) / 2f)
+            matrix.postRotate(angle, canvasW / 2f, canvasH / 2f)
+            canvas.drawBitmap(source, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
+            emit(ToolProgress.Running(65, "Memotong tepi kosong..."))
+            out = if (input.getString("fill", "Potong otomatis") == "Potong otomatis") {
+                val region = ImageGeometryMath
+                    .straightenSafeRect(originalWidth, originalHeight, angle)
+                    .clampedTo(canvasW, canvasH)
+                Bitmap.createBitmap(rotated, region.left, region.top, region.width, region.height)
+            } else {
+                rotated
+            }
+            val outFile = ctx.storage.createOutputFile("IMG_STRAIGHT", "png")
+            Batch1Support.encodeFile(out, outFile, "PNG")
+            outFile to "${out.width}×${out.height}"
+        } finally {
+            if (out != null && out !== rotated && !out.isRecycled) out.recycle()
+            if (rotated != null && !rotated.isRecycled) rotated.recycle()
+            if (!source.isRecycled) source.recycle()
         }
-        canvas.drawColor(background)
-        val matrix = Matrix()
-        matrix.postTranslate((canvasW - source.width) / 2f, (canvasH - source.height) / 2f)
-        matrix.postRotate(angle, canvasW / 2f, canvasH / 2f)
-        canvas.drawBitmap(source, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
-        source.recycle()
-        emit(ToolProgress.Running(65, "Memotong tepi kosong..."))
-        val out = if (input.getString("fill", "Potong otomatis") == "Potong otomatis") {
-            val region = ImageGeometryMath
-                .straightenSafeRect(originalWidth, originalHeight, angle)
-                .clampedTo(canvasW, canvasH)
-            val cropped = Bitmap.createBitmap(rotated, region.left, region.top, region.width, region.height)
-            rotated.recycle()
-            cropped
-        } else {
-            rotated
-        }
-        val dest = ctx.storage.createOutputFile("IMG_STRAIGHT", "png")
-        Batch1Support.encodeFile(out, dest, "PNG")
-        val size = "${out.width}×${out.height}"
-        out.recycle()
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -498,11 +530,15 @@ private fun autoCropTool(): Tool = object : Tool {
         emit(ToolProgress.Running(15, "Menganalisis konten gambar..."))
         val info = ImageIO.readSourceInfo(ctx.appContext, uri, ctx.storage.getDisplayName(uri))
         val preview = ImageIO.decodePreview(ctx.appContext, uri, 96)
-        val gridW = preview.width
-        val gridH = preview.height
-        val pixels = IntArray(gridW * gridH)
-        preview.getPixels(pixels, 0, gridW, 0, 0, gridW, gridH)
-        preview.recycle()
+        val (gridW, gridH, pixels) = try {
+            val w = preview.width
+            val h = preview.height
+            val px = IntArray(w * h)
+            preview.getPixels(px, 0, w, 0, 0, w, h)
+            Triple(w, h, px)
+        } finally {
+            if (!preview.isRecycled) preview.recycle()
+        }
         val box = ImageGeometryMath.saliencyBoundingBox(
             pixels,
             gridW,
@@ -527,9 +563,13 @@ private fun autoCropTool(): Tool = object : Tool {
         )
         emit(ToolProgress.Running(55, "Mendekode area ${padded.width}×${padded.height}..."))
         val cropped = ImageIO.decodeRegionFullRes(ctx.appContext, uri, padded, info.orientation)
-        val dest = ctx.storage.createOutputFile("IMG_AUTOCROP", "png")
-        Batch1Support.encodeFile(cropped, dest, "PNG")
-        cropped.recycle()
+        val dest = try {
+            val outFile = ctx.storage.createOutputFile("IMG_AUTOCROP", "png")
+            Batch1Support.encodeFile(cropped, outFile, "PNG")
+            outFile
+        } finally {
+            if (!cropped.isRecycled) cropped.recycle()
+        }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -565,49 +605,66 @@ private fun alignmentTool(): Tool = object : Tool {
         val alignSize = 128
         emit(ToolProgress.Running(10, "Menyiapkan pratinjau penyelarasan..."))
         val reference = ImageIO.decodePreview(ctx.appContext, input.uris.first(), alignSize)
-        val refGrid = Bitmap.createScaledBitmap(reference, alignSize, alignSize, true)
+        var refGrid: Bitmap? = null
         val refPixels = IntArray(alignSize * alignSize)
-        refGrid.getPixels(refPixels, 0, alignSize, 0, 0, alignSize, alignSize)
-        refGrid.recycle()
-        if (refGrid !== reference) reference.recycle()
+        try {
+            refGrid = Bitmap.createScaledBitmap(reference, alignSize, alignSize, true)
+            refGrid.getPixels(refPixels, 0, alignSize, 0, 0, alignSize, alignSize)
+        } finally {
+            if (refGrid != null && refGrid !== reference && !refGrid.isRecycled) refGrid.recycle()
+            if (!reference.isRecycled) reference.recycle()
+        }
         val maxShiftPx = (alignSize * maxShiftPct / 100f).roundToInt().coerceAtLeast(1)
         val offsetList = mutableListOf<Pair<Int, Int>>()
         for (index in 1 until input.uris.size) {
             emit(ToolProgress.Running(10 + index * 10, "Menghitung offset gambar ${index + 1}..."))
             val preview = ImageIO.decodePreview(ctx.appContext, input.uris[index], alignSize)
-            val grid = Bitmap.createScaledBitmap(preview, alignSize, alignSize, true)
-            preview.recycle()
+            var grid: Bitmap? = null
             val pixels = IntArray(alignSize * alignSize)
-            grid.getPixels(pixels, 0, alignSize, 0, 0, alignSize, alignSize)
-            grid.recycle()
-            if (grid !== preview) preview.recycle()
+            try {
+                grid = Bitmap.createScaledBitmap(preview, alignSize, alignSize, true)
+                grid.getPixels(pixels, 0, alignSize, 0, 0, alignSize, alignSize)
+            } finally {
+                if (grid != null && grid !== preview && !grid.isRecycled) grid.recycle()
+                if (!preview.isRecycled) preview.recycle()
+            }
             offsetList += ImageGeometryMath.alignmentOffset(refPixels, pixels, alignSize, alignSize, maxShiftPx)
         }
 
         emit(ToolProgress.Running(35, "Mendekode gambar resolusi penuh..."))
         val first = ImageIO.decodeFullGuarded(ctx.appContext, input.uris.first(), 24_000_000L)
-        val canvasBitmap = Bitmap.createBitmap(first.width, first.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(canvasBitmap)
-        canvas.drawBitmap(first, 0f, 0f, null)
         val fullW = first.width
         val fullH = first.height
-        first.recycle()
         val scaleX = fullW.toFloat() / alignSize
         val scaleY = fullH.toFloat() / alignSize
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-        for (index in 1 until input.uris.size) {
-            emit(ToolProgress.Running(35 + (index * 50 / input.uris.size), "Menggabungkan gambar ${index + 1}..."))
-            val (dx, dy) = offsetList[index - 1]
-            val current = ImageIO.decodeFullGuarded(ctx.appContext, input.uris[index], 24_000_000L)
-            val alpha = if (average) (255 / (index + 1)).coerceAtLeast(1) else 140
-            paint.alpha = alpha
-            val matrix = Matrix().apply { postTranslate(-dx * scaleX, -dy * scaleY) }
-            canvas.drawBitmap(current, matrix, paint)
-            current.recycle()
+        val canvasBitmap = Bitmap.createBitmap(fullW, fullH, Bitmap.Config.ARGB_8888)
+        val dest = try {
+            val canvas = Canvas(canvasBitmap)
+            try {
+                canvas.drawBitmap(first, 0f, 0f, null)
+            } finally {
+                if (!first.isRecycled) first.recycle()
+            }
+            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+            for (index in 1 until input.uris.size) {
+                emit(ToolProgress.Running(35 + (index * 50 / input.uris.size), "Menggabungkan gambar ${index + 1}..."))
+                val (dx, dy) = offsetList[index - 1]
+                val current = ImageIO.decodeFullGuarded(ctx.appContext, input.uris[index], 24_000_000L)
+                try {
+                    val alpha = if (average) (255 / (index + 1)).coerceAtLeast(1) else 140
+                    paint.alpha = alpha
+                    val matrix = Matrix().apply { postTranslate(-dx * scaleX, -dy * scaleY) }
+                    canvas.drawBitmap(current, matrix, paint)
+                } finally {
+                    if (!current.isRecycled) current.recycle()
+                }
+            }
+            val outFile = ctx.storage.createOutputFile("IMG_ALIGN", "png")
+            Batch1Support.encodeFile(canvasBitmap, outFile, "PNG")
+            outFile
+        } finally {
+            if (!canvasBitmap.isRecycled) canvasBitmap.recycle()
         }
-        val dest = ctx.storage.createOutputFile("IMG_ALIGN", "png")
-        Batch1Support.encodeFile(canvasBitmap, dest, "PNG")
-        canvasBitmap.recycle()
         val report = buildString {
             appendLine("Penyelarasan ${input.uris.size} gambar (grid ${alignSize}×${alignSize}, maks ${maxShiftPx}px)")
             appendLine("Mode: ${if (average) "rata-rata progresif (alpha 1/k)" else "tumpuk 55% opacity"}")
@@ -672,8 +729,11 @@ private fun multiCropTool(): Tool = object : Tool {
                     region.heightPct
                 )
                 val bitmap = ImageIO.decodeRegionFullRes(ctx.appContext, uri, rect, info.orientation)
-                val bytes = ImageIO.encodeToBytes(bitmap, entry.id, 95)
-                bitmap.recycle()
+                val bytes = try {
+                    ImageIO.encodeToBytes(bitmap, entry.id, 95)
+                } finally {
+                    if (!bitmap.isRecycled) bitmap.recycle()
+                }
                 val name = "${index + 1}_${Batch1Support.safeName(region.name)}." +
                     ImageFormatMatrix.extensionFor(entry.id)
                 Batch1Support.zipEntry(zip, name, bytes)
@@ -727,10 +787,14 @@ private fun formatConverterTool(): Tool = object : Tool {
         }
         emit(ToolProgress.Running(20, "Mendekode ${info.formatLabel} ${info.width}×${info.height}..."))
         val source = ImageIO.decodeFullGuarded(ctx.appContext, uri)
-        val dest = ctx.storage.createOutputFile("IMG_CONV", ImageFormatMatrix.extensionFor(target.id))
-        emit(ToolProgress.Running(65, "Menyandikan ${target.id}..."))
-        Batch1Support.encodeFile(source, dest, target.id, input.getFloat("quality", 90f).toInt())
-        source.recycle()
+        val dest = try {
+            val outFile = ctx.storage.createOutputFile("IMG_CONV", ImageFormatMatrix.extensionFor(target.id))
+            emit(ToolProgress.Running(65, "Menyandikan ${target.id}..."))
+            Batch1Support.encodeFile(source, outFile, target.id, input.getFloat("quality", 90f).toInt())
+            outFile
+        } finally {
+            if (!source.isRecycled) source.recycle()
+        }
         if (input.getBoolean("keepMeta", true)) {
             if (target.id == "JPG") {
                 val icc = ImageIO.readJpegIccProfile(ctx.appContext, uri)
@@ -778,47 +842,54 @@ private fun iconPackTool(): Tool = object : Tool {
         val source = ImageIO.decodePreview(ctx.appContext, uri, 1024)
         val entries = ImageGeometryMath.iconPackEntries()
         val dest = ctx.storage.createOutputFile("ICON_PACK", "zip")
-        ZipOutputStream(FileOutputStream(dest)).use { zip ->
-            entries.forEachIndexed { index, spec ->
-                if (index % 4 == 0) {
-                    emit(ToolProgress.Running(20 + index * 60 / entries.size, "Merender ${spec.label}..."))
+        try {
+            ZipOutputStream(FileOutputStream(dest)).use { zip ->
+                entries.forEachIndexed { index, spec ->
+                    if (index % 4 == 0) {
+                        emit(ToolProgress.Running(20 + index * 60 / entries.size, "Merender ${spec.label}..."))
+                    }
+                    val square = Batch1Support.squareCenter(source, spec.sizePx)
+                    var bitmap: Bitmap? = null
+                    try {
+                        val isRound = spec.path.contains("_round")
+                        val isForeground = spec.path.contains("foreground")
+                        bitmap = when {
+                            isForeground -> Batch1Support.adaptiveForeground(square)
+                            isRound && shape != "Adaptif" -> Batch1Support.circular(square)
+                            else -> square
+                        }
+                        Batch1Support.zipEntry(zip, spec.path, ImageIO.encodeToBytes(bitmap, "PNG", 100))
+                    } finally {
+                        if (bitmap != null && bitmap !== square && !bitmap.isRecycled) bitmap.recycle()
+                        if (!square.isRecycled) square.recycle()
+                    }
                 }
-                val square = Batch1Support.squareCenter(source, spec.sizePx)
-                val isRound = spec.path.contains("_round")
-                val isForeground = spec.path.contains("foreground")
-                val bitmap = when {
-                    isForeground -> Batch1Support.adaptiveForeground(square)
-                    isRound && shape != "Adaptif" -> Batch1Support.circular(square)
-                    else -> square
-                }
-                Batch1Support.zipEntry(zip, spec.path, ImageIO.encodeToBytes(bitmap, "PNG", 100))
-                if (bitmap != square) bitmap.recycle()
-                square.recycle()
+                Batch1Support.zipEntry(
+                    zip,
+                    "mipmap-anydpi-v26/ic_launcher.xml",
+                    ImageGeometryMath.adaptiveIconXml().toByteArray()
+                )
+                Batch1Support.zipEntry(
+                    zip,
+                    "mipmap-anydpi-v26/ic_launcher_round.xml",
+                    ImageGeometryMath.adaptiveIconXml().toByteArray()
+                )
+                Batch1Support.zipEntry(
+                    zip,
+                    "values/ic_launcher_background.xml",
+                    ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
+                        "    <color name=\"ic_launcher_background\">$backgroundHex</color>\n</resources>\n").toByteArray()
+                )
+                Batch1Support.zipEntry(
+                    zip,
+                    "ios/AppIcon.appiconset/Contents.json",
+                    iosContentsJson(entries).toByteArray()
+                )
+                Batch1Support.zipEntry(zip, "README.txt", readmeForIconPack(entries.size).toByteArray())
             }
-            Batch1Support.zipEntry(
-                zip,
-                "mipmap-anydpi-v26/ic_launcher.xml",
-                ImageGeometryMath.adaptiveIconXml().toByteArray()
-            )
-            Batch1Support.zipEntry(
-                zip,
-                "mipmap-anydpi-v26/ic_launcher_round.xml",
-                ImageGeometryMath.adaptiveIconXml().toByteArray()
-            )
-            Batch1Support.zipEntry(
-                zip,
-                "values/ic_launcher_background.xml",
-                ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n" +
-                    "    <color name=\"ic_launcher_background\">$backgroundHex</color>\n</resources>\n").toByteArray()
-            )
-            Batch1Support.zipEntry(
-                zip,
-                "ios/AppIcon.appiconset/Contents.json",
-                iosContentsJson(entries).toByteArray()
-            )
-            Batch1Support.zipEntry(zip, "README.txt", readmeForIconPack(entries.size).toByteArray())
+        } finally {
+            if (!source.isRecycled) source.recycle()
         }
-        source.recycle()
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -900,8 +971,10 @@ private fun base64Tool(): Tool = object : Tool {
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val decodeMode = input.getString("mode", "Encode").startsWith("Decode")
         if (!decodeMode) {
-            val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
-            emit(ToolProgress.Running(40, "Menyandikan Base64..."))
+            val uri = input.uris.firstOrNull() ?: error(
+                if (ctx.isEnglish) "Select 1 image" else "Pilih 1 gambar"
+            )
+            emit(ToolProgress.Running(40, if (ctx.isEnglish) "Encoding Base64..." else "Menyandikan Base64..."))
             val base64 = ImageEngine.encodeToBase64(
                 ctx.appContext,
                 uri,
@@ -914,21 +987,33 @@ private fun base64Tool(): Tool = object : Tool {
                     ToolResult(
                         outputs = listOf(ToolOutputFile(dest, "text/plain", dest.name)),
                         textOutput = base64.take(2500),
-                        summary = "Panjang Base64: ${base64.length} karakter (${ctx.storage.formatBytes(dest.length())})"
+                        summary = if (ctx.isEnglish) {
+                            "Base64 length: ${base64.length} chars (${ctx.storage.formatBytes(dest.length())})"
+                        } else {
+                            "Panjang Base64: ${base64.length} karakter (${ctx.storage.formatBytes(dest.length())})"
+                        }
                     )
                 )
             )
         } else {
-            val raw = input.getString("data", "").ifBlank { input.textInput }
-            require(raw.isNotBlank()) { "Tempel data Base64 pada kolom teks terlebih dahulu" }
-            emit(ToolProgress.Running(40, "Mendekode Base64..."))
+            val raw = input.getString("data", "").ifBlank { input.textInput }.ifBlank {
+                readTextInputOrUri(ctx, input)
+            }
+            require(raw.isNotBlank()) {
+                if (ctx.isEnglish) "Paste Base64 data or select a Base64 text file first" else "Tempel data Base64 atau pilih berkas teks Base64 terlebih dahulu"
+            }
+            emit(ToolProgress.Running(40, if (ctx.isEnglish) "Decoding Base64..." else "Mendekode Base64..."))
             val dest = ctx.storage.createOutputFile("IMG_FROM_B64", "png")
             ImageEngine.decodeFromBase64(raw, dest)
             emit(
                 ToolProgress.Done(
                     ToolResult(
                         outputs = listOf(ToolOutputFile(dest, "image/png", dest.name)),
-                        summary = "Base64 didekode menjadi PNG (${ctx.storage.formatBytes(dest.length())})"
+                        summary = if (ctx.isEnglish) {
+                            "Base64 decoded to PNG (${ctx.storage.formatBytes(dest.length())})"
+                        } else {
+                            "Base64 didekode menjadi PNG (${ctx.storage.formatBytes(dest.length())})"
+                        }
                     )
                 )
             )
@@ -962,54 +1047,61 @@ private fun compressorTool(): Tool = object : Tool {
         val info = ImageIO.readSourceInfo(ctx.appContext, uri, ctx.storage.getDisplayName(uri))
         emit(ToolProgress.Running(15, "Mendekode gambar (maks ${maxDim}px)..."))
         val source = ImageIO.decodePreview(ctx.appContext, uri, maxDim)
-        emit(ToolProgress.Running(30, "Menguji 4 tingkat kualitas..."))
-        val probes = listOf(40, 60, 80, 92)
-        val rows = probes.map { quality ->
-            val bytes = ImageIO.encodeToBytes(source, entry.id, quality)
-            Triple(quality, bytes.size, bytes)
-        }
-        val targetKb = input.getString("targetKB", "").trim().toLongOrNull()
+        val outW: Int
+        val outH: Int
+        val rows: List<Triple<Int, Int, ByteArray>>
         val chosenQuality: Int
         val chosenBytes: ByteArray
         var hitTarget = false
-        if (targetKb != null && targetKb > 0) {
-            emit(ToolProgress.Running(55, "Mencari kualitas untuk ≤ ${targetKb} KB..."))
-            val limit = targetKb * 1024
-            var best: ByteArray? = null
-            var bestQuality = 20
-            var low = 10
-            var high = 95
-            repeat(7) {
-                if (low > high) return@repeat
-                val mid = (low + high) / 2
-                val bytes = ImageIO.encodeToBytes(source, entry.id, mid)
-                if (bytes.size <= limit) {
-                    best = bytes
-                    bestQuality = mid
-                    low = mid + 1
-                } else {
-                    high = mid - 1
+        try {
+            emit(ToolProgress.Running(30, "Menguji 4 tingkat kualitas..."))
+            val probes = listOf(40, 60, 80, 92)
+            rows = probes.map { quality ->
+                val bytes = ImageIO.encodeToBytes(source, entry.id, quality)
+                Triple(quality, bytes.size, bytes)
+            }
+            val targetKb = input.getString("targetKB", "").trim().toLongOrNull()
+            if (targetKb != null && targetKb > 0) {
+                emit(ToolProgress.Running(55, "Mencari kualitas untuk ≤ ${targetKb} KB..."))
+                val limit = targetKb * 1024
+                var best: ByteArray? = null
+                var bestQuality = 20
+                var low = 10
+                var high = 95
+                repeat(7) {
+                    if (low > high) return@repeat
+                    val mid = (low + high) / 2
+                    val bytes = ImageIO.encodeToBytes(source, entry.id, mid)
+                    if (bytes.size <= limit) {
+                        best = bytes
+                        bestQuality = mid
+                        low = mid + 1
+                    } else {
+                        high = mid - 1
+                    }
                 }
-            }
-            if (best != null) {
-                chosenBytes = best!!
-                chosenQuality = bestQuality
-                hitTarget = true
+                if (best != null) {
+                    chosenBytes = best!!
+                    chosenQuality = bestQuality
+                    hitTarget = true
+                } else {
+                    val smallest = rows.minByOrNull { it.second }!!
+                    chosenBytes = smallest.third
+                    chosenQuality = smallest.first
+                }
             } else {
-                val smallest = rows.minByOrNull { it.second }!!
-                chosenBytes = smallest.third
-                chosenQuality = smallest.first
+                val quality = input.getFloat("quality", 70f).toInt()
+                chosenQuality = quality
+                chosenBytes = ImageIO.encodeToBytes(source, entry.id, quality)
             }
-        } else {
-            val quality = input.getFloat("quality", 70f).toInt()
-            chosenQuality = quality
-            chosenBytes = ImageIO.encodeToBytes(source, entry.id, quality)
+            outW = source.width
+            outH = source.height
+        } finally {
+            if (!source.isRecycled) source.recycle()
         }
+        val targetKb = input.getString("targetKB", "").trim().toLongOrNull()
         val dest = ctx.storage.createOutputFile("IMG_COMP", ImageFormatMatrix.extensionFor(entry.id))
         dest.writeBytes(chosenBytes)
-        val outW = source.width
-        val outH = source.height
-        source.recycle()
         val table = buildString {
             appendLine("Pratinjau kualitas vs ukuran (${entry.id}, ${outW}×${outH})")
             appendLine("Asli: ${if (info.byteSize > 0) ctx.storage.formatBytes(info.byteSize) else "tidak diketahui"}")
@@ -1077,47 +1169,53 @@ private fun webOptimizerTool(): Tool = object : Tool {
         val dest = ctx.storage.createOutputFile("IMG_WEB", "zip")
         val manifest = StringBuilder()
         var count = 0
-        ZipOutputStream(FileOutputStream(dest)).use { zip ->
-            usable.forEachIndexed { index, width ->
-                emit(ToolProgress.Running(25 + index * 55 / usable.size, "Merender ${width}px..."))
-                val scaled = Batch1Support.scaleToWidth(source, width)
-                formats.forEach { format ->
-                    val ext = if (format == "WEBP") "webp" else "jpg"
-                    val bytes = ImageIO.encodeToBytes(scaled, format, quality)
-                    val fileName = "${baseName}-${width}.${ext}"
-                    Batch1Support.zipEntry(zip, fileName, bytes)
-                    manifest.appendLine("$fileName ${Batch1Support.kb(bytes.size.toLong())}")
-                    count++
+        try {
+            ZipOutputStream(FileOutputStream(dest)).use { zip ->
+                usable.forEachIndexed { index, width ->
+                    emit(ToolProgress.Running(25 + index * 55 / usable.size, "Merender ${width}px..."))
+                    val scaled = Batch1Support.scaleToWidth(source, width)
+                    try {
+                        formats.forEach { format ->
+                            val ext = if (format == "WEBP") "webp" else "jpg"
+                            val bytes = ImageIO.encodeToBytes(scaled, format, quality)
+                            val fileName = "${baseName}-${width}.${ext}"
+                            Batch1Support.zipEntry(zip, fileName, bytes)
+                            manifest.appendLine("$fileName ${Batch1Support.kb(bytes.size.toLong())}")
+                            count++
+                        }
+                    } finally {
+                        if (scaled !== source && !scaled.isRecycled) scaled.recycle()
+                    }
                 }
-                scaled.recycle()
-            }
-            val srcsetWebp = usable.joinToString(", ") { "$baseName-${it}.webp ${it}w" }
-            val srcsetJpg = usable.joinToString(", ") { "$baseName-${it}.jpg ${it}w" }
-            val snippet = buildString {
-                appendLine("<!-- Responsive image (hasil IMG-27) -->")
-                appendLine("<picture>")
-                if ("WEBP" in formats) {
-                    appendLine("""  <source type="image/webp" srcset="$srcsetWebp" sizes="(max-width: 960px) 100vw, ${usable.max()}px">""")
+                val srcsetWebp = usable.joinToString(", ") { "$baseName-${it}.webp ${it}w" }
+                val srcsetJpg = usable.joinToString(", ") { "$baseName-${it}.jpg ${it}w" }
+                val snippet = buildString {
+                    appendLine("<!-- Responsive image (hasil IMG-27) -->")
+                    appendLine("<picture>")
+                    if ("WEBP" in formats) {
+                        appendLine("""  <source type="image/webp" srcset="$srcsetWebp" sizes="(max-width: 960px) 100vw, ${usable.max()}px">""")
+                    }
+                    appendLine(
+                        """  <img src="$baseName-${usable.first()}.jpg" """ +
+                            """srcset="$srcsetJpg" """ +
+                            """sizes="(max-width: 960px) 100vw, ${usable.max()}px" """ +
+                            """width="${usable.max()}" height="${(info.displayHeight.toFloat() * usable.max() / info.displayWidth).roundToInt()}" """ +
+                            """loading="lazy" decoding="async" alt="">"""
+                    )
+                    appendLine("</picture>")
                 }
-                appendLine(
-                    """  <img src="$baseName-${usable.first()}.jpg" """ +
-                        """srcset="$srcsetJpg" """ +
-                        """sizes="(max-width: 960px) 100vw, ${usable.max()}px" """ +
-                        """width="${usable.max()}" height="${(info.displayHeight.toFloat() * usable.max() / info.displayWidth).roundToInt()}" """ +
-                        """loading="lazy" decoding="async" alt="">"""
+                Batch1Support.zipEntry(zip, "responsive-snippet.html", snippet.toByteArray())
+                Batch1Support.zipEntry(
+                    zip,
+                    "manifest.txt",
+                    ("Sumber: ${info.displayWidth}×${info.displayHeight} ${info.formatLabel}\n" +
+                        "Lebar: ${usable.joinToString(", ")} px\n" +
+                        "Format: ${formats.joinToString(", ")}\nKualitas: $quality%\n\n" + manifest).toByteArray()
                 )
-                appendLine("</picture>")
             }
-            Batch1Support.zipEntry(zip, "responsive-snippet.html", snippet.toByteArray())
-            Batch1Support.zipEntry(
-                zip,
-                "manifest.txt",
-                ("Sumber: ${info.displayWidth}×${info.displayHeight} ${info.formatLabel}\n" +
-                    "Lebar: ${usable.joinToString(", ")} px\n" +
-                    "Format: ${formats.joinToString(", ")}\nKualitas: $quality%\n\n" + manifest).toByteArray()
-            )
+        } finally {
+            if (!source.isRecycled) source.recycle()
         }
-        source.recycle()
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -1150,11 +1248,17 @@ private fun paletteTool(): Tool = object : Tool {
         val uri = input.uris.firstOrNull() ?: error("Pilih 1 gambar")
         emit(ToolProgress.Running(35, "Menjalankan klaster K-Means..."))
         val source = ImageIO.decodePreview(ctx.appContext, uri, 320)
-        val (colors, card) = ImageEngine.extractKMeansPalette(source, input.getFloat("count", 5f).toInt())
-        source.recycle()
-        val dest = ctx.storage.createOutputFile("PALETTE", "png")
-        Batch1Support.encodeFile(card, dest, "PNG")
-        card.recycle()
+        var card: Bitmap? = null
+        val (colors, dest) = try {
+            val (paletteColors, paletteCard) = ImageEngine.extractKMeansPalette(source, input.getFloat("count", 5f).toInt())
+            card = paletteCard
+            val outFile = ctx.storage.createOutputFile("PALETTE", "png")
+            Batch1Support.encodeFile(paletteCard, outFile, "PNG")
+            paletteColors to outFile
+        } finally {
+            if (card != null && !card.isRecycled) card.recycle()
+            if (!source.isRecycled) source.recycle()
+        }
         val hexList = colors.joinToString("\n") { String.format(Locale.US, "#%06X", 0xFFFFFF and it) }
         emit(
             ToolProgress.Done(
@@ -1272,13 +1376,16 @@ private fun sizeAnalyzerTool(): Tool = object : Tool {
             "PDF" to 100
         )
         val rows = mutableListOf<Triple<String, Int, Long>>()
-        candidates.forEachIndexed { index, (format, quality) ->
-            emit(ToolProgress.Running(30 + index * 60 / candidates.size, "Encode $format ${quality}%..."))
-            val size = ImageIO.encodeToBytes(source, format, quality).size.toLong()
-            rows += Triple(format, quality, size)
+        val dimensions = try {
+            candidates.forEachIndexed { index, (format, quality) ->
+                emit(ToolProgress.Running(30 + index * 60 / candidates.size, "Encode $format ${quality}%..."))
+                val size = ImageIO.encodeToBytes(source, format, quality).size.toLong()
+                rows += Triple(format, quality, size)
+            }
+            "${source.width}×${source.height}"
+        } finally {
+            if (!source.isRecycled) source.recycle()
         }
-        val dimensions = "${source.width}×${source.height}"
-        source.recycle()
         val bmpEstimate = info.displayWidth.toLong() * info.displayHeight * 3 + 54
         val best = rows.minByOrNull { it.third }
         val text = buildString {

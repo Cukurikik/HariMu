@@ -25,6 +25,7 @@ fun PdfPagePickerCard(
     pages: List<Int>,
     onPagesChange: (List<Int>) -> Unit,
     modifier: Modifier = Modifier,
+    password: String = "",
     previewRotationDeg: Int = 0
 ) {
     Card(
@@ -40,6 +41,7 @@ fun PdfPagePickerCard(
             reorderMode = reorderMode,
             onSelectedPagesChange = { if (!reorderMode) onPagesChange(it) },
             onPageOrderChange = { if (reorderMode) onPagesChange(it) },
+            password = password,
             previewRotationDeg = previewRotationDeg,
             modifier = Modifier.padding(12.dp)
         )

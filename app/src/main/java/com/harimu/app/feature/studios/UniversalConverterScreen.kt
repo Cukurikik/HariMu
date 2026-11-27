@@ -1,5 +1,7 @@
 package com.harimu.app.feature.studios
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -71,7 +73,7 @@ import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.StatusTone
 import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.ToolParameterPanel
-import com.harimu.app.core.design.converter.ConverterBatchToggleRow
+import com.harimu.app.core.design.converter.ConverterBatchSummaryBanner
 import com.harimu.app.core.design.converter.ConverterCapabilityNoticeBanner
 import com.harimu.app.core.design.converter.ConverterHeroHeader
 import com.harimu.app.core.design.converter.ConverterJobQueueSection
@@ -84,8 +86,8 @@ import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolRegistry
+import com.harimu.app.feature.toolscreen.ToolWorkspaceValidator
 import com.harimu.app.feature.toolscreen.UploadConsentDialog
-import com.harimu.app.feature.toolscreen.buildParamValidators
 import com.harimu.app.feature.toolscreen.openFile
 import com.harimu.app.feature.toolscreen.retryCloudUpload
 import com.harimu.app.feature.toolscreen.saveFile
@@ -121,6 +123,7 @@ fun UniversalConverterScreen(
     var pendingExportFile by remember { mutableStateOf<ToolOutputFile?>(null) }
     val savedToast = stringResource(R.string.toast_saved)
     val saveFailedToast = stringResource(R.string.toast_save_failed)
+    val copiedToast = stringResource(R.string.converter_copy_output_done)
 
     val multiFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) vm.addFiles(uris)
@@ -129,7 +132,7 @@ fun UniversalConverterScreen(
         if (uris.isNotEmpty()) vm.addFiles(uris)
     }
     val textFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { vm.loadTextFromUri(it) }
+        uri?.let { vm.loadTextFromUri(it, isEnglish) }
     }
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { destUri ->
         val src = pendingExportFile
@@ -143,7 +146,15 @@ fun UniversalConverterScreen(
         }
     }
 
-    val activeCount = jobs.count { it.status == ToolJobWorker.STATUS_RUNNING }
+    fun copyTextToClipboard(text: String) {
+        val cm = context.getSystemService(ClipboardManager::class.java)
+        cm?.setPrimaryClip(ClipData.newPlainText("HariMu Converter Output", text))
+        Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
+    }
+
+    val activeCount = jobs.count {
+        it.status == ToolJobWorker.STATUS_RUNNING || it.status == ToolJobWorker.STATUS_PREPARING
+    }
     val queuedCount = jobs.count { it.status == ToolJobWorker.STATUS_QUEUED }
 
     fun triggerEnqueue() {
@@ -287,7 +298,9 @@ fun UniversalConverterScreen(
                                 uploadToCloud(out, container, settings, scope, context, isEnglish)
                             },
                             uploadTasks = uploadTasks,
-                            onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) }
+                            onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) },
+                            onClearFinished = vm::clearFinishedJobs,
+                            onCopyTextOutput = ::copyTextToClipboard
                         )
                     }
                 }
@@ -351,7 +364,9 @@ fun UniversalConverterScreen(
                             uploadToCloud(out, container, settings, scope, context, isEnglish)
                         },
                         uploadTasks = uploadTasks,
-                        onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) }
+                        onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) },
+                        onClearFinished = vm::clearFinishedJobs,
+                        onCopyTextOutput = ::copyTextToClipboard
                     )
                 }
             }
@@ -411,6 +426,7 @@ private fun ConverterWorkbenchPane(
     onRun: () -> Unit,
     onOpenAdvancedTool: (Tool) -> Unit
 ) {
+    val context = LocalContext.current
     ConverterSourceCard(
         isTextMode = state.isTextMode,
         sources = state.sources,
@@ -424,7 +440,8 @@ private fun ConverterWorkbenchPane(
         onClearFiles = vm::clearFiles,
         onTextChange = vm::setTextInput,
         onLoadTextFromFile = onLoadTextFromFile,
-        onLoadSample = vm::loadSample
+        onLoadSample = vm::loadSample,
+        sourceWarningMessage = state.sourceWarningMessage
     )
 
     val hasAnyInput = if (state.isTextMode) state.textInput.isNotBlank() else state.sources.isNotEmpty()
@@ -435,7 +452,8 @@ private fun ConverterWorkbenchPane(
         selectedTargetId = state.selectedTargetId,
         unsupportedReasons = state.unsupportedReasons(isEnglish),
         isEnglish = isEnglish,
-        onSelectTarget = vm::selectTarget
+        onSelectTarget = vm::selectTarget,
+        mixedIncompatibleReason = state.mixedIncompatibleReason(isEnglish)
     )
 
     val target = state.selectedTarget
@@ -458,16 +476,17 @@ private fun ConverterWorkbenchPane(
                 params = visibleParams,
                 paramValues = state.mergedParams(),
                 onParamChange = vm::setParam,
-                validators = remember(tool.id, visibleParams) { buildParamValidators(tool) },
+                validators = remember(tool.id, visibleParams, isEnglish) {
+                    ToolWorkspaceValidator.buildParamValidators(context, tool)
+                },
                 isEnglish = isEnglish
             )
         }
 
-        if (!state.isTextMode && state.sources.size > 1 && target.supportsBatchQueue) {
-            ConverterBatchToggleRow(
+        if (!state.isTextMode && state.sources.size > 1) {
+            ConverterBatchSummaryBanner(
                 fileCount = state.sources.size,
-                checked = state.batchSeparateJobs,
-                onCheckedChange = vm::setBatchSeparate
+                isSingleArchiveJob = target.supportsMultiInputSingleJob
             )
         }
 
@@ -490,7 +509,7 @@ private fun ConverterWorkbenchPane(
         val ctaText = when {
             !state.isTextMode && state.sources.size > 1 && target.supportsMultiInputSingleJob ->
                 stringResource(R.string.converter_run_archive_multi, state.sources.size)
-            !state.isTextMode && state.sources.size > 1 && state.batchSeparateJobs ->
+            !state.isTextMode && state.sources.size > 1 ->
                 stringResource(R.string.converter_run_batch, state.sources.size)
             else ->
                 stringResource(R.string.converter_run_single)

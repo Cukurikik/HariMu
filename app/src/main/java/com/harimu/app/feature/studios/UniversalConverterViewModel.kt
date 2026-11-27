@@ -46,7 +46,8 @@ data class UniversalConverterUiState(
     val selectedWorkflow: ConverterWorkflow? = null,
     val searchQuery: String = "",
     val isEnqueueing: Boolean = false,
-    val lastEnqueueMessage: String? = null
+    val lastEnqueueMessage: String? = null,
+    val sourceWarningMessage: String? = null
 ) {
     val selectedTarget: ConversionTargetOption?
         get() = availableTargets.firstOrNull { it.id == selectedTargetId }
@@ -72,6 +73,13 @@ data class UniversalConverterUiState(
             emptyList()
         } else {
             sources.mapNotNull { ConverterFormatMatrix.unsupportedReason(it.format, isEnglish) }.distinct()
+        }
+
+    fun mixedIncompatibleReason(isEnglish: Boolean): String? =
+        if (isTextMode) {
+            null
+        } else {
+            ConverterFormatMatrix.mixedIncompatibleReason(sources, isEnglish)
         }
 
     fun validate(isEnglish: Boolean): ConversionValidationResult =
@@ -138,7 +146,8 @@ class UniversalConverterViewModel(
                 availableTargets = targets,
                 selectedTargetId = nextTarget?.id,
                 paramValues = seedParamsForTarget(nextTarget, current.paramValues),
-                lastEnqueueMessage = null
+                lastEnqueueMessage = null,
+                sourceWarningMessage = null
             )
         }
     }
@@ -164,7 +173,8 @@ class UniversalConverterViewModel(
                     availableTargets = targets,
                     selectedTargetId = nextTarget?.id,
                     paramValues = seedParamsForTarget(nextTarget, current.paramValues),
-                    lastEnqueueMessage = null
+                    lastEnqueueMessage = null,
+                    sourceWarningMessage = null
                 )
             }
         }
@@ -182,7 +192,8 @@ class UniversalConverterViewModel(
                 sources = newSources,
                 availableTargets = targets,
                 selectedTargetId = nextTarget?.id,
-                paramValues = seedParamsForTarget(nextTarget, current.paramValues)
+                paramValues = seedParamsForTarget(nextTarget, current.paramValues),
+                sourceWarningMessage = null
             )
         }
     }
@@ -194,7 +205,8 @@ class UniversalConverterViewModel(
                 sources = emptyList(),
                 availableTargets = emptyList(),
                 selectedTargetId = null,
-                lastEnqueueMessage = null
+                lastEnqueueMessage = null,
+                sourceWarningMessage = null
             )
         }
     }
@@ -211,7 +223,8 @@ class UniversalConverterViewModel(
                 availableTargets = targets,
                 selectedTargetId = nextTarget?.id,
                 paramValues = seedParamsForTarget(nextTarget, current.paramValues),
-                lastEnqueueMessage = null
+                lastEnqueueMessage = null,
+                sourceWarningMessage = null
             )
         }
     }
@@ -221,20 +234,79 @@ class UniversalConverterViewModel(
         setTextInput(sample)
     }
 
-    fun loadTextFromUri(uri: Uri) {
+    fun loadTextFromUri(uri: Uri, isEnglish: Boolean = false) {
         val ctx = appContextRef ?: return
         viewModelScope.launch {
-            val content = withContext(Dispatchers.IO) {
+            val maxEditorBytes = 512 * 1024
+            val loadResult = withContext(Dispatchers.IO) {
                 runCatching {
-                    ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
-                        val buf = CharArray(512 * 1024)
-                        val count = reader.read(buf)
-                        if (count > 0) String(buf, 0, count) else ""
+                    ctx.contentResolver.openInputStream(uri)?.use { stream ->
+                        val out = java.io.ByteArrayOutputStream()
+                        val buf = ByteArray(8192)
+                        var truncated = false
+                        while (out.size() < maxEditorBytes) {
+                            val toRead = minOf(buf.size, maxEditorBytes - out.size())
+                            val n = stream.read(buf, 0, toRead)
+                            if (n <= 0) break
+                            out.write(buf, 0, n)
+                        }
+                        if (out.size() == maxEditorBytes && stream.read() != -1) {
+                            truncated = true
+                        }
+                        out.toByteArray() to truncated
                     }
-                }.getOrNull().orEmpty()
+                }.getOrNull()
             }
-            if (content.isNotBlank()) {
-                setTextInput(content)
+            if (loadResult == null) {
+                _state.update {
+                    it.copy(
+                        sourceWarningMessage = if (isEnglish) {
+                            "Selected file is empty or unreadable."
+                        } else {
+                            "Berkas yang dipilih kosong atau tidak dapat dibaca."
+                        }
+                    )
+                }
+                return@launch
+            }
+            val (bytes, truncated) = loadResult
+            if (bytes.isEmpty()) {
+                _state.update {
+                    it.copy(
+                        sourceWarningMessage = if (isEnglish) {
+                            "Selected file is empty or unreadable."
+                        } else {
+                            "Berkas yang dipilih kosong atau tidak dapat dibaca."
+                        }
+                    )
+                }
+                return@launch
+            }
+            val looksBinary = bytes.take(4096).any { it == 0.toByte() }
+            if (looksBinary) {
+                _state.update {
+                    it.copy(
+                        sourceWarningMessage = if (isEnglish) {
+                            "Selected file appears binary and cannot be loaded as text."
+                        } else {
+                            "Berkas tampak biner dan tidak dapat dimuat sebagai teks."
+                        }
+                    )
+                }
+                return@launch
+            }
+            val content = bytes.toString(Charsets.UTF_8)
+            setTextInput(content)
+            if (truncated) {
+                _state.update {
+                    it.copy(
+                        sourceWarningMessage = if (isEnglish) {
+                            "Text loaded (truncated at first 512 KB due to editor limit)."
+                        } else {
+                            "Teks dimuat (dipotong pada 512 KB pertama karena batas ukuran editor)."
+                        }
+                    )
+                }
             }
         }
     }
@@ -280,7 +352,8 @@ class UniversalConverterViewModel(
                     detectedTextFormat = sampleFmt,
                     availableTargets = targets,
                     selectedTargetId = preferred?.id,
-                    paramValues = seedParamsForTarget(preferred, current.paramValues)
+                    paramValues = seedParamsForTarget(preferred, current.paramValues),
+                    sourceWarningMessage = null
                 )
             }
         } else {
@@ -288,7 +361,8 @@ class UniversalConverterViewModel(
                 current.copy(
                     mode = ConverterScreenMode.WORKBENCH,
                     selectedWorkflow = workflow,
-                    isTextMode = false
+                    isTextMode = false,
+                    sourceWarningMessage = null
                 )
             }
         }
@@ -314,17 +388,13 @@ class UniversalConverterViewModel(
                 val job = container.jobManager.enqueueToolJob(tool, input, isEnglish)
                 retryPayloads[job.jobId] = tool to input
                 enqueuedJobs += job
-            } else if (target.supportsMultiInputSingleJob || current.sourceUris.size <= 1 || !current.batchSeparateJobs) {
-                val urisToRun = if (target.supportsMultiInputSingleJob) {
-                    current.sourceUris
-                } else {
-                    listOf(current.sourceUris.first())
-                }
-                val input = ToolInput(uris = urisToRun, params = params)
+            } else if (target.supportsMultiInputSingleJob || current.sourceUris.size <= 1) {
+                val input = ToolInput(uris = current.sourceUris, params = params)
                 val job = container.jobManager.enqueueToolJob(tool, input, isEnglish)
                 retryPayloads[job.jobId] = tool to input
                 enqueuedJobs += job
             } else {
+                // Multi-file format conversions always enqueue one job per file so no files are silently dropped.
                 for (uri in current.sourceUris) {
                     val input = ToolInput(uris = listOf(uri), params = params)
                     val job = container.jobManager.enqueueToolJob(tool, input, isEnglish)
@@ -345,6 +415,12 @@ class UniversalConverterViewModel(
     fun cancelJob(jobId: String) {
         viewModelScope.launch {
             container.jobManager.cancelJob(jobId)
+        }
+    }
+
+    fun clearFinishedJobs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            container.jobManager.clearFinishedJobs()
         }
     }
 

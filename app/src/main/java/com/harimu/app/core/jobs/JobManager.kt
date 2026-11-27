@@ -351,11 +351,11 @@ class JobManager(
             }
             when (info?.state) {
                 WorkInfo.State.SUCCEEDED -> {
-                    val outPath = info.outputData.getString(ToolJobWorker.KEY_OUTPUT_PATH) ?: ""
-                    val outMime = info.outputData.getString(ToolJobWorker.KEY_OUTPUT_MIME) ?: "text/plain"
-                    val summary = info.outputData.getString(ToolJobWorker.KEY_SUMMARY) ?: job.toolTitle
-                    val outputsJson = info.outputData.getString(ToolJobWorker.KEY_OUTPUTS_JSON) ?: ""
-                    val textOutput = info.outputData.getString(ToolJobWorker.KEY_TEXT_OUTPUT) ?: ""
+                    val outPath = info.outputData.getString(ToolJobWorker.KEY_OUTPUT_PATH).orEmpty().ifBlank { job.outputPath }
+                    val outMime = info.outputData.getString(ToolJobWorker.KEY_OUTPUT_MIME).orEmpty().ifBlank { job.outputMime.ifBlank { "text/plain" } }
+                    val summary = info.outputData.getString(ToolJobWorker.KEY_SUMMARY).orEmpty().ifBlank { job.summary.ifBlank { job.toolTitle } }
+                    val outputsJson = info.outputData.getString(ToolJobWorker.KEY_OUTPUTS_JSON).orEmpty().ifBlank { job.outputsJson }
+                    val textOutput = info.outputData.getString(ToolJobWorker.KEY_TEXT_OUTPUT).orEmpty().ifBlank { job.textOutput }
                     jobDao.updateCompletion(
                         jobId = job.jobId,
                         status = ToolJobWorker.STATUS_SUCCEEDED,
@@ -496,19 +496,22 @@ class JobManager(
         isDummy: Boolean,
         isEnglish: Boolean,
         inputJson: String = ""
-    ) = OneTimeWorkRequestBuilder<ToolJobWorker>()
-        .addTag(ToolJobWorker.TAG_HARIMU_JOB)
-        .addTag(jobId)
-        .setInputData(
-            workDataOf(
-                ToolJobWorker.KEY_JOB_ID to jobId,
-                ToolJobWorker.KEY_TOOL_ID to toolId,
-                ToolJobWorker.KEY_TOOL_TITLE to toolTitle,
-                ToolJobWorker.KEY_GROUP_NAME to groupName,
-                ToolJobWorker.KEY_IS_DUMMY to isDummy,
-                ToolJobWorker.KEY_IS_ENGLISH to isEnglish,
-                ToolJobWorker.KEY_INPUT_JSON to inputJson
+    ): androidx.work.OneTimeWorkRequest {
+        val inlineInputJson = if (inputJson.toByteArray(Charsets.UTF_8).size <= 4096) inputJson else ""
+        return OneTimeWorkRequestBuilder<ToolJobWorker>()
+            .addTag(ToolJobWorker.TAG_HARIMU_JOB)
+            .addTag(jobId)
+            .setInputData(
+                workDataOf(
+                    ToolJobWorker.KEY_JOB_ID to jobId,
+                    ToolJobWorker.KEY_TOOL_ID to toolId,
+                    ToolJobWorker.KEY_TOOL_TITLE to toolTitle,
+                    ToolJobWorker.KEY_GROUP_NAME to groupName,
+                    ToolJobWorker.KEY_IS_DUMMY to isDummy,
+                    ToolJobWorker.KEY_IS_ENGLISH to isEnglish,
+                    ToolJobWorker.KEY_INPUT_JSON to inlineInputJson
+                )
             )
-        )
-        .build()
+            .build()
+    }
 }

@@ -62,9 +62,17 @@ object JobInputValidator {
     }
 
     fun canRetryStoredInput(context: Context, tool: Tool, input: ToolInput): Boolean {
+        if (tool.id == "IMG-25" || tool.id == "CNV-12") {
+            val decodeMode = input.getString("mode", "Encode").startsWith("Decode")
+            if (decodeMode) {
+                val hasText = input.getString("data", "").isNotBlank() || input.textInput.isNotBlank()
+                return hasText || (input.uris.isNotEmpty() && input.uris.all { isUriReadable(context, it) })
+            }
+        }
         return when (tool.inputSpec) {
             InputSpec.None -> true
-            is InputSpec.TextInput -> input.textInput.isNotBlank()
+            is InputSpec.TextInput ->
+                input.textInput.isNotBlank() || (input.uris.isNotEmpty() && input.uris.all { isUriReadable(context, it) })
             InputSpec.VideoAndAudio,
             InputSpec.VideoAndImage,
             InputSpec.VideoAndSubtitle,

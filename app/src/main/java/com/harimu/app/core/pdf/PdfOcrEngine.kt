@@ -54,17 +54,21 @@ object PdfOcrEngine {
     suspend fun ensureTrainedData(
         context: Context,
         codes: List<String>,
+        isEnglish: Boolean = false,
         onProgress: suspend (Int, String) -> Unit = { _, _ -> }
     ) = withContext(Dispatchers.IO) {
         val needed = missing(context, codes)
         needed.forEachIndexed { index, code ->
-            onProgress(index * 100 / needed.size, "Mengunduh data OCR: $code")
-            downloadLanguage(context, code)
+            onProgress(
+                index * 100 / needed.size,
+                if (isEnglish) "Downloading OCR data: $code" else "Mengunduh data OCR: $code"
+            )
+            downloadLanguage(context, code, isEnglish)
         }
-        onProgress(100, "Data OCR siap")
+        onProgress(100, if (isEnglish) "OCR data ready" else "Data OCR siap")
     }
 
-    private fun downloadLanguage(context: Context, code: String) {
+    private fun downloadLanguage(context: Context, code: String, isEnglish: Boolean = false) {
         val target = File(dataDir(context), "$code.traineddata")
         val temp = File(dataDir(context), "$code.traineddata.part")
         val connection = (URL("$DOWNLOAD_BASE/$code.traineddata").openConnection() as HttpURLConnection).apply {
@@ -75,16 +79,22 @@ object PdfOcrEngine {
         }
         try {
             if (connection.responseCode !in 200..299) {
-                error("Unduh $code gagal (HTTP ${connection.responseCode})")
+                error(
+                    if (isEnglish) "Failed to download $code (HTTP ${connection.responseCode})"
+                    else "Unduh $code gagal (HTTP ${connection.responseCode})"
+                )
             }
             connection.inputStream.use { input ->
                 temp.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
             }
             require(temp.length() > MIN_BYTES) {
-                "Data bahasa $code tidak valid (${temp.length()} byte). Periksa koneksi."
+                if (isEnglish) "Invalid $code language data (${temp.length()} bytes). Check your connection."
+                else "Data bahasa $code tidak valid (${temp.length()} byte). Periksa koneksi."
             }
             if (target.exists()) target.delete()
-            require(temp.renameTo(target)) { "Gagal menyimpan data bahasa $code" }
+            require(temp.renameTo(target)) {
+                if (isEnglish) "Failed to save $code language data" else "Gagal menyimpan data bahasa $code"
+            }
         } finally {
             connection.disconnect()
             if (temp.exists()) temp.delete()
@@ -92,11 +102,12 @@ object PdfOcrEngine {
     }
 
     /** OCR satu bitmap. Melempar error jelas bila data bahasa belum tersedia. */
-    fun recognize(context: Context, bitmap: Bitmap, codes: List<String>): String {
+    fun recognize(context: Context, bitmap: Bitmap, codes: List<String>, isEnglish: Boolean = false): String {
         val resolved = codes.ifEmpty { listOf("eng") }.distinct()
         val absent = missing(context, resolved)
         require(absent.isEmpty()) {
-            "Data OCR belum ada: ${absent.joinToString(", ")}. Jalankan unduhan data bahasa dahulu."
+            if (isEnglish) "Missing OCR data: ${absent.joinToString(", ")}. Download language data first."
+            else "Data OCR belum ada: ${absent.joinToString(", ")}. Jalankan unduhan data bahasa dahulu."
         }
         val api = TessBaseAPI()
         try {
@@ -105,7 +116,10 @@ object PdfOcrEngine {
                 resolved.joinToString("+"),
                 TessBaseAPI.OEM_LSTM_ONLY
             )
-            check(ok) { "Mesin OCR gagal diinisialisasi untuk ${resolved.joinToString("+")}" }
+            check(ok) {
+                if (isEnglish) "OCR engine failed to initialize for ${resolved.joinToString("+")}"
+                else "Mesin OCR gagal diinisialisasi untuk ${resolved.joinToString("+")}"
+            }
             api.setPageSegMode(TessBaseAPI.PageSegMode.PSM_AUTO)
             val width = bitmap.width
             val height = bitmap.height

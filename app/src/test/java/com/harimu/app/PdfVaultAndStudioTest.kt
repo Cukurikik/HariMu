@@ -25,9 +25,14 @@ import androidx.test.core.app.ApplicationProvider
 import com.harimu.app.core.design.HariMuTheme
 import com.harimu.app.core.design.ThemeMode
 import com.harimu.app.core.design.pdf.PdfCapabilityMode
+import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
+import com.harimu.app.core.design.pdf.PdfPageStripOrganizer
 import com.harimu.app.core.design.pdf.pdfToolCapability
+import com.harimu.app.core.pdf.OfficeConvertEngine
 import com.harimu.app.core.pdf.PdfVaultEngine
 import com.harimu.app.core.toolapi.ToolGroup
+import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.feature.catalog.CatalogScreen
@@ -39,6 +44,8 @@ import com.harimu.app.feature.studios.PdfVaultScreen
 import com.harimu.app.feature.studios.categorizePdfTool
 import com.harimu.app.feature.studios.tabForPdfTool
 import com.harimu.app.feature.toolscreen.ToolScreen
+import com.harimu.app.feature.toolscreen.ToolWorkspaceValidator
+import com.harimu.app.feature.toolscreen.WorkspaceStage
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -46,6 +53,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationText
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
@@ -55,6 +63,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,6 +72,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
+import org.robolectric.shadows.ShadowStatFs
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -78,6 +88,12 @@ class PdfVaultAndStudioTest {
     fun setUp() {
         app = ApplicationProvider.getApplicationContext()
         PDFBoxResourceLoader.init(app)
+        ShadowStatFs.registerStats(
+            app.container.storage.outputsDir.absolutePath,
+            2 * 1024 * 1024,
+            1024 * 1024,
+            1024 * 1024
+        )
     }
 
     @Test
@@ -464,6 +480,299 @@ class PdfVaultAndStudioTest {
                 )
             }
             assertNotNull(scrollUntilTag(activity, "pdf_ocr_readiness_card"))
+
+            // 5. ToolScreen renders honest notice cards for PDF-17 (AI Gateway) and PDF-20 (Compare diff method)
+            listOf("PDF-17", "PDF-20").forEach { toolId ->
+                setTestContent(activity, isEnglish = true) {
+                    ToolScreen(
+                        toolId = toolId,
+                        container = container,
+                        isEnglish = true,
+                        isFavorite = false,
+                        onToggleFavorite = {},
+                        onBack = {},
+                        onOpenPdfStudio = { _, _ -> }
+                    )
+                }
+                assertNotNull("Missing honest notice for $toolId", scrollUntilTag(activity, "pdf_honest_notice_card"))
+            }
+        }
+    }
+
+    @Test
+    fun encryptedPdfOperationsSucceedWithPasswordAndRejectWrongPassword() {
+        val storage = app.container.storage
+        val plain = File(app.cacheDir, "b9_plain.pdf")
+        createSamplePdf(
+            file = plain,
+            pageLines = listOf("Encrypted Page One", "Encrypted Page Two"),
+            title = "Secret Title",
+            withAcroFormField = "signer" to "OldName"
+        )
+        val encrypted = File(app.cacheDir, "b9_encrypted.pdf")
+        PdfVaultEngine.encrypt(
+            app, storage, Uri.fromFile(plain), encrypted,
+            userPassword = "pass123",
+            ownerPassword = "owner123",
+            keyBits = 128,
+            preferAes = true
+        )
+        val encUri = Uri.fromFile(encrypted)
+
+        // Wrong password throws InvalidPasswordException
+        try {
+            PdfVaultEngine.rotate(app, storage, encUri, File(app.cacheDir, "bad_rot.pdf"), 90, listOf(1), password = "wrong")
+            fail("Expected InvalidPasswordException for wrong password")
+        } catch (_: InvalidPasswordException) {
+            // Expected
+        }
+
+        // Valid password works across rotate, reorder, extract, watermark, page numbers, metadata, form fill
+        val rotOut = File(app.cacheDir, "b9_enc_rot.pdf")
+        assertEquals(1, PdfVaultEngine.rotate(app, storage, encUri, rotOut, 90, listOf(1), password = "pass123"))
+
+        val reorderOut = File(app.cacheDir, "b9_enc_reorder.pdf")
+        assertEquals(2, PdfVaultEngine.reorder(app, storage, encUri, reorderOut, listOf(2, 1), password = "pass123"))
+
+        val extractOut = File(app.cacheDir, "b9_enc_extract.pdf")
+        assertEquals(1, PdfVaultEngine.extract(app, storage, encUri, extractOut, listOf(2), password = "pass123"))
+
+        val wmOut = File(app.cacheDir, "b9_enc_wm.pdf")
+        assertEquals(2, PdfVaultEngine.addTextWatermark(app, storage, encUri, wmOut, "CONFIDENTIAL", 25, -35, 10, password = "pass123"))
+
+        val numOut = File(app.cacheDir, "b9_enc_num.pdf")
+        assertEquals(2, PdfVaultEngine.addPageNumbers(app, storage, encUri, numOut, "{n}/{total}", 1, "Tengah Bawah", 4, password = "pass123"))
+
+        val metaOut = File(app.cacheDir, "b9_enc_meta.pdf")
+        assertEquals(2, PdfVaultEngine.writeMetadata(app, storage, encUri, metaOut, mapOf("title" to "Updated"), password = "pass123"))
+        assertEquals("Updated", PdfVaultEngine.readMetadata(app, storage, Uri.fromFile(metaOut))["title"])
+
+        val formOut = File(app.cacheDir, "b9_enc_form.pdf")
+        assertEquals(1, PdfVaultEngine.fillForm(app, storage, encUri, formOut, mapOf("signer" to "NewName"), password = "pass123"))
+        assertEquals("NewName", PdfVaultEngine.listFormFields(app, storage, Uri.fromFile(formOut)).first().second)
+    }
+
+    @Test
+    fun officeConvertEngineHandlesUnicodeSmartQuotesAndEmDash() {
+        val docxFile = File(app.cacheDir, "b9_unicode.docx")
+        val pdfFile = File(app.cacheDir, "b9_unicode.pdf")
+        // Write valid minimal DOCX containing curly quotes, em-dash, ellipsis, and emoji
+        java.util.zip.ZipOutputStream(docxFile.outputStream().buffered()).use { zip ->
+            val xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+                <w:p><w:r><w:t>“Hello” — HariMu’s PDF… ✓</w:t></w:r></w:p>
+                </w:body></w:document>""".trimIndent()
+            zip.putNextEntry(java.util.zip.ZipEntry("word/document.xml"))
+            zip.write(xml.toByteArray())
+            zip.closeEntry()
+        }
+        val pages = OfficeConvertEngine.docxToPdf(docxFile, pdfFile)
+        assertEquals(1, pages)
+        val extracted = PdfVaultEngine.extractText(pdfFile)
+        assertTrue(extracted.contains("\"Hello\" - HariMu's PDF..."))
+    }
+
+    @Test
+    fun workspaceValidatorRejectsInvalidPdfToolInputsAndReorderCopyHasNoDragClaim() {
+        val dummyPdf = File(app.cacheDir, "b9_dummy.pdf").also {
+            createSamplePdf(it, listOf("Page 1"))
+        }
+        val pdfUri = Uri.fromFile(dummyPdf)
+
+        val pdf04 = ToolRegistry.findById("PDF-04")!!
+        assertFalse(pdf04.description(isEnglish = true).contains("drag", ignoreCase = true))
+        assertFalse(pdf04.description(isEnglish = false).contains("seret", ignoreCase = true))
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf04, ToolInput(uris = listOf(pdfUri), params = mapOf("order" to "abc"))
+            ).stage
+        )
+
+        val pdf05 = ToolRegistry.findById("PDF-05")!!
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf05, ToolInput(uris = listOf(pdfUri), params = mapOf("pages" to ""))
+            ).stage
+        )
+
+        val pdf07 = ToolRegistry.findById("PDF-07")!!
+        val badTxt = File(app.cacheDir, "not_a_word_doc.txt").apply { writeText("hello") }
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf07, ToolInput(uris = listOf(Uri.fromFile(badTxt)))
+            ).stage
+        )
+
+        val pdf10 = ToolRegistry.findById("PDF-10")!!
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf10, ToolInput(uris = listOf(pdfUri), params = mapOf("userPwd" to "", "ownerPwd" to ""))
+            ).stage
+        )
+
+        val pdf12 = ToolRegistry.findById("PDF-12")!!
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf12, ToolInput(uris = listOf(pdfUri), params = mapOf("mode" to "Teks", "text" to ""))
+            ).stage
+        )
+
+        val pdf14 = ToolRegistry.findById("PDF-14")!!
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf14, ToolInput(uris = listOf(pdfUri), params = mapOf("terms" to " , "))
+            ).stage
+        )
+
+        val pdf19 = ToolRegistry.findById("PDF-19")!!
+        assertEquals(
+            WorkspaceStage.INVALID_INPUT,
+            ToolWorkspaceValidator.validateWorkspaceInput(
+                app, pdf19, ToolInput(uris = listOf(pdfUri), params = mapOf("title" to "", "author" to "", "subject" to "", "keywords" to ""))
+            ).stage
+        )
+    }
+
+    @Test
+    fun pdfStudioViewModelHandlesWrongPasswordEncryptedCompareErrorAndDeleteOutput() {
+        val storage = app.container.storage
+        val plain = File(app.cacheDir, "b9_vm_plain.pdf")
+        createSamplePdf(plain, listOf("Page A"))
+        val encrypted = File(app.cacheDir, "b9_vm_enc.pdf")
+        PdfVaultEngine.encrypt(
+            app, storage, Uri.fromFile(plain), encrypted,
+            userPassword = "secret",
+            ownerPassword = "owner",
+            keyBits = 128,
+            preferAes = true
+        )
+        val encUri = Uri.fromFile(encrypted)
+
+        val vm = PdfStudioViewModel(app.container, app, PdfStudioTab.INSPECT)
+        vm.selectPrimaryPdf(encUri)
+        repeat(20) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            if (!vm.state.value.isInspecting && vm.state.value.inspection != null) return@repeat
+            Thread.sleep(50)
+        }
+        assertTrue(vm.state.value.inspection?.requiresPassword == true)
+
+        // Wrong password produces docError with wrong password feedback
+        vm.setUnlockPassword("wrong")
+        vm.inspectPrimary()
+        repeat(20) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            if (!vm.state.value.isInspecting && vm.state.value.docError != null) return@repeat
+            Thread.sleep(50)
+        }
+        assertTrue(vm.state.value.docError?.isNotBlank() == true)
+
+        // Valid password unlocks and executes operation with English summary
+        vm.setUnlockPassword("secret")
+        vm.inspectPrimary()
+        repeat(20) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            if (!vm.state.value.isInspecting && vm.state.value.inspection?.requiresPassword == false) return@repeat
+            Thread.sleep(50)
+        }
+        assertFalse(vm.state.value.inspection?.requiresPassword == true)
+
+        vm.rotatePages(90, applySelectedOnly = false, isEnglish = true)
+        repeat(30) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            if (vm.state.value.progress is ToolProgress.Done || vm.state.value.progress is ToolProgress.Failed) return@repeat
+            Thread.sleep(50)
+        }
+        val done = vm.state.value.progress as? ToolProgress.Done
+        assertNotNull("Expected ToolProgress.Done, got ${vm.state.value.progress}", done)
+        assertTrue(done!!.result.summary.contains("rotated", ignoreCase = true))
+
+        // Delete output removes file and records deletedOutputPaths
+        val outFile = done.result.outputs.first()
+        assertTrue(outFile.file.exists())
+        vm.deleteOutputFile(outFile)
+        assertFalse(outFile.file.exists())
+        assertTrue(outFile.file.absolutePath in vm.state.value.deletedOutputPaths)
+
+        // Encrypted comparison surfaces compareError instead of failing silently
+        vm.setCompareDocA(encUri)
+        vm.setCompareDocB(Uri.fromFile(plain))
+        repeat(20) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            if (!vm.state.value.isLoadingComparePreview && vm.state.value.compareError != null) return@repeat
+            Thread.sleep(50)
+        }
+        assertNotNull(vm.state.value.compareError)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h840dp")
+    fun pdfPreviewWrongPasswordAndPageStripOver60PagesRenderHonestNotices() {
+        val storage = app.container.storage
+        val plain = File(app.cacheDir, "b9_ui_plain.pdf")
+        createSamplePdf(plain, listOf("Single Page"))
+        val encrypted = File(app.cacheDir, "b9_ui_enc.pdf")
+        PdfVaultEngine.encrypt(
+            app, storage, Uri.fromFile(plain), encrypted,
+            userPassword = "pw",
+            ownerPassword = "opw",
+            keyBits = 128,
+            preferAes = true
+        )
+        val manyPages = File(app.cacheDir, "b9_65_pages.pdf")
+        PDDocument().use { doc ->
+            repeat(65) { doc.addPage(PDPage(PDRectangle.A4)) }
+            doc.save(manyPages)
+        }
+
+        withMainActivity { activity ->
+            // 1. Encrypted preview shows wrong-password message when password != ""
+            setTestContent(activity, isEnglish = true) {
+                PdfDocumentPreviewCard(
+                    uri = Uri.fromFile(encrypted),
+                    storage = storage,
+                    isEnglish = true,
+                    password = "bad"
+                )
+            }
+            repeat(15) {
+                flushMainUi(activity, frames = 2)
+                Thread.sleep(30)
+            }
+            val encNodes = collectSemanticsNodes(activity.window.decorView)
+            val encTexts = encNodes.mapNotNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString("") { t -> t.text } }
+            assertTrue(
+                "Expected wrong password copy in $encTexts",
+                encTexts.any { it.contains("Incorrect password", ignoreCase = true) }
+            )
+
+            // 2. Page strip with >60 pages shows 1-60 thumbnail limit notice
+            setTestContent(activity, isEnglish = true) {
+                PdfPageStripOrganizer(
+                    pdfUri = Uri.fromFile(manyPages),
+                    storage = storage,
+                    selectedPages = listOf(1),
+                    pageOrder = emptyList(),
+                    reorderMode = false,
+                    onSelectedPagesChange = {},
+                    onPageOrderChange = {}
+                )
+            }
+            for (attempt in 0 until 15) {
+                flushMainUi(activity, frames = 2)
+                val found = findByTag(collectSemanticsNodes(activity.window.decorView), "pdf_picker_thumb_limit_notice")
+                if (found != null) break
+                Thread.sleep(30)
+            }
+            assertNotNull(
+                findByTag(collectSemanticsNodes(activity.window.decorView), "pdf_picker_thumb_limit_notice")
+            )
         }
     }
 

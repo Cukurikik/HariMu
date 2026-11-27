@@ -16,6 +16,8 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.PauseCircleOutline
@@ -71,18 +73,61 @@ fun ConverterJobQueueSection(
     onUploadOutput: (ToolOutputFile) -> Unit,
     modifier: Modifier = Modifier,
     uploadTasks: List<UploadTask> = emptyList(),
-    onRetryUpload: ((UploadTask) -> Unit)? = null
+    onRetryUpload: ((UploadTask) -> Unit)? = null,
+    onClearFinished: (() -> Unit)? = null,
+    onCopyTextOutput: ((String) -> Unit)? = null
 ) {
+    val activeCount = jobs.count {
+        it.status == ToolJobWorker.STATUS_RUNNING || it.status == ToolJobWorker.STATUS_PREPARING
+    }
+    val queuedCount = jobs.count { it.status == ToolJobWorker.STATUS_QUEUED }
+    val issueCount = jobs.count {
+        it.status == ToolJobWorker.STATUS_FAILED || it.status == ToolJobWorker.STATUS_INTERRUPTED
+    }
+    val hasFinished = jobs.any { !ToolJobWorker.isActiveStatus(it.status) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .testTag("converter_queue_section"),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = stringResource(R.string.converter_queue_title),
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.converter_queue_title),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                if (jobs.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.converter_queue_stats_fmt, activeCount, queuedCount, issueCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("converter_queue_stats")
+                    )
+                }
+            }
+            if (onClearFinished != null && hasFinished) {
+                TextButton(
+                    onClick = onClearFinished,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("converter_clear_finished_btn")
+                ) {
+                    Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.job_clear_finished),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
 
         if (jobs.isEmpty()) {
             EmptyState(
@@ -105,7 +150,16 @@ fun ConverterJobQueueSection(
                     onOpenOutput = onOpenOutput,
                     onShareOutput = onShareOutput,
                     onSaveOutput = onSaveOutput,
-                    onUploadOutput = onUploadOutput
+                    onUploadOutput = onUploadOutput,
+                    onCopyTextOutput = onCopyTextOutput
+                )
+            }
+            if (jobs.size > 20) {
+                Text(
+                    text = stringResource(R.string.converter_queue_overflow_note, jobs.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("converter_queue_overflow_note")
                 )
             }
         }
@@ -124,7 +178,8 @@ private fun ConverterJobCard(
     onOpenOutput: (ToolOutputFile) -> Unit,
     onShareOutput: (ToolOutputFile) -> Unit,
     onSaveOutput: (ToolOutputFile) -> Unit,
-    onUploadOutput: (ToolOutputFile) -> Unit
+    onUploadOutput: (ToolOutputFile) -> Unit,
+    onCopyTextOutput: ((String) -> Unit)? = null
 ) {
     val semantic = HariMuThemeTokens.semantic
     val isActive = ToolJobWorker.isActiveStatus(job.status)
@@ -338,6 +393,55 @@ private fun ConverterJobCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = semantic.onWarningContainer
                             )
+                        }
+                    }
+                }
+
+                val existingOutputs = outputs.filter { it.file.exists() }
+                if (existingOutputs.size > 1) {
+                    Text(
+                        text = stringResource(R.string.converter_queue_extra_outputs, existingOutputs.size - 1),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (job.textOutput.isNotBlank()) {
+                    Surface(
+                        shape = HariMuThemeTokens.shapes.control,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("converter_job_text_preview_${job.jobId}")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = job.textOutput.take(360),
+                                style = MonoTextStyle,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (onCopyTextOutput != null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(
+                                        onClick = { onCopyTextOutput(job.textOutput) },
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("converter_job_copy_${job.jobId}")
+                                    ) {
+                                        Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.action_copy))
+                                    }
+                                }
+                            }
                         }
                     }
                 }

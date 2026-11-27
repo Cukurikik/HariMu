@@ -5,8 +5,14 @@ import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
 import com.harimu.app.core.engines.ConverterEngine
+import com.harimu.app.core.engines.EbookEngine
 import com.harimu.app.core.engines.FontEngine
 import com.harimu.app.core.files.FileStorageManager
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.Locale
 import java.util.zip.ZipFile
 
@@ -93,7 +99,8 @@ data class DetectedSource(
     val format: SourceFormat,
     val detectionMethod: String,
     val noteId: String? = null,
-    val noteEn: String? = null
+    val noteEn: String? = null,
+    val extensionMismatch: Boolean = false
 ) {
     fun note(isEnglish: Boolean): String? = if (isEnglish) noteEn else noteId
 }
@@ -134,6 +141,14 @@ object SourceFormatDetector {
     private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "amr", "3ga", "wma")
     private val VIDEO_EXTS = setOf("mp4", "m4v", "mov", "webm", "avi", "mkv", "3gp", "ts")
 
+    private val STRICT_MAGIC_BINARY_EXTS = setOf(
+        "png", "jpg", "jpeg", "webp", "bmp", "dib", "gif", "psd", "psb", "tif", "tiff",
+        "heic", "heif", "avif", "avifs", "pdf", "zip", "docx", "epub", "cbz", "cbr",
+        "7z", "rar", "tar.gz", "tgz", "hzm", "woff", "woff2", "otf", "ttf", "flac", "ogg", "opus", "wav"
+    )
+    private val TEXT_EXTS = setOf("json", "geojson", "xml", "kml", "csv", "tsv", "css", "md", "markdown", "txt", "svg")
+    private val BINARY_NON_TEXT_EXTS = AUDIO_EXTS + VIDEO_EXTS + STRICT_MAGIC_BINARY_EXTS + setOf("dng", "cr2", "nef", "arw", "orf", "rw2")
+
     fun detectFromBytesAndName(
         uriString: String,
         displayName: String,
@@ -142,8 +157,16 @@ object SourceFormatDetector {
     ): DetectedSource {
         val cleanName = displayName.trim().ifBlank { "file" }
         val ext = extractCompositeExtension(cleanName)
-        val (format, method) = sniff(ext, headerBytes)
-        val (noteId, noteEn) = limitationHint(format)
+        val (format, method, mismatch) = sniff(ext, headerBytes)
+        val (baseNoteId, baseNoteEn) = limitationHint(format)
+        val (noteId, noteEn) = if (mismatch && ext.isNotBlank()) {
+            val mismatchId = "Ekstensi .$ext tidak cocok dengan isi berkas sebenarnya ($method). Target ditentukan dari isi asli."
+            val mismatchEn = "Extension .$ext does not match the actual file content ($method). Targets follow the real format."
+            listOfNotNull(mismatchId, baseNoteId).joinToString(" ") to
+                listOfNotNull(mismatchEn, baseNoteEn).joinToString(" ")
+        } else {
+            baseNoteId to baseNoteEn
+        }
         return DetectedSource(
             uriString = uriString,
             displayName = cleanName,
@@ -152,7 +175,8 @@ object SourceFormatDetector {
             format = format,
             detectionMethod = method,
             noteId = noteId,
-            noteEn = noteEn
+            noteEn = noteEn,
+            extensionMismatch = mismatch
         )
     }
 
@@ -168,23 +192,44 @@ object SourceFormatDetector {
         }.getOrNull() ?: ByteArray(0)
 
         var detected = detectFromBytesAndName(uri.toString(), name, header, size)
-        // Distinguish .zip vs .docx / .epub / .cbz when extension was stripped or generic
-        if (detected.format == SourceFormat.ZIP && detected.extension !in setOf("docx", "epub", "cbz")) {
-            val zipSubType = sniffZipSubtype(context, uri)
+        // Inspect actual ZIP manifest for PK archives instead of trusting .docx/.epub/.cbz extensions alone.
+        if (detected.format in setOf(SourceFormat.ZIP, SourceFormat.DOCX, SourceFormat.EPUB, SourceFormat.CBZ)) {
+            val zipSubType = sniffZipSubtype(context, uri, detected.extension)
             if (zipSubType != null) {
-                val (nId, nEn) = limitationHint(zipSubType)
+                val expectedExt = when (zipSubType) {
+                    SourceFormat.DOCX -> "docx"
+                    SourceFormat.EPUB -> "epub"
+                    SourceFormat.CBZ -> "cbz"
+                    else -> "zip"
+                }
+                val mismatch = detected.extension.isNotBlank() &&
+                    detected.extension != expectedExt &&
+                    detected.extension in setOf("docx", "epub", "cbz")
+                val (baseId, baseEn) = limitationHint(zipSubType)
+                val (nId, nEn) = if (mismatch) {
+                    listOfNotNull(
+                        "Ekstensi .${detected.extension} tidak cocok dengan isi arsip ZIP ($expectedExt).",
+                        baseId
+                    ).joinToString(" ") to listOfNotNull(
+                        "Extension .${detected.extension} does not match the ZIP package contents ($expectedExt).",
+                        baseEn
+                    ).joinToString(" ")
+                } else {
+                    baseId to baseEn
+                }
                 detected = detected.copy(
                     format = zipSubType,
                     detectionMethod = "ZIP/Manifest",
                     noteId = nId,
-                    noteEn = nEn
+                    noteEn = nEn,
+                    extensionMismatch = mismatch
                 )
             }
         }
         return detected
     }
 
-    private fun sniffZipSubtype(context: Context, uri: Uri): SourceFormat? = runCatching {
+    private fun sniffZipSubtype(context: Context, uri: Uri, ext: String): SourceFormat? = runCatching {
         val temp = java.io.File.createTempFile("sniff", ".zip", context.cacheDir)
         try {
             context.contentResolver.openInputStream(uri)?.use { inp ->
@@ -194,7 +239,11 @@ object SourceFormatDetector {
                 when {
                     zip.getEntry("word/document.xml") != null -> SourceFormat.DOCX
                     zip.getEntry("META-INF/container.xml") != null -> SourceFormat.EPUB
-                    else -> null
+                    ext == "cbz" -> {
+                        val hasImages = zip.entries().asSequence().any { !it.isDirectory && EbookEngine.isImageName(it.name) }
+                        if (hasImages) SourceFormat.CBZ else SourceFormat.ZIP
+                    }
+                    else -> SourceFormat.ZIP
                 }
             }
         } finally {
@@ -219,122 +268,192 @@ object SourceFormatDetector {
         return lower.substringAfterLast('.', "")
     }
 
-    private fun sniff(ext: String, bytes: ByteArray): Pair<SourceFormat, String> {
+    private data class SniffResult(
+        val format: SourceFormat,
+        val method: String,
+        val mismatch: Boolean = false
+    )
+
+    private fun sniff(ext: String, bytes: ByteArray): SniffResult {
         // 1. Magic-byte / header detection first for deterministic binary & structured types
         if (bytes.size >= 8 && bytes.copyOfRange(0, 8).contentEquals("HARIMUA1".toByteArray(Charsets.UTF_8))) {
-            return SourceFormat.HZM to "Header"
+            return SniffResult(SourceFormat.HZM, "Header", ext.isNotBlank() && ext != "hzm")
         }
         if (bytes.size >= 5 && bytes.copyOfRange(0, 5).contentEquals("%PDF-".toByteArray(Charsets.US_ASCII))) {
-            return SourceFormat.PDF to "Header"
+            return SniffResult(SourceFormat.PDF, "Header", ext.isNotBlank() && ext != "pdf")
         }
         if (bytes.size >= 8 &&
             bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() &&
             bytes[2] == 0x4E.toByte() && bytes[3] == 0x47.toByte()
         ) {
-            return SourceFormat.PNG to "Header"
+            return SniffResult(SourceFormat.PNG, "Header", ext.isNotBlank() && ext != "png")
         }
         if (bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() && bytes[2] == 0xFF.toByte()) {
-            return SourceFormat.JPG to "Header"
+            return SniffResult(SourceFormat.JPG, "Header", ext.isNotBlank() && ext !in setOf("jpg", "jpeg"))
         }
         if (bytes.size >= 12 &&
             bytes.copyOfRange(0, 4).contentEquals("RIFF".toByteArray(Charsets.US_ASCII))
         ) {
             val tag = String(bytes, 8, 4, Charsets.US_ASCII)
             when (tag) {
-                "WEBP" -> return SourceFormat.WEBP to "Header"
-                "WAVE" -> return SourceFormat.WAV to "Header"
-                "AVI " -> return SourceFormat.AVI to "Header"
+                "WEBP" -> return SniffResult(SourceFormat.WEBP, "Header", ext.isNotBlank() && ext != "webp")
+                "WAVE" -> return SniffResult(SourceFormat.WAV, "Header", ext.isNotBlank() && ext != "wav")
+                "AVI " -> return SniffResult(SourceFormat.AVI, "Header", ext.isNotBlank() && ext != "avi")
             }
         }
-        if (bytes.size >= 2 && bytes[0] == 'B'.code.toByte() && bytes[1] == 'M'.code.toByte() && ext == "bmp") {
-            return SourceFormat.BMP to "Header"
+        if (bytes.size >= 18 && bytes[0] == 'B'.code.toByte() && bytes[1] == 'M'.code.toByte()) {
+            val dibSize = ByteBuffer.wrap(bytes, 14, 4).order(ByteOrder.LITTLE_ENDIAN).int
+            if (dibSize in setOf(12, 40, 52, 56, 64, 108, 124)) {
+                return SniffResult(SourceFormat.BMP, "Header", ext.isNotBlank() && ext !in setOf("bmp", "dib"))
+            }
         }
         if (bytes.size >= 4 && bytes.copyOfRange(0, 4).contentEquals("GIF8".toByteArray(Charsets.US_ASCII))) {
-            return SourceFormat.GIF to "Header"
+            return SniffResult(SourceFormat.GIF, "Header", ext.isNotBlank() && ext != "gif")
         }
         if (bytes.size >= 4 && bytes.copyOfRange(0, 4).contentEquals("8BPS".toByteArray(Charsets.US_ASCII))) {
-            return SourceFormat.PSD to "Header"
+            return SniffResult(SourceFormat.PSD, "Header", ext.isNotBlank() && ext !in setOf("psd", "psb"))
         }
         if (bytes.size >= 4 && (
                 (bytes[0] == 'I'.code.toByte() && bytes[1] == 'I'.code.toByte() && bytes[2] == 42.toByte() && bytes[3] == 0.toByte()) ||
                     (bytes[0] == 'M'.code.toByte() && bytes[1] == 'M'.code.toByte() && bytes[2] == 0.toByte() && bytes[3] == 42.toByte())
                 )
         ) {
-            return if (ext == "dng") SourceFormat.DNG to "Header" else SourceFormat.TIFF to "Header"
+            return if (ext == "dng") {
+                SniffResult(SourceFormat.DNG, "Header")
+            } else {
+                SniffResult(SourceFormat.TIFF, "Header", ext.isNotBlank() && ext !in setOf("tif", "tiff"))
+            }
         }
         if (bytes.size >= 12 && bytes.copyOfRange(4, 8).contentEquals("ftyp".toByteArray(Charsets.US_ASCII))) {
             val brand = String(bytes, 8, 4, Charsets.US_ASCII).lowercase(Locale.US)
             return when {
                 brand.startsWith("heic") || brand.startsWith("heix") || brand.startsWith("mif1") ->
-                    SourceFormat.HEIC to "Header"
+                    SniffResult(SourceFormat.HEIC, "Header", ext.isNotBlank() && ext !in setOf("heic", "heif"))
                 brand.startsWith("avif") || brand.startsWith("avis") ->
-                    SourceFormat.AVIF to "Header"
+                    SniffResult(SourceFormat.AVIF, "Header", ext.isNotBlank() && ext !in setOf("avif", "avifs"))
                 brand.startsWith("m4a") ->
-                    SourceFormat.M4A_AAC to "Header"
+                    SniffResult(SourceFormat.M4A_AAC, "Header", ext.isNotBlank() && ext !in setOf("m4a", "aac"))
                 else ->
-                    SourceFormat.MP4 to "Header"
+                    SniffResult(SourceFormat.MP4, "Header", ext.isNotBlank() && ext !in setOf("mp4", "m4v", "mov", "3gp"))
             }
         }
         if (bytes.size >= 4 &&
             bytes[0] == 0x1A.toByte() && bytes[1] == 0x45.toByte() &&
             bytes[2] == 0xDF.toByte() && bytes[3] == 0xA3.toByte()
         ) {
-            return (if (ext == "webm") SourceFormat.WEBM else SourceFormat.MKV) to "Header"
+            val fmt = if (ext == "webm") SourceFormat.WEBM else SourceFormat.MKV
+            return SniffResult(fmt, "Header")
         }
         if (bytes.size >= 4 && bytes.copyOfRange(0, 4).contentEquals("fLaC".toByteArray(Charsets.US_ASCII))) {
-            return SourceFormat.FLAC to "Header"
+            return SniffResult(SourceFormat.FLAC, "Header", ext.isNotBlank() && ext != "flac")
         }
         if (bytes.size >= 4 && bytes.copyOfRange(0, 4).contentEquals("OggS".toByteArray(Charsets.US_ASCII))) {
-            return (if (ext == "opus") SourceFormat.OPUS else SourceFormat.OGG) to "Header"
+            val fmt = if (ext == "opus") SourceFormat.OPUS else SourceFormat.OGG
+            return SniffResult(fmt, "Header")
         }
         if (bytes.size >= 3 && (
                 bytes.copyOfRange(0, 3).contentEquals("ID3".toByteArray(Charsets.US_ASCII)) ||
                     (bytes[0] == 0xFF.toByte() && (bytes[1].toInt() and 0xE0) == 0xE0)
                 )
         ) {
-            return SourceFormat.MP3 to "Header"
+            return SniffResult(SourceFormat.MP3, "Header", ext.isNotBlank() && ext != "mp3")
         }
         if (bytes.size >= 6 &&
             bytes.copyOfRange(0, 6).contentEquals(
                 byteArrayOf(0x37, 0x7A, 0xBC.toByte(), 0xAF.toByte(), 0x27, 0x1C)
             )
         ) {
-            return SourceFormat.SEVEN_Z to "Header"
+            return SniffResult(SourceFormat.SEVEN_Z, "Header", ext.isNotBlank() && ext != "7z")
         }
         if (bytes.size >= 4 && bytes.copyOfRange(0, 4).contentEquals("Rar!".toByteArray(Charsets.US_ASCII))) {
-            return (if (ext == "cbr") SourceFormat.CBR else SourceFormat.RAR) to "Header"
+            val fmt = if (ext == "cbr") SourceFormat.CBR else SourceFormat.RAR
+            return SniffResult(fmt, "Header", ext.isNotBlank() && ext !in setOf("rar", "cbr"))
         }
         if (bytes.size >= 2 && bytes[0] == 0x1F.toByte() && bytes[1] == 0x8B.toByte()) {
-            return SourceFormat.TAR_GZ to "Header"
+            return SniffResult(SourceFormat.TAR_GZ, "Header", ext.isNotBlank() && ext !in setOf("tar.gz", "tgz", "gz"))
         }
         when (FontEngine.detectKind(bytes)) {
-            FontEngine.Kind.WOFF2 -> return SourceFormat.WOFF2 to "Header"
-            FontEngine.Kind.WOFF -> return SourceFormat.WOFF to "Header"
-            FontEngine.Kind.OTF -> return SourceFormat.OTF to "Header"
-            FontEngine.Kind.TTF -> return SourceFormat.TTF to "Header"
+            FontEngine.Kind.WOFF2 -> return SniffResult(SourceFormat.WOFF2, "Header", ext.isNotBlank() && ext != "woff2")
+            FontEngine.Kind.WOFF -> return SniffResult(SourceFormat.WOFF, "Header", ext.isNotBlank() && ext != "woff")
+            FontEngine.Kind.OTF -> return SniffResult(SourceFormat.OTF, "Header", ext.isNotBlank() && ext != "otf")
+            FontEngine.Kind.TTF -> return SniffResult(SourceFormat.TTF, "Header", ext.isNotBlank() && ext != "ttf")
             FontEngine.Kind.UNKNOWN -> Unit
         }
         if (bytes.size >= 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
             return when (ext) {
-                "docx" -> SourceFormat.DOCX to "Header"
-                "epub" -> SourceFormat.EPUB to "Header"
-                "cbz" -> SourceFormat.CBZ to "Header"
-                else -> SourceFormat.ZIP to "Header"
+                "docx" -> SniffResult(SourceFormat.DOCX, "Header")
+                "epub" -> SniffResult(SourceFormat.EPUB, "Header")
+                "cbz" -> SniffResult(SourceFormat.CBZ, "Header")
+                else -> SniffResult(SourceFormat.ZIP, "Header", ext.isNotBlank() && ext != "zip")
             }
         }
-        if (bytes.isNotEmpty()) {
+        if (ConverterEngine.isBinaryStl(bytes)) {
+            return SniffResult(SourceFormat.STL, "Header")
+        }
+        if (bytes.isNotEmpty() && looksLikeText(bytes)) {
             val headText = bytes.toString(Charsets.UTF_8).trimStart()
             if (headText.startsWith("<svg", ignoreCase = true) ||
-                (headText.startsWith("<?xml") && headText.contains("<svg", ignoreCase = true))
+                (headText.startsWith("<?xml", ignoreCase = true) && headText.contains("<svg", ignoreCase = true))
             ) {
-                return SourceFormat.SVG to "Content"
+                return SniffResult(SourceFormat.SVG, "Content", ext.isNotBlank() && ext !in setOf("svg", "xml"))
             }
             if (ConverterEngine.looksLikeAsciiStl(bytes)) {
-                return SourceFormat.STL to "Header"
+                return SniffResult(SourceFormat.STL, "Header", ext.isNotBlank() && ext != "stl")
+            }
+            if (headText.startsWith("data:image/", ignoreCase = true)) {
+                return SniffResult(SourceFormat.BASE64_IMAGE, "Content")
+            }
+            // Do not allow plaintext content with a spoofed binary extension (e.g. text renamed .png or .mp3)
+            if (ext in BINARY_NON_TEXT_EXTS) {
+                val textDetected = detectStructuredTextStrict(headText)
+                return if (textDetected != SourceFormat.UNKNOWN) {
+                    SniffResult(textDetected, "Content", mismatch = true)
+                } else {
+                    SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
+                }
+            }
+            // Validate structured text extensions against actual text structure
+            return when (ext) {
+                "json", "geojson" -> {
+                    val detectedText = detectStructuredTextStrict(headText)
+                    when (detectedText) {
+                        SourceFormat.JSON, SourceFormat.GEOJSON -> SniffResult(detectedText, "Content")
+                        SourceFormat.XML -> SniffResult(SourceFormat.XML, "Content", mismatch = true)
+                        else -> SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
+                    }
+                }
+                "xml", "kml" -> {
+                    if (headText.startsWith("<")) SniffResult(SourceFormat.XML, "Content")
+                    else SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
+                }
+                "csv" -> SniffResult(SourceFormat.CSV, "Content")
+                "tsv" -> SniffResult(SourceFormat.TSV, "Content")
+                "css" -> SniffResult(SourceFormat.CSS, "Content")
+                "md", "markdown" -> SniffResult(SourceFormat.MARKDOWN, "Content")
+                "svg" -> SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
+                else -> {
+                    val detectedText = detectStructuredTextStrict(headText)
+                    SniffResult(detectedText, if (detectedText != SourceFormat.UNKNOWN) "Content" else "Ext")
+                }
             }
         }
 
-        // 2. Fallback to extension
+        // 2. Non-empty binary data that failed strict magic signatures must never be trusted by extension alone.
+        if (bytes.isNotEmpty()) {
+            if (ext in TEXT_EXTS || ext in STRICT_MAGIC_BINARY_EXTS) {
+                return SniffResult(SourceFormat.UNKNOWN, "Header", mismatch = true)
+            }
+            return when (ext) {
+                in VIDEO_EXTS -> SniffResult(SourceFormat.OTHER_VIDEO, "Ext")
+                in AUDIO_EXTS -> SniffResult(SourceFormat.OTHER_AUDIO, "Ext")
+                "dng" -> SniffResult(SourceFormat.DNG, "Ext")
+                "cr2", "nef", "arw", "orf", "rw2" -> SniffResult(SourceFormat.RAW_OTHER, "Ext")
+                "stl" -> SniffResult(SourceFormat.STL, "Ext")
+                else -> SniffResult(SourceFormat.UNKNOWN, "Header")
+            }
+        }
+
+        // 3. Extension fallback only when header bytes are unavailable (empty)
         val byExt = when (ext) {
             "mp4", "m4v" -> SourceFormat.MP4
             "webm" -> SourceFormat.WEBM
@@ -384,7 +503,40 @@ object SourceFormatDetector {
             "md", "markdown" -> SourceFormat.MARKDOWN
             else -> SourceFormat.UNKNOWN
         }
-        return byExt to "Ext"
+        return SniffResult(byExt, "Ext")
+    }
+
+    private fun looksLikeText(bytes: ByteArray): Boolean {
+        if (bytes.isEmpty()) return false
+        var controlCount = 0
+        for (b in bytes) {
+            val u = b.toInt() and 0xFF
+            if (u == 0) return false
+            if (u < 0x20 && u != 0x09 && u != 0x0A && u != 0x0D && u != 0x0C) {
+                controlCount++
+            }
+        }
+        return controlCount * 50 <= bytes.size
+    }
+
+    private fun detectStructuredTextStrict(raw: String): SourceFormat {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return SourceFormat.UNKNOWN
+        if (trimmed.startsWith("data:image/", ignoreCase = true)) return SourceFormat.BASE64_IMAGE
+        if (trimmed.startsWith("<")) {
+            return if (trimmed.contains("<svg", ignoreCase = true)) SourceFormat.SVG else SourceFormat.XML
+        }
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            val lower = trimmed.lowercase(Locale.US)
+            return if (lower.contains("\"featurecollection\"") ||
+                (lower.contains("\"geometry\"") && lower.contains("\"coordinates\""))
+            ) {
+                SourceFormat.GEOJSON
+            } else {
+                SourceFormat.JSON
+            }
+        }
+        return SourceFormat.UNKNOWN
     }
 
     fun detectTextFormat(raw: String): SourceFormat {
@@ -429,6 +581,9 @@ object SourceFormatDetector {
         SourceFormat.PSD ->
             "File PSD berlapis tidak dapat diparse on-device." to
                 "Layered PSD files cannot be parsed on-device."
+        SourceFormat.DNG ->
+            "Dekode DNG bergantung pada dukungan decoder perangkat Android dan belum selalu konsisten di semua pabrikan." to
+                "DNG decoding depends on device OEM platform decoders and may fail on unsupported devices."
         SourceFormat.RAW_OTHER ->
             "RAW kamera (CR2/NEF/ARW/ORF/RW2) tidak didukung tanpa libraw; hanya DNG pada perangkat yang mendukung." to
                 "Camera RAW (CR2/NEF/ARW/ORF/RW2) is unsupported without libraw; only DNG works on supported devices."
@@ -1019,6 +1174,23 @@ object ConverterFormatMatrix {
         else -> null
     }
 
+    fun mixedIncompatibleReason(
+        sources: List<DetectedSource>,
+        isEnglish: Boolean,
+        apiLevel: Int = Build.VERSION.SDK_INT
+    ): String? {
+        if (sources.size < 2) return null
+        val formatTargets = validTargetsForSources(sources, apiLevel).filter { !it.isArchiveSecurityAction }
+        if (formatTargets.isNotEmpty()) return null
+        if (sources.any { unsupportedReason(it.format, isEnglish, apiLevel) != null }) return null
+        val distinctBadges = sources.map { it.format.badge }.distinct().joinToString(", ")
+        return if (isEnglish) {
+            "Selected files mix incompatible formats ($distinctBadges) with no shared format converter. Remove mismatched files or pack them all into an AES-256 ZIP."
+        } else {
+            "Berkas yang dipilih mencampur format berbeda ($distinctBadges) tanpa konverter bersama. Hapus berkas yang berbeda atau kunci semuanya ke ZIP AES-256."
+        }
+    }
+
     fun validateInputs(
         target: ConversionTargetOption?,
         sources: List<DetectedSource>,
@@ -1033,21 +1205,64 @@ object ConverterFormatMatrix {
             )
         }
         val warnings = mutableListOf<String>()
-        val isTextTarget = target.toolId in setOf("CNV-23", "CNV-24", "CNV-25", "CNV-26", "CNV-27") ||
-            (target.toolId == "CNV-12" && target.fixedParams["mode"]?.toString()?.startsWith("Decode") == true)
+        val isDataTextTool = target.toolId in setOf("CNV-23", "CNV-24", "CNV-25", "CNV-26", "CNV-27")
+        val isDecodeBase64 = target.toolId == "CNV-12" && target.fixedParams["mode"]?.toString()?.startsWith("Decode") == true
 
-        if (isTextTarget) {
-            if (textInput.isBlank()) {
+        if (isDataTextTool || isDecodeBase64) {
+            val hasFileSources = sources.isNotEmpty()
+            if (textInput.isBlank() && !hasFileSources) {
                 return ConversionValidationResult(
                     isValid = false,
-                    blockingError = if (isEnglish) "Enter or load source text first." else "Masukkan atau muat teks sumber terlebih dahulu."
+                    blockingError = if (isEnglish) "Enter source text or pick a source file first." else "Masukkan teks sumber atau pilih berkas terlebih dahulu."
                 )
             }
-            if (target.toolId == "CNV-23" && textInput.length > 4 * 1024 * 1024) {
-                return ConversionValidationResult(
-                    isValid = false,
-                    blockingError = if (isEnglish) "Input exceeds 4 MB XML/JSON limit." else "Masukan melebihi batas 4 MB XML/JSON."
-                )
+            if (textInput.isNotBlank()) {
+                if (target.toolId == "CNV-23" && textInput.length > 4 * 1024 * 1024) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) "Input exceeds 4 MB XML/JSON limit." else "Masukan melebihi batas 4 MB XML/JSON."
+                    )
+                }
+                if ((target.id == "json_xml" || target.id == "json_pretty" || target.id == "json_minify" || target.id == "geojson_pretty" || target.id == "geojson_minify") &&
+                    runCatching { Json.parseToJsonElement(textInput.trim()) }.isFailure
+                ) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) "Invalid JSON syntax." else "Sintaks JSON tidak valid."
+                    )
+                }
+                if (target.id == "xml_json" && !textInput.trimStart().startsWith("<")) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) "XML input must start with '<'." else "Masukan XML harus diawali tanda '<'."
+                    )
+                }
+                if (target.toolId == "CNV-27" && !looksLikeValidGeoJson(textInput)) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) {
+                            "JSON input is not valid GeoJSON (requires FeatureCollection/Feature/Geometry with coordinates)."
+                        } else {
+                            "Masukan JSON belum berstruktur GeoJSON (memerlukan type FeatureCollection/Feature/Geometry dengan coordinates)."
+                        }
+                    )
+                }
+            } else {
+                val maxTextFileBytes = 4L * 1024L * 1024L
+                val oversized = sources.firstOrNull { it.byteSize > maxTextFileBytes }
+                if (oversized != null) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) {
+                            "${oversized.displayName} exceeds the 4 MB text conversion limit."
+                        } else {
+                            "${oversized.displayName} melebihi batas konversi teks 4 MB."
+                        }
+                    )
+                }
+            }
+            if (target.isLimitedOrBasic) {
+                target.limitNote(isEnglish)?.let { warnings += it }
             }
             return ConversionValidationResult(isValid = true, warnings = warnings)
         }
@@ -1114,6 +1329,15 @@ object ConverterFormatMatrix {
             target.limitNote(isEnglish)?.let { warnings += it }
         }
         return ConversionValidationResult(isValid = true, warnings = warnings)
+    }
+
+    private fun looksLikeValidGeoJson(raw: String): Boolean {
+        val obj = runCatching { Json.parseToJsonElement(raw.trim()) as? JsonObject }.getOrNull() ?: return false
+        val type = runCatching { obj["type"]?.jsonPrimitive?.content }.getOrNull() ?: return false
+        return type in setOf(
+            "FeatureCollection", "Feature", "Point", "MultiPoint",
+            "LineString", "MultiLineString", "Polygon", "MultiPolygon", "GeometryCollection"
+        )
     }
 
     /** Sample snippets for Data/Code & Base64 text conversions. */

@@ -40,40 +40,41 @@ class GifEncoder(
                 Bitmap.createScaledBitmap(frame, width, height, true)
             }
         }
+        try {
+            val pixelCount = width * height
+            val pixels = IntArray(pixelCount)
+            val histogram = IntArray(BUCKETS)
+            val sampleStep = (pixelCount.toLong() / 200_000L).toInt().coerceAtLeast(1)
+            scaled.forEach { frame ->
+                frame.getPixels(pixels, 0, width, 0, 0, width, height)
+                var i = 0
+                while (i < pixels.size) {
+                    val p = pixels[i]
+                    if ((p ushr 24) and 0xFF > 8) histogram[bucketOf(p)]++
+                    i += sampleStep
+                }
+            }
 
-        val histogram = IntArray(BUCKETS)
-        val sampleStep = ((width.toLong() * height) / 200_000L).toInt().coerceAtLeast(1)
-        scaled.forEach { frame ->
-            val pixels = IntArray(width * height)
-            frame.getPixels(pixels, 0, width, 0, 0, width, height)
-            var i = 0
-            while (i < pixels.size) {
-                val p = pixels[i]
-                if ((p ushr 24) and 0xFF > 8) histogram[bucketOf(p)]++
-                i += sampleStep
+            val palette = medianCutPalette(histogram, 256)
+            val lookup = buildLookup(palette)
+            val indices = ByteArray(pixelCount)
+
+            writeHeader(out, palette, loop)
+            scaled.forEach { frame ->
+                frame.getPixels(pixels, 0, width, 0, 0, width, height)
+                for (i in pixels.indices) indices[i] = lookup[bucketOf(pixels[i])].toByte()
+                writeGraphicControl(out, delay)
+                writeImageDescriptor(out)
+                writeLzw(out, indices)
+            }
+            out.write(0x3B)
+            out.flush()
+            return scaled.size
+        } finally {
+            for (i in scaled.indices) {
+                if (scaled[i] !== frames[i] && !scaled[i].isRecycled) scaled[i].recycle()
             }
         }
-
-        val palette = medianCutPalette(histogram, 256)
-        val lookup = buildLookup(palette)
-
-        writeHeader(out, palette, loop)
-        scaled.forEach { frame ->
-            val pixels = IntArray(width * height)
-            frame.getPixels(pixels, 0, width, 0, 0, width, height)
-            val indices = ByteArray(pixels.size)
-            for (i in pixels.indices) indices[i] = lookup[bucketOf(pixels[i])].toByte()
-            writeGraphicControl(out, delay)
-            writeImageDescriptor(out)
-            writeLzw(out, indices)
-        }
-        out.write(0x3B)
-        out.flush()
-
-        for (i in scaled.indices) {
-            if (scaled[i] !== frames[i]) scaled[i].recycle()
-        }
-        return scaled.size
     }
 
     private fun bucketOf(pixel: Int): Int =

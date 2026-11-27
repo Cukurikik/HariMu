@@ -52,6 +52,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -74,6 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -88,6 +90,7 @@ import com.harimu.app.core.cloud.UploadStatus
 import com.harimu.app.core.cloud.UploadTask
 import com.harimu.app.core.design.jobs.UploadTaskStatusRow
 import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
+import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolResult
@@ -116,11 +119,17 @@ data class ResultActions(
 fun ToolResultPreview(
     output: ToolOutputFile,
     storage: FileStorageManager,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    beforeImageUri: Uri? = null
 ) {
     val mime = output.mimeType.lowercase()
     when {
-        mime.startsWith("image/") -> ImageResultPreview(output = output, storage = storage, modifier = modifier)
+        mime.startsWith("image/") -> ImageResultPreview(
+            output = output,
+            storage = storage,
+            modifier = modifier,
+            beforeImageUri = beforeImageUri
+        )
         mime.startsWith("video/") -> VideoResultPreview(output = output, storage = storage, modifier = modifier)
         mime.startsWith("audio/") -> AudioResultPreview(output = output, modifier = modifier)
         mime == "application/pdf" -> PdfResultPreview(output = output, storage = storage, modifier = modifier)
@@ -130,15 +139,55 @@ fun ToolResultPreview(
 }
 
 @Composable
-private fun ImageResultPreview(output: ToolOutputFile, storage: FileStorageManager, modifier: Modifier) {
+internal fun ImageResultPreview(
+    output: ToolOutputFile,
+    storage: FileStorageManager,
+    modifier: Modifier,
+    beforeImageUri: Uri? = null
+) {
+    val context = LocalContext.current
+    val outputUri = remember(output.file.absolutePath, output.file.lastModified()) { output.file.toUri() }
+    var sourceInfo by remember(output.file.absolutePath, output.file.lastModified()) {
+        mutableStateOf<ImageIO.SourceInfo?>(null)
+    }
+    LaunchedEffect(output.file.absolutePath, output.file.lastModified()) {
+        sourceInfo = withContext(Dispatchers.IO) {
+            runCatching { ImageIO.readSourceInfo(context, outputUri, output.displayName) }.getOrNull()
+        }
+    }
+    var showOriginal by remember(output.file.absolutePath, beforeImageUri) { mutableStateOf(false) }
+
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("image_result_preview_card"),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (beforeImageUri != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("result_before_after_toggle"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = !showOriginal,
+                        onClick = { showOriginal = false },
+                        label = { Text(stringResource(R.string.image_compare_result)) },
+                        modifier = Modifier.testTag("result_compare_after")
+                    )
+                    FilterChip(
+                        selected = showOriginal,
+                        onClick = { showOriginal = true },
+                        label = { Text(stringResource(R.string.image_compare_original)) },
+                        modifier = Modifier.testTag("result_compare_before")
+                    )
+                }
+            }
             AsyncImage(
-                model = output.file.toUri(),
+                model = if (showOriginal && beforeImageUri != null) beforeImageUri else outputUri,
                 contentDescription = output.displayName,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -146,13 +195,21 @@ private fun ImageResultPreview(output: ToolOutputFile, storage: FileStorageManag
                     .height(220.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .testTag("result_preview_image")
             )
+            val metaText = if (sourceInfo != null) {
+                val info = sourceInfo!!
+                "${info.displayWidth}×${info.displayHeight} • ${info.formatLabel} • ${storage.formatBytes(output.file.length())}"
+            } else {
+                "${output.displayName} • ${storage.formatBytes(output.file.length())}"
+            }
             Text(
-                text = "${output.displayName} • ${storage.formatBytes(output.file.length())}",
+                text = metaText,
                 style = MonoTextStyle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("result_image_meta_text")
             )
         }
     }
@@ -304,10 +361,11 @@ private fun AudioResultPreview(output: ToolOutputFile, modifier: Modifier) {
 
 @Composable
 private fun PdfResultPreview(output: ToolOutputFile, storage: FileStorageManager, modifier: Modifier) {
+    val isEnglish = LocalConfiguration.current.locales[0]?.language?.equals("en", ignoreCase = true) == true
     PdfDocumentPreviewCard(
         uri = output.file.toUri(),
         storage = storage,
-        isEnglish = false,
+        isEnglish = isEnglish,
         maxHeightDp = 240.dp,
         title = output.displayName,
         testTag = "pdf_result_preview_card",
@@ -377,9 +435,12 @@ private fun TextResultPreview(output: ToolOutputFile, storage: FileStorageManage
 @Composable
 private fun GenericResultPreview(output: ToolOutputFile, modifier: Modifier) {
     val (icon, label) = when {
-        output.mimeType.startsWith("application/zip") -> Icons.Filled.Folder to "Archive"
-        output.mimeType.startsWith("application/") -> Icons.Filled.Description to "Document"
-        else -> Icons.Filled.Description to "File"
+        output.mimeType.startsWith("application/zip") ->
+            Icons.Filled.Folder to stringResource(R.string.result_preview_type_archive)
+        output.mimeType.startsWith("application/") ->
+            Icons.Filled.Description to stringResource(R.string.result_preview_type_document)
+        else ->
+            Icons.Filled.Description to stringResource(R.string.result_preview_type_file)
     }
 
     Card(

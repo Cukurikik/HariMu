@@ -443,6 +443,9 @@ fun SpecializedPreviews(
         tool.inputSpec != InputSpec.MultipleImages
     ) {
         val pdfUri = state.selectedUris.first()
+        val pdfPassword = state.paramValues["password"]?.toString()
+            ?: state.paramValues["userPwd"]?.toString()
+            ?: ""
         if (tool.id == "PDF-04") {
             PdfPagePickerCard(
                 pdfUri = pdfUri,
@@ -450,7 +453,8 @@ fun SpecializedPreviews(
                 isEnglish = isEnglish,
                 reorderMode = true,
                 pages = PdfVaultEngine.parsePagesLoose(state.paramValues["order"]?.toString() ?: ""),
-                onPagesChange = { order -> vm.setParam("order", order.joinToString(",")) }
+                onPagesChange = { order -> vm.setParam("order", order.joinToString(",")) },
+                password = pdfPassword
             )
         } else if (tool.params.any { it.key == "pages" }) {
             PdfPagePickerCard(
@@ -460,6 +464,7 @@ fun SpecializedPreviews(
                 reorderMode = false,
                 pages = PdfVaultEngine.parsePagesLoose(state.paramValues["pages"]?.toString() ?: ""),
                 onPagesChange = { pages -> vm.setParam("pages", PdfVaultEngine.formatPageRange(pages)) },
+                password = pdfPassword,
                 previewRotationDeg = if (tool.id == "PDF-03") {
                     state.paramValues["angle"]?.toString()?.toIntOrNull() ?: 0
                 } else 0
@@ -617,7 +622,13 @@ fun PdfToolCapabilityCards(
         "PDF-06", "PDF-07", "CNV-13" -> R.string.pdf_honest_basic_conversion_body
         "PDF-13" -> R.string.pdf_honest_unwatermark_body
         "PDF-09", "PDF-14" -> R.string.pdf_honest_raster_body
+        "PDF-17" -> R.string.pdf_honest_ai_gateway_body
+        "PDF-20" -> R.string.pdf_honest_compare_body
         else -> null
+    }
+    val honestTitleRes = when (toolId) {
+        "PDF-06", "PDF-07", "CNV-13" -> R.string.pdf_honest_basic_conversion_title
+        else -> R.string.pdf_honest_limits_title
     }
 
     if (honestBodyRes != null) {
@@ -641,7 +652,7 @@ fun PdfToolCapabilityCards(
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = stringResource(R.string.pdf_honest_basic_conversion_title),
+                        text = stringResource(honestTitleRes),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = HariMuThemeTokens.semantic.onWarningContainer
@@ -764,6 +775,7 @@ fun ConverterToolCapabilityCards(
         "CNV-06" -> R.string.converter_honest_cnv06
         "CNV-10" -> R.string.converter_honest_cnv10
         "CNV-17" -> R.string.converter_honest_cnv17
+        "CNV-18" -> R.string.converter_honest_cnv18
         "CNV-19" -> R.string.converter_honest_cnv19
         "CNV-20" -> R.string.converter_honest_cnv20
         "CNV-21" -> R.string.converter_honest_cnv21
@@ -806,58 +818,4 @@ fun ConverterToolCapabilityCards(
             }
         }
     }
-}
-
-fun buildParamValidators(tool: Tool): Map<String, com.harimu.app.core.design.ParamValidator> {
-    val validators = mutableMapOf<String, com.harimu.app.core.design.ParamValidator>()
-    tool.params.forEach { param ->
-        when (param) {
-            is com.harimu.app.core.toolapi.ToolParam.SliderParam -> {
-                validators[param.key] = { value ->
-                    if (value is Number) {
-                        val v = value.toFloat()
-                        if (v < param.min || v > param.max) {
-                            com.harimu.app.core.design.ParamValidation.Invalid("Value must be between ${param.min} and ${param.max}")
-                        } else {
-                            com.harimu.app.core.design.ParamValidation.Valid
-                        }
-                    } else com.harimu.app.core.design.ParamValidation.Valid
-                }
-            }
-            is com.harimu.app.core.toolapi.ToolParam.TextParam -> {
-                if (param.key == "password" || param.key.contains("pass", ignoreCase = true) || param.key.contains("pwd", ignoreCase = true)) {
-                    if (tool.id == "CNV-18") {
-                        validators[param.key] = { value ->
-                            val s = value.toString()
-                            if (s.isNotEmpty() && s.length < 8) {
-                                com.harimu.app.core.design.ParamValidation.Warning("AES-256 ZIP encryption requires 8+ characters")
-                            } else com.harimu.app.core.design.ParamValidation.Valid
-                        }
-                    } else if (tool.id == "PDF-10" || tool.id == "CNV-16") {
-                        validators[param.key] = { value ->
-                            val s = value.toString()
-                            if (s.isNotEmpty() && s.length < 4) {
-                                com.harimu.app.core.design.ParamValidation.Warning("Use 4+ characters for stronger protection")
-                            } else com.harimu.app.core.design.ParamValidation.Valid
-                        }
-                    }
-                } else if (param.key == "color" || param.key.contains("Hex")) {
-                    validators[param.key] = com.harimu.app.core.design.ParamValidators.hexColor()
-                } else if (param.key == "email") {
-                    validators[param.key] = com.harimu.app.core.design.ParamValidators.email()
-                }
-            }
-            is com.harimu.app.core.toolapi.ToolParam.DropdownParam -> {
-                validators[param.key] = { value ->
-                    if (value !in param.options) {
-                        com.harimu.app.core.design.ParamValidation.Invalid("Invalid option selected")
-                    } else {
-                        com.harimu.app.core.design.ParamValidation.Valid
-                    }
-                }
-            }
-            is com.harimu.app.core.toolapi.ToolParam.ToggleParam -> Unit
-        }
-    }
-    return validators
 }

@@ -6,12 +6,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,16 +37,21 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.engines.ImageIO
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -57,13 +65,30 @@ fun PerspectivePointsCard(
     points: List<Float>,
     onPointChange: (index: Int, value: Float) -> Unit
 ) {
-    var aspectRatio by remember { mutableStateOf(1f) }
+    val context = LocalContext.current
+    var aspectRatio by remember(imageUri) { mutableStateOf(1f) }
+    LaunchedEffect(imageUri) {
+        val ratio = withContext(Dispatchers.IO) {
+            runCatching {
+                val info = ImageIO.readSourceInfo(context, imageUri, null)
+                if (info.displayWidth > 0 && info.displayHeight > 0) {
+                    info.displayWidth.toFloat() / info.displayHeight.toFloat()
+                } else null
+            }.getOrNull()
+        }
+        if (ratio != null && ratio.isFinite() && ratio > 0f) {
+            aspectRatio = ratio
+        }
+    }
+
     var localPoints by remember { mutableStateOf(points) }
     var activeHandle by remember { mutableStateOf(-1) }
 
     LaunchedEffect(points) { localPoints = points }
 
     fun safe(index: Int): Float = localPoints.getOrNull(index) ?: 0f
+    val currentPoints by rememberUpdatedState(localPoints)
+    val currentOnPointChange by rememberUpdatedState(onPointChange)
     val hitRadiusPx = with(LocalDensity.current) { 36.dp.toPx() }
     val canvasCd = stringResource(R.string.cd_perspective_preview)
 
@@ -101,97 +126,113 @@ fun PerspectivePointsCard(
                     Text(stringResource(R.string.perspective_reset_corners))
                 }
             }
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(aspectRatio.coerceIn(0.4f, 3f))
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.Black)
+                    .heightIn(max = 320.dp),
+                contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = imageUri,
-                    contentDescription = canvasCd,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                    onState = { state ->
-                        val size = state.painter?.intrinsicSize
-                        if (size != null && size.width > 0f && size.height > 0f &&
-                            size.width.isFinite() && size.height.isFinite()
-                        ) {
-                            aspectRatio = size.width / size.height
-                        }
-                    }
-                )
-                Canvas(
+                val clampedAspect = aspectRatio.coerceIn(0.25f, 4f)
+                val availH = if (maxHeight != Dp.Infinity) minOf(maxHeight, 320.dp) else 320.dp
+                val (boxW, boxH) = if (maxWidth / availH > clampedAspect) {
+                    (availH * clampedAspect) to availH
+                } else {
+                    maxWidth to (maxWidth / clampedAspect)
+                }
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .semantics { contentDescription = canvasCd }
-                        .pointerInput(aspectRatio, hitRadiusPx) {
-                            detectDragGestures(
-                                onDragStart = { offset ->
-                                    activeHandle = nearestHandle(
-                                        offset,
-                                        localPoints,
-                                        size.width.toFloat(),
-                                        size.height.toFloat(),
-                                        hitRadiusPx
-                                    )
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    val index = activeHandle
-                                    if (index < 0) return@detectDragGestures
-                                    val width = size.width.toFloat().coerceAtLeast(1f)
-                                    val height = size.height.toFloat().coerceAtLeast(1f)
-                                    val axisX = index * 2
-                                    val axisY = axisX + 1
-                                    val newX = ((safe(axisX) / 100f * width + dragAmount.x)
-                                        .coerceIn(0f, width) / width) * 100f
-                                    val newY = ((safe(axisY) / 100f * height + dragAmount.y)
-                                        .coerceIn(0f, height) / height) * 100f
-                                    localPoints = localPoints.toMutableList().also {
-                                        it[axisX] = newX
-                                        it[axisY] = newY
-                                    }
-                                    onPointChange(axisX, newX)
-                                    onPointChange(axisY, newY)
-                                },
-                                onDragEnd = { activeHandle = -1 },
-                                onDragCancel = { activeHandle = -1 }
+                        .size(boxW, boxH)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.Black)
+                ) {
+                    AsyncImage(
+                        model = imageUri,
+                        contentDescription = canvasCd,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                        onState = { state ->
+                            val size = state.painter?.intrinsicSize
+                            if (size != null && size.width > 0f && size.height > 0f &&
+                                size.width.isFinite() && size.height.isFinite()
+                            ) {
+                                aspectRatio = size.width / size.height
+                            }
+                        }
+                    )
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .semantics { contentDescription = canvasCd }
+                            .pointerInput(imageUri, hitRadiusPx) {
+                                detectDragGestures(
+                                    onDragStart = { offset ->
+                                        activeHandle = nearestHandle(
+                                            offset,
+                                            currentPoints,
+                                            size.width.toFloat(),
+                                            size.height.toFloat(),
+                                            hitRadiusPx
+                                        )
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        val index = activeHandle
+                                        if (index < 0) return@detectDragGestures
+                                        val width = size.width.toFloat().coerceAtLeast(1f)
+                                        val height = size.height.toFloat().coerceAtLeast(1f)
+                                        val axisX = index * 2
+                                        val axisY = axisX + 1
+                                        val pts = currentPoints
+                                        val curX = pts.getOrNull(axisX) ?: 0f
+                                        val curY = pts.getOrNull(axisY) ?: 0f
+                                        val newX = ((curX / 100f * width + dragAmount.x)
+                                            .coerceIn(0f, width) / width) * 100f
+                                        val newY = ((curY / 100f * height + dragAmount.y)
+                                            .coerceIn(0f, height) / height) * 100f
+                                        localPoints = pts.toMutableList().also {
+                                            if (axisX < it.size) it[axisX] = newX
+                                            if (axisY < it.size) it[axisY] = newY
+                                        }
+                                        currentOnPointChange(axisX, newX)
+                                        currentOnPointChange(axisY, newY)
+                                    },
+                                    onDragEnd = { activeHandle = -1 },
+                                    onDragCancel = { activeHandle = -1 }
+                                )
+                            }
+                    ) {
+                        val width = size.width
+                        val height = size.height
+                        val offsets = (0 until 4).map { index ->
+                            Offset(
+                                safe(index * 2) / 100f * width,
+                                safe(index * 2 + 1) / 100f * height
                             )
                         }
-                ) {
-                    val width = size.width
-                    val height = size.height
-                    val offsets = (0 until 4).map { index ->
-                        Offset(
-                            safe(index * 2) / 100f * width,
-                            safe(index * 2 + 1) / 100f * height
-                        )
-                    }
-                    val path = Path().apply {
-                        moveTo(offsets[0].x, offsets[0].y)
-                        lineTo(offsets[1].x, offsets[1].y)
-                        lineTo(offsets[2].x, offsets[2].y)
-                        lineTo(offsets[3].x, offsets[3].y)
-                        close()
-                    }
-                    drawPath(path, HariMuColors.TealEmerald, style = Stroke(width = 1.5.dp.toPx()))
-                    val haloRadius = 14.dp.toPx()
-                    val outerRadius = 7.dp.toPx()
-                    val innerRadius = 4.dp.toPx()
-                    offsets.forEachIndexed { index, offset ->
-                        drawCircle(
-                            HariMuColors.TealEmerald.copy(alpha = if (index == activeHandle) 0.35f else 0.18f),
-                            radius = haloRadius,
-                            center = offset
-                        )
-                        drawCircle(HariMuColors.TealEmerald, radius = outerRadius, center = offset)
-                        drawCircle(
-                            if (index == activeHandle) HariMuColors.CrispWhite else HariMuColors.CanvasHandleDark,
-                            radius = innerRadius,
-                            center = offset
-                        )
+                        val path = Path().apply {
+                            moveTo(offsets[0].x, offsets[0].y)
+                            lineTo(offsets[1].x, offsets[1].y)
+                            lineTo(offsets[2].x, offsets[2].y)
+                            lineTo(offsets[3].x, offsets[3].y)
+                            close()
+                        }
+                        drawPath(path, HariMuColors.TealEmerald, style = Stroke(width = 1.5.dp.toPx()))
+                        val haloRadius = 14.dp.toPx()
+                        val outerRadius = 7.dp.toPx()
+                        val innerRadius = 4.dp.toPx()
+                        offsets.forEachIndexed { index, offset ->
+                            drawCircle(
+                                HariMuColors.TealEmerald.copy(alpha = if (index == activeHandle) 0.35f else 0.18f),
+                                radius = haloRadius,
+                                center = offset
+                            )
+                            drawCircle(HariMuColors.TealEmerald, radius = outerRadius, center = offset)
+                            drawCircle(
+                                if (index == activeHandle) HariMuColors.CrispWhite else HariMuColors.CanvasHandleDark,
+                                radius = innerRadius,
+                                center = offset
+                            )
+                        }
                     }
                 }
             }

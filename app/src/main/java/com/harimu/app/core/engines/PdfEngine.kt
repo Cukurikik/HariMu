@@ -36,36 +36,48 @@ object PdfEngine {
         pageSizeMode: String
     ): File {
         val doc = PdfDocument()
-        uris.forEachIndexed { idx, uri ->
-            val bmp = ImageEngine.decodeBitmapSafe(context, uri, maxDim = 2048)
-            val (pageW, pageH) = when (pageSizeMode) {
-                "A4" -> 1240 to 1754
-                "Letter" -> 1275 to 1650
-                else -> bmp.width to bmp.height
+        try {
+            uris.forEachIndexed { idx, uri ->
+                val bmp = ImageEngine.decodeBitmapSafe(context, uri, maxDim = 2048)
+                try {
+                    val (pageW, pageH) = when (pageSizeMode) {
+                        "A4" -> 1240 to 1754
+                        "Letter" -> 1275 to 1650
+                        else -> bmp.width to bmp.height
+                    }
+                    val pageInfo = PdfDocument.PageInfo.Builder(pageW, pageH, idx + 1).create()
+                    val page = doc.startPage(pageInfo)
+                    try {
+                        page.canvas.drawColor(Color.WHITE)
+                        if (pageSizeMode == "Fit") {
+                            page.canvas.drawBitmap(bmp, 0f, 0f, null)
+                        } else {
+                            val margin = 48f
+                            val availW = pageW - margin * 2
+                            val availH = pageH - margin * 2
+                            val scale = min(availW / bmp.width, availH / bmp.height)
+                            val drawW = bmp.width * scale
+                            val drawH = bmp.height * scale
+                            val left = (pageW - drawW) / 2f
+                            val top = (pageH - drawH) / 2f
+                            val scaled = Bitmap.createScaledBitmap(bmp, drawW.roundToInt(), drawH.roundToInt(), true)
+                            try {
+                                page.canvas.drawBitmap(scaled, left, top, null)
+                            } finally {
+                                if (scaled !== bmp && !scaled.isRecycled) scaled.recycle()
+                            }
+                        }
+                    } finally {
+                        doc.finishPage(page)
+                    }
+                } finally {
+                    if (!bmp.isRecycled) bmp.recycle()
+                }
             }
-            val pageInfo = PdfDocument.PageInfo.Builder(pageW, pageH, idx + 1).create()
-            val page = doc.startPage(pageInfo)
-            page.canvas.drawColor(Color.WHITE)
-            if (pageSizeMode == "Fit") {
-                page.canvas.drawBitmap(bmp, 0f, 0f, null)
-            } else {
-                val margin = 48f
-                val availW = pageW - margin * 2
-                val availH = pageH - margin * 2
-                val scale = min(availW / bmp.width, availH / bmp.height)
-                val drawW = bmp.width * scale
-                val drawH = bmp.height * scale
-                val left = (pageW - drawW) / 2f
-                val top = (pageH - drawH) / 2f
-                val scaled = Bitmap.createScaledBitmap(bmp, drawW.roundToInt(), drawH.roundToInt(), true)
-                page.canvas.drawBitmap(scaled, left, top, null)
-                scaled.recycle()
-            }
-            doc.finishPage(page)
-            bmp.recycle()
+            FileOutputStream(destPdf).use { doc.writeTo(it) }
+        } finally {
+            doc.close()
         }
-        FileOutputStream(destPdf).use { doc.writeTo(it) }
-        doc.close()
         return destPdf
     }
 
@@ -83,17 +95,20 @@ object PdfEngine {
             ZipOutputStream(FileOutputStream(destZip)).use { zos ->
                 for (i in 0 until count) {
                     renderer.openPage(i).use { page ->
-                        val w = (page.width * scaleFactor).roundToInt().coerceAtLeast(100)
-                        val h = (page.height * scaleFactor).roundToInt().coerceAtLeast(100)
+                        val w = (page.width * scaleFactor).roundToInt().coerceIn(100, 4096)
+                        val h = (page.height * scaleFactor).roundToInt().coerceIn(100, 4096)
                         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                        bmp.eraseColor(Color.WHITE)
-                        page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        val ext = if (format.equals("JPG", true)) "jpg" else "png"
-                        val compressFmt = if (ext == "jpg") Bitmap.CompressFormat.JPEG else Bitmap.CompressFormat.PNG
-                        zos.putNextEntry(ZipEntry("page_${i + 1}.$ext"))
-                        bmp.compress(compressFmt, 92, zos)
-                        zos.closeEntry()
-                        bmp.recycle()
+                        try {
+                            bmp.eraseColor(Color.WHITE)
+                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            val ext = if (format.equals("JPG", true)) "jpg" else "png"
+                            val compressFmt = if (ext == "jpg") Bitmap.CompressFormat.JPEG else Bitmap.CompressFormat.PNG
+                            zos.putNextEntry(ZipEntry("page_${i + 1}.$ext"))
+                            bmp.compress(compressFmt, 92, zos)
+                            zos.closeEntry()
+                        } finally {
+                            if (!bmp.isRecycled) bmp.recycle()
+                        }
                     }
                 }
             }

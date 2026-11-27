@@ -32,10 +32,12 @@ data class MatrixLayer(
     val colorHex: String = "#FFFFFF",
     val fontSizePct: Float = 12f
 ) {
-    fun title(): String = when (kind) {
-        MatrixLayerKind.IMAGE -> "Gambar"
-        MatrixLayerKind.TEXT -> text.ifBlank { "Teks" }
-        MatrixLayerKind.STICKER -> text.ifBlank { "Stiker" }
+    fun title(): String = title(isEnglish = false)
+
+    fun title(isEnglish: Boolean): String = when (kind) {
+        MatrixLayerKind.IMAGE -> if (isEnglish) "Image" else "Gambar"
+        MatrixLayerKind.TEXT -> text.ifBlank { if (isEnglish) "Text" else "Teks" }
+        MatrixLayerKind.STICKER -> text.ifBlank { if (isEnglish) "Sticker" else "Stiker" }
     }
 }
 
@@ -124,6 +126,14 @@ class LayerHistory(initial: List<MatrixLayer> = emptyList(), private val limit: 
         undoStack.clear()
         redoStack.clear()
         current = next
+    }
+
+    fun allReferencedUris(): Set<String> {
+        val uris = LinkedHashSet<String>()
+        current.forEach { if (it.uri.isNotBlank()) uris += it.uri }
+        undoStack.forEach { snapshot -> snapshot.forEach { if (it.uri.isNotBlank()) uris += it.uri } }
+        redoStack.forEach { snapshot -> snapshot.forEach { if (it.uri.isNotBlank()) uris += it.uri } }
+        return uris
     }
 }
 

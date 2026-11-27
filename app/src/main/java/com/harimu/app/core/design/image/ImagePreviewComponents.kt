@@ -1,13 +1,17 @@
 package com.harimu.app.core.design.image
 
+import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,25 +28,31 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +61,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -63,6 +75,7 @@ import com.harimu.app.core.engines.ImageFormatMatrix
 import com.harimu.app.core.engines.ImageGeometryMath
 import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.engines.ImageLutEngine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -191,7 +204,9 @@ fun ImageForgeToolPreviewSection(
                 mode = params["mode"]?.toString() ?: "Preset bawaan",
                 preset = params["preset"]?.toString() ?: "Teal & Orange",
                 intensityPct = (params["intensity"] as? Number)?.toInt() ?: 85,
-                isEnglish = isEnglish
+                isEnglish = isEnglish,
+                imageUri = firstUri,
+                cubeText = params["cubeText"]?.toString() ?: ""
             )
         }
 
@@ -212,14 +227,7 @@ fun ImageForgeToolPreviewSection(
 }
 
 @Composable
-fun ImageCropOverlayPreviewCard(
-    imageUri: Uri,
-    ratioLabel: String,
-    zoomPct: Float,
-    offsetXPct: Float,
-    offsetYPct: Float,
-    onOffsetChange: (Float, Float) -> Unit
-) {
+internal fun rememberImageDisplayDimensions(imageUri: Uri): Pair<Int, Int> {
     val context = LocalContext.current
     var dims by remember(imageUri) { mutableStateOf(1000 to 750) }
     LaunchedEffect(imageUri) {
@@ -230,7 +238,68 @@ fun ImageCropOverlayPreviewCard(
             }.getOrDefault(1000 to 750)
         }
     }
+    return dims
+}
 
+/**
+ * Fits [imageUri] strictly to its real EXIF-adjusted aspect ratio within [maxHeightDp] so
+ * interactive overlays, crop frames, and drag coordinates align 1:1 with the rendered photo bounds.
+ */
+@Composable
+fun FittedImageBox(
+    imageUri: Uri,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    maxHeightDp: Dp = 240.dp,
+    colorFilter: ColorFilter? = null,
+    stageModifier: Modifier = Modifier,
+    overlay: @Composable BoxScope.(srcWidth: Int, srcHeight: Int) -> Unit = { _, _ -> }
+) {
+    val dims = rememberImageDisplayDimensions(imageUri)
+    val aspect = (dims.first.toFloat() / dims.second.toFloat()).coerceIn(0.25f, 4.0f)
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(max = maxHeightDp),
+        contentAlignment = Alignment.Center
+    ) {
+        val availW = maxWidth
+        val availH = if (maxHeight != Dp.Infinity) minOf(maxHeight, maxHeightDp) else maxHeightDp
+        val (boxW, boxH) = if (availW / availH > aspect) {
+            (availH * aspect) to availH
+        } else {
+            availW to (availW / aspect)
+        }
+        Box(
+            modifier = Modifier
+                .size(boxW, boxH)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(stageModifier)
+        ) {
+            AsyncImage(
+                model = imageUri,
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Fit,
+                colorFilter = colorFilter,
+                modifier = Modifier.fillMaxSize()
+            )
+            overlay(dims.first, dims.second)
+        }
+    }
+}
+
+@Composable
+fun ImageCropOverlayPreviewCard(
+    imageUri: Uri,
+    ratioLabel: String,
+    zoomPct: Float,
+    offsetXPct: Float,
+    offsetYPct: Float,
+    onOffsetChange: (Float, Float) -> Unit
+) {
+    val dims = rememberImageDisplayDimensions(imageUri)
     val srcW = dims.first
     val srcH = dims.second
     val (rw, rh) = remember(ratioLabel, srcW, srcH) {
@@ -244,37 +313,34 @@ fun ImageCropOverlayPreviewCard(
     val cropRect = remember(srcW, srcH, rw, rh, zoomPct, offsetXPct, offsetYPct) {
         ImageGeometryMath.cropRectForRatio(srcW, srcH, rw, rh, zoomPct, offsetXPct, offsetYPct)
     }
+    val currentOffsetX by rememberUpdatedState(offsetXPct)
+    val currentOffsetY by rememberUpdatedState(offsetYPct)
+    val currentOnOffsetChange by rememberUpdatedState(onOffsetChange)
 
     PreviewCardContainer(
         title = stringResource(R.string.image_preview_crop_title, ratioLabel),
         testTag = "img_crop_preview_card"
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio((srcW.toFloat() / srcH.toFloat()).coerceIn(0.6f, 2.0f))
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .pointerInput(offsetXPct, offsetYPct) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        val nx = (offsetXPct + dragAmount.x / size.width * 200f).coerceIn(-100f, 100f)
-                        val ny = (offsetYPct + dragAmount.y / size.height * 200f).coerceIn(-100f, 100f)
-                        onOffsetChange(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
-                    }
+        FittedImageBox(
+            imageUri = imageUri,
+            contentDescription = stringResource(R.string.image_preview_crop_title, ratioLabel),
+            maxHeightDp = 260.dp,
+            stageModifier = Modifier.pointerInput(imageUri) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    val h = size.height.toFloat().coerceAtLeast(1f)
+                    val nx = (currentOffsetX + dragAmount.x / w * 200f).coerceIn(-100f, 100f)
+                    val ny = (currentOffsetY + dragAmount.y / h * 200f).coerceIn(-100f, 100f)
+                    currentOnOffsetChange(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
                 }
-        ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_crop_title, ratioLabel),
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxSize()
-            )
+            }
+        ) { wSrc, hSrc ->
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val left = cropRect.left.toFloat() / srcW * size.width
-                val top = cropRect.top.toFloat() / srcH * size.height
-                val w = cropRect.width.toFloat() / srcW * size.width
-                val h = cropRect.height.toFloat() / srcH * size.height
+                val left = cropRect.left.toFloat() / wSrc * size.width
+                val top = cropRect.top.toFloat() / hSrc * size.height
+                val w = cropRect.width.toFloat() / wSrc * size.width
+                val h = cropRect.height.toFloat() / hSrc * size.height
 
                 // Dim outside crop rectangle
                 drawRect(Color.Black.copy(alpha = 0.52f), Offset.Zero, Size(size.width, top))
@@ -329,6 +395,7 @@ fun ImageStraightenPreviewCard(
     fillMode: String,
     bgHex: String
 ) {
+    val dims = rememberImageDisplayDimensions(imageUri)
     val bgColor = remember(bgHex, fillMode) {
         if (fillMode == "Warna latar") {
             Color(ImageEngine.parseColorSafe(bgHex, android.graphics.Color.parseColor("#13161F")))
@@ -336,46 +403,60 @@ fun ImageStraightenPreviewCard(
             Color(0xFF13161F)
         }
     }
-    val safeRect = remember(angleDeg) {
-        ImageGeometryMath.straightenSafeRect(1000, 750, angleDeg)
+    val safeRect = remember(angleDeg, dims) {
+        ImageGeometryMath.straightenSafeRect(dims.first, dims.second, angleDeg)
     }
-    val bounds = remember(angleDeg) {
-        ImageGeometryMath.rotatedBounds(1000, 750, angleDeg)
+    val bounds = remember(angleDeg, dims) {
+        ImageGeometryMath.rotatedBounds(dims.first, dims.second, angleDeg)
     }
+    val boundsAspect = (bounds.first.toFloat() / bounds.second.coerceAtLeast(1).toFloat()).coerceIn(0.25f, 4f)
 
     PreviewCardContainer(
         title = stringResource(R.string.image_preview_straighten_title, angleDeg),
         testTag = "img_straighten_preview_card"
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(210.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(bgColor),
+                .background(bgColor)
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_straighten_title, angleDeg),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-                    .rotate(angleDeg)
-            )
-            if (fillMode == "Potong otomatis") {
-                Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    val left = safeRect.left.toFloat() / bounds.first * size.width
-                    val top = safeRect.top.toFloat() / bounds.second * size.height
-                    val w = safeRect.width.toFloat() / bounds.first * size.width
-                    val h = safeRect.height.toFloat() / bounds.second * size.height
-                    drawRect(
-                        color = HariMuColors.TealEmerald,
-                        topLeft = Offset(left, top),
-                        size = Size(w, h),
-                        style = Stroke(width = 2.dp.toPx())
-                    )
+            val (boxW, boxH) = if (maxWidth / maxHeight > boundsAspect) {
+                (maxHeight * boundsAspect) to maxHeight
+            } else {
+                maxWidth to (maxWidth / boundsAspect)
+            }
+            val unrotatedW = boxW * (dims.first.toFloat() / bounds.first.coerceAtLeast(1).toFloat())
+            val unrotatedH = boxH * (dims.second.toFloat() / bounds.second.coerceAtLeast(1).toFloat())
+
+            Box(
+                modifier = Modifier.size(boxW, boxH),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = imageUri,
+                    contentDescription = stringResource(R.string.image_preview_straighten_title, angleDeg),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(unrotatedW, unrotatedH)
+                        .rotate(angleDeg)
+                )
+                if (fillMode == "Potong otomatis") {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val left = safeRect.left.toFloat() / bounds.first.coerceAtLeast(1) * size.width
+                        val top = safeRect.top.toFloat() / bounds.second.coerceAtLeast(1) * size.height
+                        val w = safeRect.width.toFloat() / bounds.first.coerceAtLeast(1) * size.width
+                        val h = safeRect.height.toFloat() / bounds.second.coerceAtLeast(1) * size.height
+                        drawRect(
+                            color = HariMuColors.TealEmerald,
+                            topLeft = Offset(left, top),
+                            size = Size(w, h),
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                    }
                 }
             }
         }
@@ -415,15 +496,20 @@ fun ImageCanvasExpanderPreviewCard(
         title = stringResource(R.string.image_preview_canvas_title, aspectLabel),
         testTag = "img_canvas_expander_preview_card"
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(220.dp),
             contentAlignment = Alignment.Center
         ) {
+            val (boxW, boxH) = if (maxWidth / maxHeight > ratio) {
+                (maxHeight * ratio) to maxHeight
+            } else {
+                maxWidth to (maxWidth / ratio)
+            }
             Box(
                 modifier = Modifier
-                    .aspectRatio(ratio)
+                    .size(boxW, boxH)
                     .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (mode == "Blur latar") {
@@ -436,12 +522,17 @@ fun ImageCanvasExpanderPreviewCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (mode == "Blur latar") {
+                    val blurMod = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        Modifier.blur(8.dp)
+                    } else {
+                        Modifier
+                    }
                     AsyncImage(
                         model = imageUri,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        alpha = 0.28f,
-                        modifier = Modifier.fillMaxSize()
+                        alpha = 0.35f,
+                        modifier = Modifier.fillMaxSize().then(blurMod)
                     )
                 }
                 AsyncImage(
@@ -474,31 +565,27 @@ fun ImageRadialFocusPreviewCard(
     radiusPct: Float,
     onFocusChange: (Float, Float) -> Unit
 ) {
+    val currentOnFocusChange by rememberUpdatedState(onFocusChange)
+
     PreviewCardContainer(
         title = stringResource(R.string.image_preview_bokeh_title),
         testTag = "img_bokeh_preview_card"
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, _ ->
-                        change.consume()
-                        val nx = (change.position.x / size.width * 100f).coerceIn(0f, 100f)
-                        val ny = (change.position.y / size.height * 100f).coerceIn(0f, 100f)
-                        onFocusChange(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
-                    }
+        FittedImageBox(
+            imageUri = imageUri,
+            contentDescription = stringResource(R.string.image_preview_bokeh_title),
+            maxHeightDp = 220.dp,
+            stageModifier = Modifier.pointerInput(imageUri) {
+                detectDragGestures { change, _ ->
+                    change.consume()
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    val h = size.height.toFloat().coerceAtLeast(1f)
+                    val nx = (change.position.x / w * 100f).coerceIn(0f, 100f)
+                    val ny = (change.position.y / h * 100f).coerceIn(0f, 100f)
+                    currentOnFocusChange(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
                 }
-        ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_bokeh_title),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
-            )
+            }
+        ) { _, _ ->
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cx = focusXPct.coerceIn(0f, 100f) / 100f * size.width
                 val cy = focusYPct.coerceIn(0f, 100f) / 100f * size.height
@@ -541,32 +628,27 @@ fun ImageLensFlarePreviewCard(
     val flareColor = remember(warmHex) {
         Color(ImageEngine.parseColorSafe(warmHex, android.graphics.Color.parseColor("#FFD9A0")))
     }
+    val currentOnMove by rememberUpdatedState(onMove)
 
     PreviewCardContainer(
         title = stringResource(R.string.image_preview_flare_title),
         testTag = "img_flare_preview_card"
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, _ ->
-                        change.consume()
-                        val nx = (change.position.x / size.width * 100f).coerceIn(0f, 100f)
-                        val ny = (change.position.y / size.height * 100f).coerceIn(0f, 100f)
-                        onMove(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
-                    }
+        FittedImageBox(
+            imageUri = imageUri,
+            contentDescription = stringResource(R.string.image_preview_flare_title),
+            maxHeightDp = 220.dp,
+            stageModifier = Modifier.pointerInput(imageUri) {
+                detectDragGestures { change, _ ->
+                    change.consume()
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    val h = size.height.toFloat().coerceAtLeast(1f)
+                    val nx = (change.position.x / w * 100f).coerceIn(0f, 100f)
+                    val ny = (change.position.y / h * 100f).coerceIn(0f, 100f)
+                    currentOnMove(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
                 }
-        ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_flare_title),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
-            )
+            }
+        ) { _, _ ->
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cx = xPct.coerceIn(0f, 100f) / 100f * size.width
                 val cy = yPct.coerceIn(0f, 100f) / 100f * size.height
@@ -608,43 +690,41 @@ fun ImageStickerOverlayPreviewCard(
     opacityPct: Float,
     onMove: (Float, Float) -> Unit
 ) {
+    val currentOnMove by rememberUpdatedState(onMove)
+
     PreviewCardContainer(
         title = stringResource(R.string.image_preview_sticker_title),
         testTag = "img_sticker_preview_card"
     ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, _ ->
-                        change.consume()
-                        val nx = (change.position.x / size.width * 100f).coerceIn(0f, 100f)
-                        val ny = (change.position.y / size.height * 100f).coerceIn(0f, 100f)
-                        onMove(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
-                    }
+        FittedImageBox(
+            imageUri = imageUri,
+            contentDescription = stringResource(R.string.image_preview_sticker_title),
+            maxHeightDp = 220.dp,
+            stageModifier = Modifier.pointerInput(imageUri) {
+                detectDragGestures { change, _ ->
+                    change.consume()
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    val h = size.height.toFloat().coerceAtLeast(1f)
+                    val nx = (change.position.x / w * 100f).coerceIn(0f, 100f)
+                    val ny = (change.position.y / h * 100f).coerceIn(0f, 100f)
+                    currentOnMove(nx.roundToInt().toFloat(), ny.roundToInt().toFloat())
                 }
-        ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_sticker_title),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
-            )
-            val dx = (maxWidth * (xPct.coerceIn(0f, 100f) / 100f - 0.5f))
-            val dy = (maxHeight * (yPct.coerceIn(0f, 100f) / 100f - 0.5f))
-            Text(
-                text = emoji,
-                fontSize = (sizePct.coerceIn(4f, 60f) * 1.4f).sp,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(start = if (dx >= 0.dp) dx else 0.dp, end = if (dx < 0.dp) -dx else 0.dp)
-                    .padding(top = if (dy >= 0.dp) dy else 0.dp, bottom = if (dy < 0.dp) -dy else 0.dp)
-                    .rotate(rotationDeg)
-                    .graphicsLayer { alpha = (opacityPct / 100f).coerceIn(0.1f, 1f) }
-            )
+            }
+        ) { _, _ ->
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val dx = (maxWidth * (xPct.coerceIn(0f, 100f) / 100f - 0.5f))
+                val dy = (maxHeight * (yPct.coerceIn(0f, 100f) / 100f - 0.5f))
+                Text(
+                    text = emoji,
+                    fontSize = (sizePct.coerceIn(4f, 60f) * 1.4f).sp,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(start = if (dx >= 0.dp) dx else 0.dp, end = if (dx < 0.dp) -dx else 0.dp)
+                        .padding(top = if (dy >= 0.dp) dy else 0.dp, bottom = if (dy < 0.dp) -dy else 0.dp)
+                        .rotate(rotationDeg)
+                        .graphicsLayer { alpha = (opacityPct / 100f).coerceIn(0.1f, 1f) }
+                )
+            }
         }
         Text(
             text = stringResource(R.string.image_preview_sticker_caption, xPct, yPct, sizePct),
@@ -675,19 +755,11 @@ fun ImageWatermarkOverlayPreviewCard(
         title = stringResource(R.string.image_preview_watermark_title),
         testTag = "img_watermark_preview_card"
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_watermark_title),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
-            )
+        FittedImageBox(
+            imageUri = imageUri,
+            contentDescription = stringResource(R.string.image_preview_watermark_title),
+            maxHeightDp = 220.dp
+        ) { _, _ ->
             if (tiled) {
                 Column(
                     modifier = Modifier
@@ -782,19 +854,11 @@ fun ImageGradientOverlayPreviewCard(
         title = stringResource(R.string.image_preview_gradient_title),
         testTag = "img_gradient_preview_card"
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            AsyncImage(
-                model = imageUri,
-                contentDescription = stringResource(R.string.image_preview_gradient_title),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
-            )
+        FittedImageBox(
+            imageUri = imageUri,
+            contentDescription = stringResource(R.string.image_preview_gradient_title),
+            maxHeightDp = 220.dp
+        ) { _, _ ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -813,9 +877,19 @@ fun ImageLutPreviewCard(
     mode: String,
     preset: String,
     intensityPct: Int,
-    isEnglish: Boolean
+    isEnglish: Boolean,
+    imageUri: Uri? = null,
+    cubeText: String = ""
 ) {
-    val lut = remember(preset) { ImageLutEngine.preset(preset) }
+    val context = LocalContext.current
+    val lut = remember(mode, preset, cubeText) {
+        if (mode.startsWith("File") && cubeText.isNotBlank()) {
+            runCatching { ImageLutEngine.parseCube(cubeText, "Cube tempel") }
+                .getOrElse { ImageLutEngine.preset(preset) }
+        } else {
+            ImageLutEngine.preset(preset)
+        }
+    }
     val sampleStops = remember(lut, intensityPct) {
         val baseStops = listOf(
             floatArrayOf(0.10f, 0.14f, 0.22f),
@@ -838,10 +912,106 @@ fun ImageLutPreviewCard(
         }
     }
 
+    var showOriginal by remember(imageUri) { mutableStateOf(false) }
+    var sourceThumb by remember { mutableStateOf<Bitmap?>(null) }
+    var gradedThumb by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(imageUri) {
+        val oldSrc = sourceThumb
+        val oldGraded = gradedThumb
+        sourceThumb = null
+        gradedThumb = null
+        if (oldGraded != null && oldGraded !== oldSrc && !oldGraded.isRecycled) oldGraded.recycle()
+        if (oldSrc != null && !oldSrc.isRecycled) oldSrc.recycle()
+        if (imageUri != null) {
+            sourceThumb = withContext(Dispatchers.IO) {
+                runCatching { ImageIO.decodePreview(context, imageUri, 320) }.getOrNull()
+            }
+        }
+    }
+
+    LaunchedEffect(sourceThumb, lut, intensityPct) {
+        val src = sourceThumb ?: return@LaunchedEffect
+        if (src.isRecycled) return@LaunchedEffect
+        val fresh = withContext(Dispatchers.Default) {
+            try {
+                ImageLutEngine.apply(src, lut, intensityPct)
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: Throwable) {
+                null
+            }
+        }
+        val prev = gradedThumb
+        gradedThumb = fresh
+        if (prev != null && prev !== fresh && prev !== src && !prev.isRecycled) {
+            prev.recycle()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            val g = gradedThumb
+            val s = sourceThumb
+            gradedThumb = null
+            sourceThumb = null
+            if (g != null && g !== s && !g.isRecycled) g.recycle()
+            if (s != null && !s.isRecycled) s.recycle()
+        }
+    }
+
     PreviewCardContainer(
         title = stringResource(R.string.image_preview_lut_title, if (mode.startsWith("Preset")) preset else mode),
         testTag = "img_lut_preview_card"
     ) {
+        if (imageUri != null) {
+            val activeBitmap = if (showOriginal) sourceThumb else (gradedThumb ?: sourceThumb)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("lut_before_after_toggle"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = !showOriginal,
+                    onClick = { showOriginal = false },
+                    label = { Text(stringResource(R.string.image_compare_lut)) },
+                    modifier = Modifier.testTag("lut_compare_after")
+                )
+                FilterChip(
+                    selected = showOriginal,
+                    onClick = { showOriginal = true },
+                    label = { Text(stringResource(R.string.image_compare_original)) },
+                    modifier = Modifier.testTag("lut_compare_before")
+                )
+            }
+            if (activeBitmap != null && !activeBitmap.isRecycled) {
+                val aspect = (activeBitmap.width.toFloat() / activeBitmap.height.coerceAtLeast(1).toFloat())
+                    .coerceIn(0.25f, 4f)
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 210.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val availH = if (maxHeight != Dp.Infinity) minOf(maxHeight, 210.dp) else 210.dp
+                    val (boxW, boxH) = if (maxWidth / availH > aspect) {
+                        (availH * aspect) to availH
+                    } else {
+                        maxWidth to (maxWidth / aspect)
+                    }
+                    Image(
+                        bitmap = activeBitmap.asImageBitmap(),
+                        contentDescription = stringResource(R.string.image_preview_lut_title, lut.title),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(boxW, boxH)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    )
+                }
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

@@ -11,6 +11,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -47,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -56,6 +58,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +91,7 @@ import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.pdf.PdfVaultEngine
 import com.harimu.app.core.pdf.PdfVaultEngine.PdfDocInspection
 import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -109,7 +113,7 @@ data class PdfRedactionOverlaySpec(
 
 private sealed interface PageRenderState {
     data object Loading : PageRenderState
-    data object Encrypted : PageRenderState
+    data class Encrypted(val wrongPassword: Boolean) : PageRenderState
     data class Ready(
         val bitmap: Bitmap,
         val totalPages: Int,
@@ -159,9 +163,10 @@ fun PdfDocumentPreviewCard(
 
     val displayName = remember(uri) { storage.getDisplayName(uri) ?: "document.pdf" }
 
+    val latestRenderState by rememberUpdatedState(renderState)
     DisposableEffect(uri, password) {
         onDispose {
-            val ready = renderState as? PageRenderState.Ready
+            val ready = latestRenderState as? PageRenderState.Ready
             if (ready != null && !ready.bitmap.isRecycled) {
                 ready.bitmap.recycle()
             }
@@ -183,23 +188,33 @@ fun PdfDocumentPreviewCard(
                         }
                         val safeIndex = currentPage.coerceIn(0, total - 1)
                         val page = renderer.openPage(safeIndex)
-                        val targetWidth = 720
-                        val targetHeight = (targetWidth * page.height.toFloat() / page.width.coerceAtLeast(1))
-                            .roundToInt()
-                            .coerceIn(1, 1280)
-                        val bmp = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-                        bmp.eraseColor(AndroidColor.WHITE)
-                        page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        val wPts = page.width.toFloat()
-                        val hPts = page.height.toFloat()
-                        page.close()
-                        PageRenderState.Ready(bmp, total, wPts, hPts)
+                        var bmp: Bitmap? = null
+                        try {
+                            val targetWidth = 720
+                            val targetHeight = (targetWidth * page.height.toFloat() / page.width.coerceAtLeast(1))
+                                .roundToInt()
+                                .coerceIn(1, 1280)
+                            val rendered = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                            bmp = rendered
+                            rendered.eraseColor(AndroidColor.WHITE)
+                            page.render(rendered, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            val wPts = page.width.toFloat()
+                            val hPts = page.height.toFloat()
+                            PageRenderState.Ready(rendered, total, wPts, hPts)
+                        } catch (t: Throwable) {
+                            bmp?.takeIf { !it.isRecycled }?.recycle()
+                            throw t
+                        } finally {
+                            page.close()
+                        }
                     }
                 }
+            } catch (ce: CancellationException) {
+                throw ce
             } catch (_: InvalidPasswordException) {
-                PageRenderState.Encrypted
+                PageRenderState.Encrypted(wrongPassword = password.isNotBlank())
             } catch (_: SecurityException) {
-                PageRenderState.Encrypted
+                PageRenderState.Encrypted(wrongPassword = false)
             } catch (t: Throwable) {
                 PageRenderState.Error(t.localizedMessage ?: context.getString(R.string.pdf_preview_error))
             } finally {
@@ -349,7 +364,7 @@ fun PdfDocumentPreviewCard(
                         }
                     }
 
-                    PageRenderState.Encrypted -> {
+                    is PageRenderState.Encrypted -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -358,15 +373,30 @@ fun PdfDocumentPreviewCard(
                             Icon(
                                 imageVector = Icons.Filled.Lock,
                                 contentDescription = null,
-                                tint = safeAccent,
+                                tint = if (s.wrongPassword) MaterialTheme.colorScheme.error else safeAccent,
                                 modifier = Modifier.size(34.dp)
                             )
                             Text(
-                                text = stringResource(R.string.pdf_preview_encrypted),
+                                text = stringResource(
+                                    if (s.wrongPassword) R.string.pdf_preview_wrong_password
+                                    else R.string.pdf_preview_encrypted
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (s.wrongPassword) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 textAlign = TextAlign.Center
                             )
+                            if (testTag == "pdf_document_preview_card" && !s.wrongPassword) {
+                                Text(
+                                    text = stringResource(R.string.pdf_preview_encrypted_single_tool_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
 
@@ -396,9 +426,9 @@ fun PdfDocumentPreviewCard(
                             .coerceIn(0.45f, 2.2f)
                         Box(
                             modifier = Modifier
+                                .padding(4.dp)
                                 .heightIn(max = maxHeightDp)
                                 .aspectRatio(pageAspect)
-                                .padding(4.dp)
                                 .graphicsLayer { rotationZ = previewRotationDeg.toFloat() }
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color.White),
@@ -517,7 +547,7 @@ fun PdfDocumentPreviewCard(
                         value = safePage.toFloat(),
                         onValueChange = { setPage(it.roundToInt().coerceIn(0, totalPages - 1)) },
                         valueRange = 0f..(totalPages - 1).toFloat(),
-                        steps = (totalPages - 2).coerceAtLeast(0),
+                        steps = if (totalPages in 3..30) totalPages - 2 else 0,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -535,6 +565,7 @@ fun PdfDocumentPreviewCard(
         PdfZoomPreviewDialog(
             bitmap = readyState.bitmap,
             pageNumber = safePage + 1,
+            previewRotationDeg = previewRotationDeg,
             onDismiss = { showZoomDialog = false }
         )
     }
@@ -573,6 +604,7 @@ private fun MetaBadge(
 private fun PdfZoomPreviewDialog(
     bitmap: Bitmap,
     pageNumber: Int,
+    previewRotationDeg: Int,
     onDismiss: () -> Unit
 ) {
     var zoomScale by remember { mutableFloatStateOf(1f) }
@@ -583,7 +615,8 @@ private fun PdfZoomPreviewDialog(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(12.dp)
+                .testTag("pdf_zoom_preview_dialog"),
             shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
@@ -619,25 +652,29 @@ private fun PdfZoomPreviewDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .verticalScroll(rememberScrollState()),
-                    contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = stringResource(R.string.pdf_preview_zoom_title, pageNumber),
-                        contentScale = ContentScale.FillWidth,
+                    val viewportW = maxWidth
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                scaleX = zoomScale
-                                scaleY = zoomScale
-                            }
-                    )
+                            .fillMaxSize()
+                            .horizontalScroll(rememberScrollState())
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = stringResource(R.string.pdf_preview_zoom_title, pageNumber),
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .width(viewportW * zoomScale)
+                                .graphicsLayer { rotationZ = previewRotationDeg.toFloat() }
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = "${(zoomScale * 100).roundToInt()}%",
@@ -650,6 +687,15 @@ private fun PdfZoomPreviewDialog(
                         valueRange = 1f..3f,
                         modifier = Modifier.weight(1f)
                     )
+                    TextButton(
+                        onClick = { zoomScale = 1f },
+                        enabled = zoomScale > 1.01f,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("pdf_zoom_reset_btn")
+                    ) {
+                        Text(stringResource(R.string.pdf_preview_zoom_reset))
+                    }
                 }
             }
         }

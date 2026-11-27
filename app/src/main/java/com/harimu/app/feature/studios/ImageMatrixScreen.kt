@@ -7,6 +7,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -113,6 +116,7 @@ fun ImageMatrixScreen(
     val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
 
     LaunchedEffect(Unit) { vm.initialize() }
+    LaunchedEffect(isEnglish) { vm.setLanguage(isEnglish) }
     LaunchedEffect(state.lastMessage) {
         val message = state.lastMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -356,7 +360,8 @@ fun ImageMatrixScreen(
                                 onCommitLayers = vm::commitLayers,
                                 onUpdateLayer = vm::updateLayer,
                                 onCenterLayer = vm::centerLayer,
-                                onResetTransform = vm::resetTransform
+                                onResetTransform = vm::resetTransform,
+                                isEnglish = isEnglish
                             )
                         }
 
@@ -385,7 +390,8 @@ fun ImageMatrixScreen(
                                             onMoveUp = { vm.moveLayer(layer.id, 1) },
                                             onMoveDown = { vm.moveLayer(layer.id, -1) },
                                             onDuplicate = { vm.duplicateLayer(layer.id) },
-                                            onDelete = { vm.deleteLayer(layer.id) }
+                                            onDelete = { vm.deleteLayer(layer.id) },
+                                            isEnglish = isEnglish
                                         )
                                     }
                                 }
@@ -501,7 +507,8 @@ fun ImageMatrixScreen(
         },
         onUploadResult = doneOutput?.let { out ->
             { uploadToCloud(out, container, settings, scope, context, isEnglish) }
-        }
+        },
+        onCancelExport = vm::cancelExport
     )
 }
 
@@ -544,6 +551,7 @@ private fun AddTextLayerDialog(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddStickerLayerDialog(
     onConfirm: (String) -> Unit,
@@ -557,15 +565,17 @@ private fun AddStickerLayerDialog(
         title = { Text(stringResource(R.string.image_matrix_add_sticker)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     presets.forEach { preset ->
                         OutlinedButton(
                             onClick = { emojiInput = preset },
+                            contentPadding = PaddingValues(0.dp),
                             modifier = Modifier
-                                .weight(1f)
+                                .size(48.dp)
                                 .minimumInteractiveComponentSize()
                         ) {
                             Text(preset)

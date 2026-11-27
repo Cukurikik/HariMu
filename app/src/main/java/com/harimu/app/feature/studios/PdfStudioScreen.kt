@@ -355,6 +355,7 @@ fun PdfStudioScreen(
                             onOpen = { openFile(it, container.storage, context) },
                             onShare = { shareFile(it, container.storage, context) },
                             onSave = { exportOutput(it) },
+                            onDelete = vm::deleteOutputFile,
                             onUpload = { uploadToCloud(it, container, settings, scope, context, isEnglish) },
                             onCopy = { copyText(it, context, copiedToast) }
                         )
@@ -413,6 +414,7 @@ fun PdfStudioScreen(
                         onOpen = { openFile(it, container.storage, context) },
                         onShare = { shareFile(it, container.storage, context) },
                         onSave = { exportOutput(it) },
+                        onDelete = vm::deleteOutputFile,
                         onUpload = { uploadToCloud(it, container, settings, scope, context, isEnglish) },
                         onCopy = { copyText(it, context, copiedToast) }
                     )
@@ -547,7 +549,9 @@ private fun StudioDocumentPreviewPane(
         testTag = "pdf_studio_document_preview"
     )
 
-    val needsPassword = state.inspection?.requiresPassword == true || state.inspection?.isEncrypted == true
+    val needsPassword = state.inspection?.requiresPassword == true ||
+        state.inspection?.isEncrypted == true ||
+        state.unlockPassword.isNotEmpty()
     if (needsPassword) {
         var pwdVisible by remember { mutableStateOf(false) }
         Card(
@@ -746,6 +750,16 @@ private fun InspectAndOcrWorkspace(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (state.ocrDataInstalled) HariMuThemeTokens.semantic.success else HariMuThemeTokens.semantic.warning
             )
+            Text(
+                text = stringResource(R.string.pdf_studio_ocr_limit_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(R.string.pdf_honest_ai_gateway_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -797,13 +811,13 @@ private fun InspectAndOcrWorkspace(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text("DPI: ${state.compressDpi}", style = MonoTextStyle)
+            Text(stringResource(R.string.pdf_studio_compress_dpi_fmt, state.compressDpi), style = MonoTextStyle)
             Slider(
                 value = state.compressDpi.toFloat(),
                 onValueChange = { vm.setCompressDpi(it.roundToInt()) },
                 valueRange = 72f..200f
             )
-            Text("JPEG Quality: ${state.compressQuality}%", style = MonoTextStyle)
+            Text(stringResource(R.string.pdf_studio_compress_quality_fmt, state.compressQuality), style = MonoTextStyle)
             Slider(
                 value = state.compressQuality.toFloat(),
                 onValueChange = { vm.setCompressQuality(it.roundToInt()) },
@@ -1176,7 +1190,15 @@ private fun SecurityAndRedactWorkspace(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            Text("Opacity: ${state.watermarkOpacityPct}% • Angle: ${state.watermarkAngleDeg}° • Size: ${state.watermarkSizePct}%", style = MonoTextStyle)
+            Text(
+                stringResource(
+                    R.string.pdf_studio_watermark_summary_fmt,
+                    state.watermarkOpacityPct,
+                    state.watermarkAngleDeg,
+                    state.watermarkSizePct
+                ),
+                style = MonoTextStyle
+            )
             Slider(value = state.watermarkOpacityPct.toFloat(), onValueChange = { vm.setWatermarkOpacity(it.roundToInt()) }, valueRange = 5f..100f)
             if (!state.watermarkIsImage) {
                 Slider(value = state.watermarkAngleDeg.toFloat(), onValueChange = { vm.setWatermarkAngle(it.roundToInt()) }, valueRange = -90f..90f)
@@ -1237,7 +1259,7 @@ private fun SecurityAndRedactWorkspace(
                     .fillMaxWidth()
                     .testTag("pdf_studio_redact_terms_input")
             )
-            Text("DPI: ${state.redactDpi}", style = MonoTextStyle)
+            Text(stringResource(R.string.pdf_studio_compress_dpi_fmt, state.redactDpi), style = MonoTextStyle)
             Slider(value = state.redactDpi.toFloat(), onValueChange = { vm.setRedactDpi(it.roundToInt()) }, valueRange = 100f..250f)
 
             state.redactPreview?.let { preview ->
@@ -1341,15 +1363,23 @@ private fun FormsAndMetadataWorkspace(
                 modifier = Modifier.fillMaxWidth()
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("Tengah Bawah", "Kanan Bawah", "Kiri Bawah", "Kanan Atas").forEach { pos ->
+                listOf(
+                    "Tengah Bawah" to (if (isEnglish) "Bottom Center" else "Tengah Bawah"),
+                    "Kanan Bawah" to (if (isEnglish) "Bottom Right" else "Kanan Bawah"),
+                    "Kiri Bawah" to (if (isEnglish) "Bottom Left" else "Kiri Bawah"),
+                    "Kanan Atas" to (if (isEnglish) "Top Right" else "Kanan Atas")
+                ).forEach { (posKey, label) ->
                     FilterChip(
-                        selected = state.pageNumPosition == pos,
-                        onClick = { vm.setPageNumPosition(pos) },
-                        label = { Text(pos) }
+                        selected = state.pageNumPosition == posKey,
+                        onClick = { vm.setPageNumPosition(posKey) },
+                        label = { Text(label) }
                     )
                 }
             }
-            Text("Start: ${state.pageNumStart} • Size: ${state.pageNumSizePct}%", style = MonoTextStyle)
+            Text(
+                stringResource(R.string.pdf_studio_pagenum_summary_fmt, state.pageNumStart, state.pageNumSizePct),
+                style = MonoTextStyle
+            )
             Slider(value = state.pageNumStart.toFloat(), onValueChange = { vm.setPageNumStart(it.roundToInt()) }, valueRange = 1f..50f)
             Slider(value = state.pageNumSizePct.toFloat(), onValueChange = { vm.setPageNumSize(it.roundToInt()) }, valueRange = 2f..8f)
             Button(
@@ -1423,6 +1453,11 @@ private fun CompareAbWorkspace(
                     fontWeight = FontWeight.Bold
                 )
             }
+            Text(
+                text = stringResource(R.string.pdf_honest_compare_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -1443,6 +1478,23 @@ private fun CompareAbWorkspace(
                         text = state.compareNameB.ifBlank { stringResource(R.string.pdf_studio_compare_pick_b) },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            state.compareError?.let { compareErr ->
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("pdf_studio_compare_error")
+                ) {
+                    Text(
+                        text = compareErr,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(10.dp)
                     )
                 }
             }
@@ -1500,7 +1552,7 @@ private fun CompareAbWorkspace(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         preview.bitmapA?.takeIf { !it.isRecycled }?.let { bmpA ->
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Doc A", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.pdf_studio_doc_a_label), style = MaterialTheme.typography.labelSmall)
                                 Image(
                                     bitmap = bmpA.asImageBitmap(),
                                     contentDescription = stringResource(
@@ -1517,7 +1569,7 @@ private fun CompareAbWorkspace(
                         }
                         preview.bitmapB?.takeIf { !it.isRecycled }?.let { bmpB ->
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Doc B", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.pdf_studio_doc_b_label), style = MaterialTheme.typography.labelSmall)
                                 Image(
                                     bitmap = bmpB.asImageBitmap(),
                                     contentDescription = stringResource(
@@ -1577,6 +1629,7 @@ private fun StudioResultAndProgressPane(
     onOpen: (ToolOutputFile) -> Unit,
     onShare: (ToolOutputFile) -> Unit,
     onSave: (ToolOutputFile) -> Unit,
+    onDelete: (ToolOutputFile) -> Unit,
     onUpload: (ToolOutputFile) -> Unit,
     onCopy: (String) -> Unit
 ) {
@@ -1589,25 +1642,31 @@ private fun StudioResultAndProgressPane(
     )
 
     val done = state.progress as? ToolProgress.Done ?: return
-    val result = done.result
-    val firstOut = result.outputs.firstOrNull()
+    val visibleOutputs = done.result.outputs.filter {
+        it.file.absolutePath !in state.deletedOutputPaths && it.file.exists()
+    }
+    val effectiveResult = done.result.copy(outputs = visibleOutputs)
+    val firstOut = visibleOutputs.firstOrNull()
 
     ToolResultCard(
-        result = result,
+        result = effectiveResult,
         storage = container.storage,
         actions = ResultActions(
             onOpen = firstOut?.let { _ -> onOpen },
             onShare = firstOut?.let { _ -> onShare },
             onSave = firstOut?.let { _ -> onSave },
+            onDelete = if (visibleOutputs.size == 1 && firstOut != null) {
+                { onDelete(firstOut) }
+            } else null,
             onUploadToCloud = firstOut?.let { _ -> onUpload },
             onCopyText = onCopy
         ),
         showPreview = true
     )
 
-    if (result.outputs.size > 1) {
+    if (visibleOutputs.size > 1) {
         ToolMultiResultCard(
-            outputs = result.outputs,
+            outputs = visibleOutputs,
             storage = container.storage,
             onItemClick = onOpen,
             onItemAction = { file, action ->
@@ -1615,14 +1674,14 @@ private fun StudioResultAndProgressPane(
                     ResultAction.Open -> onOpen(file)
                     ResultAction.Share -> onShare(file)
                     ResultAction.Save -> onSave(file)
-                    ResultAction.Delete -> { file.file.delete() }
+                    ResultAction.Delete -> onDelete(file)
                     ResultAction.Details -> onOpen(file)
                 }
             }
         )
     }
 
-    result.textOutput?.let { txt ->
+    done.result.textOutput?.let { txt ->
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)

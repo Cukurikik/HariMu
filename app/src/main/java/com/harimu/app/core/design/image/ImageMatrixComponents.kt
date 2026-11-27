@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -66,6 +67,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +83,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -175,90 +180,106 @@ fun ImageMatrixCheckerboardBox(
                 }
             }
 
-            Box(
+            val latestOnDrag by rememberUpdatedState(onDragSelectedLayer)
+            val latestOnDragEnd by rememberUpdatedState(onDragSelectedLayerEnd)
+            val canvasAspect = (canvasW.toFloat() / canvasH.coerceAtLeast(1).toFloat()).coerceIn(0.35f, 3.0f)
+
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 380.dp)
-                    .aspectRatio((canvasW.toFloat() / canvasH.toFloat()).coerceIn(0.45f, 2.2f))
-                    .clip(RoundedCornerShape(12.dp))
-                    .clipToBounds()
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                    .pointerInput(selectedLayer?.id, zoom) {
-                        if (selectedLayer != null) {
-                            detectDragGestures(
-                                onDragEnd = onDragSelectedLayerEnd,
-                                onDragCancel = onDragSelectedLayerEnd
-                            ) { change, dragAmount ->
-                                change.consume()
-                                val dxPct = (dragAmount.x / (size.width * zoom)) * 100f
-                                val dyPct = (dragAmount.y / (size.height * zoom)) * 100f
-                                onDragSelectedLayer(dxPct, dyPct)
-                            }
-                        }
-                    },
+                    .heightIn(max = 380.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Checkerboard transparency backdrop
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val cell = 14.dp.toPx()
-                    val cols = (size.width / cell).toInt() + 1
-                    val rows = (size.height / cell).toInt() + 1
-                    for (r in 0 until rows) {
-                        for (c in 0 until cols) {
-                            drawRect(
-                                color = if ((r + c) % 2 == 0) Color(0xFF1F2430) else Color(0xFF282E3D),
-                                topLeft = Offset(c * cell, r * cell),
-                                size = Size(cell, cell)
-                            )
-                        }
-                    }
+                val maxH = if (maxHeight.value.isFinite()) maxHeight else 380.dp
+                val (fittedW, fittedH) = if (maxWidth / maxH > canvasAspect) {
+                    (maxH * canvasAspect) to maxH
+                } else {
+                    maxWidth to (maxWidth / canvasAspect)
                 }
 
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = zoom
-                            scaleY = zoom
+                        .size(width = fittedW, height = fittedH)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clipToBounds()
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .pointerInput(selectedLayer?.id, zoom) {
+                            if (selectedLayer != null) {
+                                detectDragGestures(
+                                    onDragEnd = { latestOnDragEnd() },
+                                    onDragCancel = { latestOnDragEnd() }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    val dxPct = (dragAmount.x / (size.width * zoom)) * 100f
+                                    val dyPct = (dragAmount.y / (size.height * zoom)) * 100f
+                                    latestOnDrag(dxPct, dyPct)
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    preview?.let { bitmap ->
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = stringResource(R.string.cd_image_matrix_canvas),
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                    // Crosshair center indicator for active layer
-                    if (selectedLayer != null && selectedLayer.visible) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val cx = selectedLayer.xPct.coerceIn(0f, 100f) / 100f * size.width
-                            val cy = selectedLayer.yPct.coerceIn(0f, 100f) / 100f * size.height
-                            drawCircle(
-                                color = accent,
-                                radius = 10.dp.toPx(),
-                                center = Offset(cx, cy),
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8.dp.toPx())
-                            )
-                            drawCircle(
-                                color = Color.White,
-                                radius = 3.dp.toPx(),
-                                center = Offset(cx, cy)
-                            )
+                    // Checkerboard transparency backdrop
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val cell = 14.dp.toPx()
+                        val cols = (size.width / cell).toInt() + 1
+                        val rows = (size.height / cell).toInt() + 1
+                        for (r in 0 until rows) {
+                            for (c in 0 until cols) {
+                                drawRect(
+                                    color = if ((r + c) % 2 == 0) Color(0xFF1F2430) else Color(0xFF282E3D),
+                                    topLeft = Offset(c * cell, r * cell),
+                                    size = Size(cell, cell)
+                                )
+                            }
                         }
                     }
-                }
 
-                if (isRendering) {
-                    LinearProgressIndicator(
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .align(Alignment.TopCenter),
-                        color = accent
-                    )
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = zoom
+                                scaleY = zoom
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        preview?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = stringResource(R.string.cd_image_matrix_canvas),
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        // Crosshair center indicator for active layer
+                        if (selectedLayer != null && selectedLayer.visible) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val cx = selectedLayer.xPct.coerceIn(0f, 100f) / 100f * size.width
+                                val cy = selectedLayer.yPct.coerceIn(0f, 100f) / 100f * size.height
+                                drawCircle(
+                                    color = accent,
+                                    radius = 10.dp.toPx(),
+                                    center = Offset(cx, cy),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.8.dp.toPx())
+                                )
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 3.dp.toPx(),
+                                    center = Offset(cx, cy)
+                                )
+                            }
+                        }
+                    }
+
+                    if (isRendering) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .align(Alignment.TopCenter),
+                            color = accent
+                        )
+                    }
                 }
             }
 
@@ -287,7 +308,8 @@ fun ImageMatrixLayerRow(
     onMoveDown: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isEnglish: Boolean = false
 ) {
     val accent = HariMuColors.GroupImage
     val safeAccent = HariMuThemeTokens.semantic.contrastSafeAccent(accent)
@@ -330,7 +352,7 @@ fun ImageMatrixLayerRow(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${index + 1}. ${layer.title()}",
+                        text = "${index + 1}. ${layer.title(isEnglish)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1,
@@ -409,7 +431,8 @@ fun ImageMatrixTransformInspector(
     onUpdateLayer: (String, (MatrixLayer) -> MatrixLayer) -> Unit,
     onCenterLayer: (String) -> Unit,
     onResetTransform: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isEnglish: Boolean = false
 ) {
     if (layer == null) {
         EmptyState(
@@ -438,7 +461,7 @@ fun ImageMatrixTransformInspector(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.image_matrix_active_layer, layer.title()),
+                    text = stringResource(R.string.image_matrix_active_layer, layer.title(isEnglish)),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
@@ -676,13 +699,14 @@ fun ImageMatrixExportDialog(
     onOpenResult: (() -> Unit)?,
     onShareResult: (() -> Unit)?,
     onSaveResult: (() -> Unit)?,
-    onUploadResult: (() -> Unit)?
+    onUploadResult: (() -> Unit)?,
+    onCancelExport: () -> Unit = {}
 ) {
     val activeOverlay = progress != null
     if (!isOpen && !activeOverlay) return
 
-    var selectedFormat by remember { mutableStateOf("PNG") }
-    var quality by remember { mutableFloatStateOf(95f) }
+    var selectedFormat by rememberSaveable { mutableStateOf("PNG") }
+    var quality by rememberSaveable { mutableFloatStateOf(95f) }
     val visibleCount = remember(layers) { layers.count { it.visible } }
 
     AlertDialog(
@@ -720,13 +744,13 @@ fun ImageMatrixExportDialog(
                     is ToolProgress.Queued -> ProgressSheet(
                         percent = null,
                         message = stringResource(R.string.progress_queued),
-                        onCancel = {}
+                        onCancel = onCancelExport
                     )
 
                     is ToolProgress.Running -> ProgressSheet(
                         percent = progress.percent,
                         message = progress.message,
-                        onCancel = {}
+                        onCancel = onCancelExport
                     )
 
                     is ToolProgress.Failed -> ErrorState(
@@ -842,24 +866,33 @@ private fun ColorSwatchStrip(
 ) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         quickColorHexes.forEach { hex ->
             val color = Color(ImageEngine.parseColorSafe(hex, android.graphics.Color.WHITE))
             val selected = selectedHex.equals(hex, ignoreCase = true)
+            val swatchCd = stringResource(R.string.cd_color_swatch, hex)
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(color)
-                    .border(
-                        width = if (selected) 2.5.dp else 1.dp,
-                        color = if (selected) HariMuColors.GroupImage else MaterialTheme.colorScheme.outline,
-                        shape = CircleShape
-                    )
                     .clickable { onSelect(hex) }
-            )
+                    .semantics { contentDescription = swatchCd },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .border(
+                            width = if (selected) 2.5.dp else 1.dp,
+                            color = if (selected) HariMuColors.GroupImage else MaterialTheme.colorScheme.outline,
+                            shape = CircleShape
+                        )
+                )
+            }
         }
     }
 }

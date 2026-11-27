@@ -20,26 +20,40 @@ object PdfRenderUtils {
         uri: Uri,
         dpi: Int,
         maxPages: Int = Int.MAX_VALUE,
+        password: String = "",
         onPage: (index: Int, page: Rendered, totalPages: Int) -> Boolean
     ): Int {
-        val temp = storage.copyUriToTemp(uri, "pdfrender", "pdf")
+        val temp = PdfVaultEngine.prepareRenderableTemp(context, storage, uri, password)
         try {
             ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                 PdfRenderer(descriptor).use { renderer ->
                     val total = minOf(renderer.pageCount, maxPages)
                     for (index in 0 until total) {
+                        var bitmap: Bitmap? = null
                         val page = renderer.openPage(index)
-                        val scale = dpi.coerceIn(72, 300) / 72f
-                        val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-                        val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                        bitmap.eraseColor(Color.WHITE)
-                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-                        val rendered = Rendered(bitmap, page.width.toFloat(), page.height.toFloat())
-                        page.close()
-                        val keepGoing = onPage(index, rendered, total)
+                        val wPts: Float
+                        val hPts: Float
+                        try {
+                            val scale = dpi.coerceIn(72, 300) / 72f
+                            val width = (page.width * scale).roundToInt().coerceAtLeast(1)
+                            val height = (page.height * scale).roundToInt().coerceAtLeast(1)
+                            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                            bitmap.eraseColor(Color.WHITE)
+                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                            wPts = page.width.toFloat()
+                            hPts = page.height.toFloat()
+                        } finally {
+                            page.close()
+                        }
+                        val rendered = Rendered(bitmap!!, wPts, hPts)
+                        val keepGoing = try {
+                            onPage(index, rendered, total)
+                        } catch (t: Throwable) {
+                            if (!bitmap.isRecycled) bitmap.recycle()
+                            throw t
+                        }
                         if (!keepGoing) {
-                            bitmap.recycle()
+                            if (!bitmap.isRecycled) bitmap.recycle()
                             return index + 1
                         }
                     }
@@ -51,21 +65,31 @@ object PdfRenderUtils {
         }
     }
 
-    fun bitmap(context: Context, storage: FileStorageManager, uri: Uri, dpi: Int, pageIndex: Int = 0): Bitmap? {
-        val temp = storage.copyUriToTemp(uri, "pdfpage", "pdf")
+    fun bitmap(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        dpi: Int,
+        pageIndex: Int = 0,
+        password: String = ""
+    ): Bitmap? {
+        val temp = PdfVaultEngine.prepareRenderableTemp(context, storage, uri, password)
         try {
             ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                 PdfRenderer(descriptor).use { renderer ->
                     if (pageIndex !in 0 until renderer.pageCount) return null
                     val page = renderer.openPage(pageIndex)
-                    val scale = dpi.coerceIn(72, 300) / 72f
-                    val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-                    val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-                    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    bitmap.eraseColor(Color.WHITE)
-                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
-                    page.close()
-                    return bitmap
+                    return try {
+                        val scale = dpi.coerceIn(72, 300) / 72f
+                        val width = (page.width * scale).roundToInt().coerceAtLeast(1)
+                        val height = (page.height * scale).roundToInt().coerceAtLeast(1)
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        bitmap.eraseColor(Color.WHITE)
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                        bitmap
+                    } finally {
+                        page.close()
+                    }
                 }
             }
         } finally {
@@ -73,8 +97,13 @@ object PdfRenderUtils {
         }
     }
 
-    fun pageCount(context: Context, storage: FileStorageManager, uri: Uri): Int {
-        val temp = storage.copyUriToTemp(uri, "pdfcount", "pdf")
+    fun pageCount(
+        context: Context,
+        storage: FileStorageManager,
+        uri: Uri,
+        password: String = ""
+    ): Int {
+        val temp = PdfVaultEngine.prepareRenderableTemp(context, storage, uri, password)
         try {
             ParcelFileDescriptor.open(temp, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
                 PdfRenderer(descriptor).use { renderer -> return renderer.pageCount }
