@@ -348,13 +348,21 @@ class UniversalConverterViewModel(
         }
     }
 
-    fun canRetry(jobId: String): Boolean = jobId in retryPayloads
+    fun canRetry(jobId: String): Boolean {
+        if (jobId in retryPayloads) return true
+        val job = converterJobs.value.firstOrNull { it.jobId == jobId } ?: return false
+        return container.jobManager.canRetry(job)
+    }
 
     fun retryJob(jobId: String, isEnglish: Boolean) {
-        val payload = retryPayloads[jobId] ?: return
+        val payload = retryPayloads[jobId]
         viewModelScope.launch {
-            val newJob = container.jobManager.enqueueToolJob(payload.first, payload.second, isEnglish)
-            retryPayloads[newJob.jobId] = payload
+            if (payload != null) {
+                val newJob = container.jobManager.enqueueToolJob(payload.first, payload.second, isEnglish)
+                retryPayloads[newJob.jobId] = payload
+            } else {
+                container.jobManager.retryJob(jobId, isEnglish)
+            }
         }
     }
 

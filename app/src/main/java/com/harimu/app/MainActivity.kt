@@ -38,9 +38,11 @@ import com.harimu.app.core.data.AppSettings
 import com.harimu.app.core.cloud.OAuthCallbackBus
 import com.harimu.app.core.design.HariMuTheme
 import com.harimu.app.core.design.HariMuTopBar
+import com.harimu.app.core.jobs.ToolJobWorker
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolGroup
+import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.feature.area.AreaLookupScreen
 import com.harimu.app.feature.catalog.CatalogScreen
 import com.harimu.app.feature.favorites.FavoritesScreen
@@ -92,7 +94,7 @@ import java.util.Locale
 @Serializable data object FavoritesRoute
 @Serializable data object SettingsRoute
 @Serializable data class CatalogRoute(val groupName: String? = null)
-@Serializable data class ToolRoute(val toolId: String)
+@Serializable data class ToolRoute(val toolId: String, val jobId: String? = null)
 @Serializable data object VoiceRecorderRoute
 @Serializable data object ScreenRecorderRoute
 @Serializable data object VideoEditorRoute
@@ -198,6 +200,9 @@ private fun HariMuRoot(
     val scope = rememberCoroutineScope()
     val favoriteIds by container.workspace.favoriteIdsFlow.collectAsStateWithLifecycle(initialValue = emptySet())
     val historyItems by container.workspace.historyFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allJobs by container.jobManager.observeAllJobs().collectAsStateWithLifecycle(initialValue = emptyList())
+    val activeJobCount = remember(allJobs) { allJobs.count { ToolJobWorker.isActiveStatus(it.status) } }
+    val attentionJobCount = remember(allJobs) { allJobs.count { ToolJobWorker.isAttentionStatus(it.status) } }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDest = navBackStackEntry?.destination
     // The first frame has no back stack entry yet; show the frame as if Home were active.
@@ -235,12 +240,12 @@ private fun HariMuRoot(
         }
     }
 
-    fun openTool(tool: Tool) {
+    fun openTool(tool: Tool, jobId: String? = null) {
         val dedicated = tool.dedicatedRoute
         if (dedicated != null) {
             navigateToStudio(dedicated)
         } else {
-            navController.navigate(ToolRoute(tool.id))
+            navController.navigate(ToolRoute(tool.id, jobId))
         }
     }
 
@@ -280,7 +285,7 @@ private fun HariMuRoot(
                         isEnglish = settings.isEnglish,
                         favoriteIds = favoriteIds,
                         recentToolIds = historyItems.map { it.toolId },
-                        onOpenTool = ::openTool,
+                        onOpenTool = { tool -> openTool(tool) },
                         onOpenGroup = { group ->
                             when (group) {
                                 ToolGroup.NUSANTARA -> navController.navigate(NusantaraRoute)
@@ -292,11 +297,19 @@ private fun HariMuRoot(
                         },
                         onToggleFavorite = { id ->
                             scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(id) }
-                        }
+                        },
+                        activeJobCount = activeJobCount,
+                        attentionJobCount = attentionJobCount,
+                        onOpenJobCenter = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) }
                     )
                 }
                 composable<HistoryRoute> {
-                    HistoryScreen(container = container)
+                    HistoryScreen(
+                        container = container,
+                        onOpenTool = { id, jid ->
+                            ToolRegistry.findById(id)?.let { tool -> openTool(tool, jid) }
+                        }
+                    )
                 }
                 composable<FavoritesRoute> {
                     FavoritesScreen(
@@ -361,7 +374,9 @@ private fun HariMuRoot(
                         },
                         onOpenUniversalConverter = { id ->
                             navController.navigate(UniversalConverterRoute(initialToolId = id))
-                        }
+                        },
+                        initialJobId = args.jobId,
+                        onOpenJobCenter = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) }
                     )
                 }
                 composable<VoiceRecorderRoute> {

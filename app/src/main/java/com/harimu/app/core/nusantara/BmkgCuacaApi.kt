@@ -23,7 +23,8 @@ data class WeatherSlot(
     val conditionId: String,
     val conditionEn: String,
     val windSpeed: String,
-    val iconUrl: String
+    val iconUrl: String,
+    val conditionDescId: String = ""
 )
 
 data class WeatherForecast(
@@ -79,7 +80,8 @@ object BmkgCuacaJson {
                     conditionId = slot.conditionCode.text(),
                     conditionEn = slot.conditionEn.text(),
                     windSpeed = slot.windSpeed.text(),
-                    iconUrl = slot.icon.text()
+                    iconUrl = slot.icon.text(),
+                    conditionDescId = slot.conditionDescId.text()
                 )
             }
         return WeatherForecast(location = location, slots = slots)
@@ -116,6 +118,7 @@ private data class SlotDto(
     @SerialName("t") val temperature: JsonPrimitive? = null,
     @SerialName("hu") val humidity: JsonPrimitive? = null,
     @SerialName("weather") val conditionCode: JsonPrimitive? = null,
+    @SerialName("weather_desc") val conditionDescId: JsonPrimitive? = null,
     @SerialName("weather_desc_en") val conditionEn: JsonPrimitive? = null,
     @SerialName("ws") val windSpeed: JsonPrimitive? = null,
     @SerialName("image") val icon: JsonPrimitive? = null

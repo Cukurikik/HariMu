@@ -46,6 +46,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WorkHistory
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -81,6 +83,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.harimu.app.R
+import com.harimu.app.core.cloud.UploadStatus
+import com.harimu.app.core.cloud.UploadTask
+import com.harimu.app.core.design.jobs.UploadTaskStatusRow
 import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.toolapi.ToolOutputFile
@@ -376,25 +381,52 @@ fun ToolResultCard(
     storage: FileStorageManager,
     actions: ResultActions = ResultActions(),
     modifier: Modifier = Modifier,
-    showPreview: Boolean = true
+    showPreview: Boolean = true,
+    uploadTask: UploadTask? = null,
+    onRetryUpload: ((UploadTask) -> Unit)? = null,
+    onViewJobCenter: (() -> Unit)? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
+    val semantic = HariMuThemeTokens.semantic
     val primaryOutput = result.outputs.firstOrNull()
+    val primaryExists = primaryOutput != null && primaryOutput.file.exists()
 
     HariMuSectionCard(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
-        borderColor = HariMuThemeTokens.semantic.successBorder.copy(alpha = 0.65f)
+        borderColor = semantic.successBorder.copy(alpha = 0.65f)
     ) {
         // Summary header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null, tint = HariMuThemeTokens.semantic.success, modifier = Modifier.size(HariMuThemeTokens.icons.md))
+            Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null, tint = semantic.success, modifier = Modifier.size(HariMuThemeTokens.icons.md))
             Spacer(modifier = Modifier.width(spacing.xs))
             Text(text = result.summary, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
         }
 
+        // Missing file guard
+        if (primaryOutput != null && !primaryExists) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = HariMuThemeTokens.shapes.control,
+                color = semantic.warningContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Warning, contentDescription = null, tint = semantic.onWarningContainer, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = stringResource(R.string.job_file_missing),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = semantic.onWarningContainer
+                    )
+                }
+            }
+        }
+
         // Preview
-        if (showPreview && primaryOutput != null) {
+        if (showPreview && primaryOutput != null && primaryExists) {
             Spacer(modifier = Modifier.height(spacing.sm))
             ToolResultPreview(output = primaryOutput, storage = storage)
         }
@@ -412,7 +444,7 @@ fun ToolResultCard(
         }
 
         // Actions
-        if (primaryOutput != null) {
+        if (primaryOutput != null && primaryExists) {
             Spacer(modifier = Modifier.height(spacing.sm))
             ResultActionBar(
                 output = primaryOutput,
@@ -426,6 +458,16 @@ fun ToolResultCard(
             )
         }
 
+        if (uploadTask != null) {
+            Spacer(modifier = Modifier.height(spacing.xs))
+            UploadTaskStatusRow(
+                task = uploadTask,
+                onRetry = if (uploadTask.status == UploadStatus.FAILED && onRetryUpload != null) {
+                    { onRetryUpload(uploadTask) }
+                } else null
+            )
+        }
+
         // Additional outputs indicator
         if (result.outputs.size > 1) {
             Spacer(modifier = Modifier.height(spacing.xs))
@@ -433,6 +475,14 @@ fun ToolResultCard(
                 text = stringResource(R.string.result_additional_files, result.outputs.size - 1),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (onViewJobCenter != null) {
+            HariMuTextAction(
+                text = stringResource(R.string.job_action_view_job_center),
+                onClick = onViewJobCenter,
+                icon = Icons.Filled.WorkHistory
             )
         }
     }
@@ -552,6 +602,7 @@ private fun ResultItemRow(
     onAction: ((ResultAction) -> Unit)?
 ) {
     val mime = output.mimeType.lowercase()
+    val exists = output.file.exists()
     val (icon, color) = when {
         mime.startsWith("image/") -> Icons.Filled.Image to MaterialTheme.colorScheme.primary
         mime.startsWith("video/") -> Icons.Filled.PlayCircle to HariMuColors.GroupVideo
@@ -564,7 +615,7 @@ private fun ResultItemRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(if (exists && onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
@@ -578,14 +629,19 @@ private fun ResultItemRow(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(text = "$index. ${output.displayName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = "${storage.formatBytes(output.file.length())} • ${output.mimeType}", style = MonoTextStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val subtitle = if (exists) {
+                    "${storage.formatBytes(output.file.length())} • ${output.mimeType}"
+                } else {
+                    stringResource(R.string.job_file_missing)
+                }
+                Text(text = subtitle, style = MonoTextStyle, color = if (exists) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
             }
-            onAction?.let {
+            if (exists && onAction != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = { onAction(ResultAction.Open) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open") }
-                    IconButton(onClick = { onAction(ResultAction.Share) }) { Icon(Icons.Filled.Share, contentDescription = "Share") }
-                    IconButton(onClick = { onAction(ResultAction.Save) }) { Icon(Icons.Filled.Download, contentDescription = "Save") }
-                    IconButton(onClick = { onAction(ResultAction.Delete) }) { Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error) }
+                    IconButton(onClick = { onAction(ResultAction.Open) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.action_open)) }
+                    IconButton(onClick = { onAction(ResultAction.Share) }) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share)) }
+                    IconButton(onClick = { onAction(ResultAction.Save) }) { Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.action_save)) }
+                    IconButton(onClick = { onAction(ResultAction.Delete) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error) }
                 }
             }
         }

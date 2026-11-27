@@ -85,6 +85,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.harimu.app.AppContainer
 import com.harimu.app.R
+import com.harimu.app.core.cloud.UploadQueue
+import com.harimu.app.core.cloud.UploadTask
 import com.harimu.app.core.data.AppSettings
 import com.harimu.app.core.design.EngineBadge
 import com.harimu.app.core.design.HariMuColors
@@ -99,13 +101,11 @@ import com.harimu.app.core.design.ToolInputPreview
 import com.harimu.app.core.design.ToolMultiResultCard
 import com.harimu.app.core.design.ToolParameterPanel
 import com.harimu.app.core.design.ToolProgressView
-import com.harimu.app.core.design.ToolProgressState
 import com.harimu.app.core.design.ToolResultCard
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.design.audio.AudioForgeToolPreviewSection
 import com.harimu.app.core.design.audio.resolveWaveformOverlaySpec
 import com.harimu.app.core.design.image.ImageForgeToolPreviewSection
-import com.harimu.app.core.design.toProgressState
 import com.harimu.app.core.converter.ConverterFormatMatrix
 import com.harimu.app.core.converter.DetectedSource
 import com.harimu.app.core.converter.SourceFormatDetector
@@ -133,7 +133,9 @@ fun ToolScreen(
     onToggleFavorite: () -> Unit,
     onBack: () -> Unit,
     onOpenPdfStudio: ((initialTab: String, toolId: String) -> Unit)? = null,
-    onOpenUniversalConverter: ((toolId: String) -> Unit)? = null
+    onOpenUniversalConverter: ((toolId: String) -> Unit)? = null,
+    initialJobId: String? = null,
+    onOpenJobCenter: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val spacing = HariMuThemeTokens.spacing
@@ -141,8 +143,8 @@ fun ToolScreen(
     val scope = rememberCoroutineScope()
     var showUploadConsent by remember { mutableStateOf(false) }
     val vm: ToolViewModel = viewModel(
-        key = "tool_$toolId",
-        factory = ToolViewModel.Factory(toolId, container)
+        key = "tool_${toolId}_${initialJobId ?: "latest"}",
+        factory = ToolViewModel.Factory(toolId, container, initialJobId)
     )
     LaunchedEffect(context) { vm.bindContext(context) }
 
@@ -271,9 +273,15 @@ fun ToolScreen(
         }
     }
 
-    // Convert ToolProgress to ToolProgressState
-    val progressState = remember(state.progress) {
-        state.progress?.toProgressState() ?: ToolProgressState.Idle
+    // Convert ToolUiState to ToolProgressState
+    val progressState = remember(
+        state.progress,
+        state.isInterrupted,
+        state.isCancelled,
+        state.isRetryable,
+        state.jobErrorMessage
+    ) {
+        state.toUiProgressState()
     }
 
     // Build parameter validators based on tool requirements
@@ -297,7 +305,12 @@ fun ToolScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onToggleFavorite) {
+                    IconButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("fav_button_${tool.id}")
+                    ) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
                             contentDescription = stringResource(R.string.cd_toggle_favorite),
@@ -420,7 +433,9 @@ fun ToolScreen(
                     state = progressState,
                     callbacks = ProgressCallbacks(
                         onCancel = { vm.cancel() },
-                        onRetry = { triggerExecution() }
+                        onRetry = { vm.retry(isEnglish) },
+                        jobId = state.activeJobId ?: state.lastJobId,
+                        onViewJobCenter = onOpenJobCenter
                     )
                 )
 
@@ -441,7 +456,8 @@ fun ToolScreen(
                         audioPlayer = { audioPlayer = it },
                         isPlayingAudio = { isPlayingAudio = it },
                         scope = scope,
-                        isEnglish = isEnglish
+                        isEnglish = isEnglish,
+                        onOpenJobCenter = onOpenJobCenter
                     )
                 }
             }
@@ -790,12 +806,22 @@ fun DetailedResultView(
     audioPlayer: (MediaPlayer?) -> Unit,
     isPlayingAudio: (Boolean) -> Unit,
     scope: kotlinx.coroutines.CoroutineScope,
-    isEnglish: Boolean
+    isEnglish: Boolean,
+    onOpenJobCenter: (() -> Unit)? = null
 ) {
-    val firstOut = result.outputs.firstOrNull()
+    var deletedPaths by remember(result.outputs) { mutableStateOf(emptySet<String>()) }
+    val visibleOutputs = remember(result.outputs, deletedPaths) {
+        result.outputs.filterNot { it.file.absolutePath in deletedPaths }
+    }
+    val effectiveResult = remember(result, visibleOutputs) {
+        if (visibleOutputs.size == result.outputs.size) result else result.copy(outputs = visibleOutputs)
+    }
+    val firstOut = effectiveResult.outputs.firstOrNull()
+    val uploadTasks by container.uploadQueue.tasksFlow.collectAsStateWithLifecycle()
+    val matchedUpload = firstOut?.let { UploadQueue.findLatestForFile(it.file.absolutePath, uploadTasks) }
 
     ToolResultCard(
-        result = result,
+        result = effectiveResult,
         storage = container.storage,
         actions = ResultActions(
             onOpen = firstOut?.let { out -> { openFile(out, container.storage, context) } },
@@ -804,13 +830,16 @@ fun DetailedResultView(
             onUploadToCloud = firstOut?.let { out -> { uploadToCloud(out, container, settings, scope, context, isEnglish) } },
             onCopyText = { txt -> copyText(txt, context, copiedToast) }
         ),
-        showPreview = false // We'll show custom previews below
+        showPreview = false, // We'll show custom previews below
+        uploadTask = matchedUpload,
+        onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) },
+        onViewJobCenter = onOpenJobCenter
     )
 
     // Additional previews for all outputs
-    if (result.outputs.size > 1) {
+    if (effectiveResult.outputs.size > 1) {
         ToolMultiResultCard(
-            outputs = result.outputs,
+            outputs = effectiveResult.outputs,
             storage = container.storage,
             onItemClick = { out -> openFile(out, container.storage, context) },
             onItemAction = { out, action ->
@@ -818,40 +847,46 @@ fun DetailedResultView(
                     ResultAction.Open, ResultAction.Details -> openFile(out, container.storage, context)
                     ResultAction.Share -> shareFile(out, container.storage, context)
                     ResultAction.Save -> saveFile(out, container.storage, settings, scope, context, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher)
-                    ResultAction.Delete -> { out.file.delete() }
+                    ResultAction.Delete -> {
+                        if (out.file.delete() || !out.file.exists()) {
+                            deletedPaths = deletedPaths + out.file.absolutePath
+                        }
+                    }
                 }
             }
         )
     }
 
-    if (result.outputs.isNotEmpty()) {
-        result.outputs.forEach { out ->
-            when {
-                out.mimeType.startsWith("video/") && toolId == "AUD-28" -> {
-                    VideoTrimPreviewCard(
-                        videoUri = out.file.toUri(),
-                        showTrimStrip = false,
-                        startSec = 0f,
-                        endSec = 0f,
-                        onRangeChange = { _, _ -> }
-                    )
-                }
-                out.mimeType.startsWith("image/") -> {
-                    AsyncImage(
-                        model = out.file,
-                        contentDescription = out.displayName,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
-                    )
-                }
-                out.mimeType.startsWith("audio/") -> {
-                    AudioPlaybackButton(
-                        file = out.file,
-                        audioPlayer = audioPlayer,
-                        isPlayingAudio = isPlayingAudio,
-                        copiedToast = copiedToast,
-                        container = container
-                    )
+    if (effectiveResult.outputs.isNotEmpty()) {
+        effectiveResult.outputs.forEach { out ->
+            if (out.file.exists()) {
+                when {
+                    out.mimeType.startsWith("video/") && toolId == "AUD-28" -> {
+                        VideoTrimPreviewCard(
+                            videoUri = out.file.toUri(),
+                            showTrimStrip = false,
+                            startSec = 0f,
+                            endSec = 0f,
+                            onRangeChange = { _, _ -> }
+                        )
+                    }
+                    out.mimeType.startsWith("image/") -> {
+                        AsyncImage(
+                            model = out.file,
+                            contentDescription = out.displayName,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+                        )
+                    }
+                    out.mimeType.startsWith("audio/") -> {
+                        AudioPlaybackButton(
+                            file = out.file,
+                            audioPlayer = audioPlayer,
+                            isPlayingAudio = isPlayingAudio,
+                            copiedToast = copiedToast,
+                            container = container
+                        )
+                    }
                 }
             }
         }
@@ -924,6 +959,10 @@ fun uploadToCloud(
     context: Context,
     isEnglish: Boolean
 ) {
+    if (!output.file.exists()) {
+        Toast.makeText(context, context.getString(R.string.job_file_missing), Toast.LENGTH_SHORT).show()
+        return
+    }
     scope.launch(Dispatchers.IO) {
         val config = container.cloudStore.load()
         if (!config.isConfigured()) {
@@ -943,6 +982,33 @@ fun uploadToCloud(
                     if (settings.isEnglish) "Queued — will retry" else "Masuk antrean — akan dicoba ulang"
                 }, Toast.LENGTH_LONG).show()
             }
+        }
+    }
+}
+
+fun retryCloudUpload(
+    task: UploadTask,
+    container: AppContainer,
+    scope: kotlinx.coroutines.CoroutineScope,
+    context: Context,
+    isEnglish: Boolean
+) {
+    scope.launch(Dispatchers.IO) {
+        val uploaded = container.uploadQueue.retryTask(
+            taskId = task.id,
+            configProvider = { container.cloudStore.load() },
+            persistConfig = { container.cloudStore.save(it) }
+        )
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                if (uploaded > 0) {
+                    if (isEnglish) "Uploaded to cloud" else "Terunggah ke cloud"
+                } else {
+                    if (isEnglish) "Upload still queued or failed" else "Unggahan masih tertunda atau gagal"
+                },
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 }

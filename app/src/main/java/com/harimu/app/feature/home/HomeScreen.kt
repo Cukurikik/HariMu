@@ -29,15 +29,18 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.WorkHistory
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,7 +79,10 @@ fun HomeScreen(
     recentToolIds: List<String>,
     onOpenTool: (Tool) -> Unit,
     onOpenGroup: (ToolGroup) -> Unit,
-    onToggleFavorite: (String) -> Unit
+    onToggleFavorite: (String) -> Unit,
+    activeJobCount: Int = 0,
+    attentionJobCount: Int = 0,
+    onOpenJobCenter: () -> Unit = {}
 ) {
     val spacing = HariMuThemeTokens.spacing
     val fontScale = LocalDensity.current.fontScale
@@ -167,6 +173,16 @@ fun HomeScreen(
                     }
                 }
             } else {
+                if (activeJobCount > 0 || attentionJobCount > 0) {
+                    item(key = "job_center_banner") {
+                        HomeJobCenterBanner(
+                            activeCount = activeJobCount,
+                            attentionCount = attentionJobCount,
+                            onClick = onOpenJobCenter
+                        )
+                    }
+                }
+
                 // Bagian "Terakhir dipakai"
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -398,6 +414,69 @@ private fun GroupGridCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeJobCenterBanner(
+    activeCount: Int,
+    attentionCount: Int,
+    onClick: () -> Unit
+) {
+    val semantic = HariMuThemeTokens.semantic
+    val isAlert = attentionCount > 0 && activeCount == 0
+    val container = if (isAlert) semantic.warningContainer else MaterialTheme.colorScheme.primaryContainer
+    val content = if (isAlert) semantic.onWarningContainer else MaterialTheme.colorScheme.onPrimaryContainer
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(HariMuThemeTokens.shapes.card)
+            .clickable(onClick = onClick)
+            .testTag("home_job_center_banner"),
+        shape = HariMuThemeTokens.shapes.card,
+        color = container
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.WorkHistory,
+                contentDescription = null,
+                tint = content,
+                modifier = Modifier.size(22.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(R.string.home_job_banner_title),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val statusParts = buildList {
+                    if (activeCount > 0) add(stringResource(R.string.home_job_banner_active, activeCount))
+                    if (attentionCount > 0) add(stringResource(R.string.home_job_banner_attention, attentionCount))
+                }
+                Text(
+                    text = statusParts.joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            OutlinedButton(
+                onClick = onClick,
+                modifier = Modifier.minimumInteractiveComponentSize()
+            ) {
+                Text(stringResource(R.string.home_job_banner_cta))
             }
         }
     }

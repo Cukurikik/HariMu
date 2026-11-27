@@ -18,10 +18,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.PauseCircleOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -41,16 +42,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.harimu.app.R
+import com.harimu.app.core.cloud.UploadQueue
+import com.harimu.app.core.cloud.UploadStatus
+import com.harimu.app.core.cloud.UploadTask
 import com.harimu.app.core.data.JobEntity
 import com.harimu.app.core.design.CapabilityBadge
 import com.harimu.app.core.design.EmptyState
 import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.HariMuThemeTokens
+import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ToolIdBadge
+import com.harimu.app.core.design.jobs.UploadTaskStatusRow
+import com.harimu.app.core.design.jobs.decodeJobOutputs
 import com.harimu.app.core.files.FileStorageManager
 import com.harimu.app.core.jobs.ToolJobWorker
 import com.harimu.app.core.toolapi.ToolOutputFile
-import java.io.File
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -63,7 +69,9 @@ fun ConverterJobQueueSection(
     onShareOutput: (ToolOutputFile) -> Unit,
     onSaveOutput: (ToolOutputFile) -> Unit,
     onUploadOutput: (ToolOutputFile) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    uploadTasks: List<UploadTask> = emptyList(),
+    onRetryUpload: ((UploadTask) -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -84,12 +92,16 @@ fun ConverterJobQueueSection(
             )
         } else {
             jobs.take(20).forEach { job ->
+                val canRetry = canRetryJob(job.jobId)
                 ConverterJobCard(
                     job = job,
+                    canRetry = canRetry,
+                    uploadTasks = uploadTasks,
                     onCancel = { onCancelJob(job.jobId) },
-                    onRetry = if (onRetryJob != null && canRetryJob(job.jobId)) {
+                    onRetry = if (onRetryJob != null && canRetry) {
                         { onRetryJob(job) }
                     } else null,
+                    onRetryUpload = onRetryUpload,
                     onOpenOutput = onOpenOutput,
                     onShareOutput = onShareOutput,
                     onSaveOutput = onSaveOutput,
@@ -104,18 +116,24 @@ fun ConverterJobQueueSection(
 @Composable
 private fun ConverterJobCard(
     job: JobEntity,
+    canRetry: Boolean,
+    uploadTasks: List<UploadTask>,
     onCancel: () -> Unit,
     onRetry: (() -> Unit)?,
+    onRetryUpload: ((UploadTask) -> Unit)?,
     onOpenOutput: (ToolOutputFile) -> Unit,
     onShareOutput: (ToolOutputFile) -> Unit,
     onSaveOutput: (ToolOutputFile) -> Unit,
     onUploadOutput: (ToolOutputFile) -> Unit
 ) {
     val semantic = HariMuThemeTokens.semantic
-    val isActive = job.status == ToolJobWorker.STATUS_QUEUED || job.status == ToolJobWorker.STATUS_RUNNING
+    val isActive = ToolJobWorker.isActiveStatus(job.status)
+    val isAttention = ToolJobWorker.isAttentionStatus(job.status)
     val borderColor = when (job.status) {
         ToolJobWorker.STATUS_SUCCEEDED -> semantic.successBorder.copy(alpha = 0.6f)
         ToolJobWorker.STATUS_FAILED -> MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+        ToolJobWorker.STATUS_INTERRUPTED -> semantic.warning.copy(alpha = 0.6f)
+        ToolJobWorker.STATUS_PREPARING,
         ToolJobWorker.STATUS_RUNNING -> HariMuColors.GroupConverter.copy(alpha = 0.65f)
         else -> MaterialTheme.colorScheme.outlineVariant
     }
@@ -154,10 +172,25 @@ private fun ConverterJobCard(
                 ConverterJobStatusPill(status = job.status, percent = job.progressPercent)
             }
 
-            if (job.status == ToolJobWorker.STATUS_QUEUED) {
+            if (job.inputSummary.isNotBlank()) {
+                Text(
+                    text = "#${job.jobId.take(8)} • ${job.inputSummary}",
+                    style = MonoTextStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (job.status == ToolJobWorker.STATUS_QUEUED || job.status == ToolJobWorker.STATUS_PREPARING) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Text(
-                    text = job.progressMessage.ifBlank { stringResource(R.string.converter_queue_status_queued) },
+                    text = job.progressMessage.ifBlank {
+                        stringResource(
+                            if (job.status == ToolJobWorker.STATUS_PREPARING) R.string.progress_preparing
+                            else R.string.converter_queue_status_queued
+                        )
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -194,32 +227,60 @@ private fun ConverterJobCard(
                 }
             }
 
-            if (job.status == ToolJobWorker.STATUS_FAILED) {
-                Surface(
-                    shape = HariMuThemeTokens.shapes.control,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            if (isAttention) {
+                if (job.status == ToolJobWorker.STATUS_FAILED || job.status == ToolJobWorker.STATUS_INTERRUPTED) {
+                    val containerColor = if (job.status == ToolJobWorker.STATUS_FAILED) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        semantic.warningContainer
+                    }
+                    val contentColor = if (job.status == ToolJobWorker.STATUS_FAILED) {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    } else {
+                        semantic.onWarningContainer
+                    }
+                    val statusIcon = if (job.status == ToolJobWorker.STATUS_FAILED) {
+                        Icons.Filled.ErrorOutline
+                    } else {
+                        Icons.Filled.PauseCircleOutline
+                    }
+                    Surface(
+                        shape = HariMuThemeTokens.shapes.control,
+                        color = containerColor,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.ErrorOutline,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = job.errorMessage.ifBlank { stringResource(R.string.converter_queue_status_failed) },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f)
-                        )
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = statusIcon,
+                                contentDescription = null,
+                                tint = contentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = job.errorMessage.ifBlank { job.progressMessage }.ifBlank {
+                                    stringResource(
+                                        if (job.status == ToolJobWorker.STATUS_FAILED) R.string.converter_queue_status_failed
+                                        else R.string.job_status_interrupted
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = contentColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
-                if (onRetry != null) {
+                if (!canRetry) {
+                    Text(
+                        text = stringResource(R.string.job_retry_unavailable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (onRetry != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -258,26 +319,53 @@ private fun ConverterJobCard(
                     }
                 }
 
-                val outFile = job.outputPath.takeIf { it.isNotBlank() }?.let { File(it) }?.takeIf { it.exists() }
-                if (outFile != null) {
-                    val out = ToolOutputFile(
-                        file = outFile,
-                        mimeType = job.outputMime.ifBlank { "application/octet-stream" },
-                        displayName = outFile.name
-                    )
+                val outputs = decodeJobOutputs(job)
+                val primaryOut = outputs.firstOrNull { it.file.exists() }
+                if (outputs.isNotEmpty() && primaryOut == null && job.textOutput.isBlank()) {
+                    Surface(
+                        shape = HariMuThemeTokens.shapes.control,
+                        color = semantic.warningContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.Warning, contentDescription = null, tint = semantic.onWarningContainer, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = stringResource(R.string.job_file_missing),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = semantic.onWarningContainer
+                            )
+                        }
+                    }
+                }
+
+                if (primaryOut != null) {
+                    val outFile = primaryOut.file
+                    val uploadTask = UploadQueue.findLatestForFile(outFile.absolutePath, uploadTasks)
                     Text(
-                        text = "${outFile.name} • ${FileStorageManager.companionFormatBytes(outFile.length())}",
+                        text = "${primaryOut.displayName} • ${FileStorageManager.companionFormatBytes(outFile.length())}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (uploadTask != null) {
+                        UploadTaskStatusRow(
+                            task = uploadTask,
+                            onRetry = if (uploadTask.status == UploadStatus.FAILED && onRetryUpload != null) {
+                                { onRetryUpload(uploadTask) }
+                            } else null
+                        )
+                    }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         TextButton(
-                            onClick = { onOpenOutput(out) },
+                            onClick = { onOpenOutput(primaryOut) },
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .testTag("converter_job_open_${job.jobId}")
@@ -287,7 +375,7 @@ private fun ConverterJobCard(
                             Text(stringResource(R.string.action_open))
                         }
                         TextButton(
-                            onClick = { onShareOutput(out) },
+                            onClick = { onShareOutput(primaryOut) },
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .testTag("converter_job_share_${job.jobId}")
@@ -297,7 +385,7 @@ private fun ConverterJobCard(
                             Text(stringResource(R.string.action_share))
                         }
                         TextButton(
-                            onClick = { onSaveOutput(out) },
+                            onClick = { onSaveOutput(primaryOut) },
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .testTag("converter_job_save_${job.jobId}")
@@ -307,7 +395,7 @@ private fun ConverterJobCard(
                             Text(stringResource(R.string.action_save))
                         }
                         TextButton(
-                            onClick = { onUploadOutput(out) },
+                            onClick = { onUploadOutput(primaryOut) },
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .testTag("converter_job_cloud_${job.jobId}")
@@ -328,27 +416,37 @@ private fun ConverterJobStatusPill(status: String, percent: Int) {
     val semantic = HariMuThemeTokens.semantic
     val (label, container, content) = when (status) {
         ToolJobWorker.STATUS_QUEUED -> Triple(
-            stringResource(R.string.converter_queue_status_queued),
+            stringResource(R.string.job_status_queued),
             MaterialTheme.colorScheme.secondaryContainer,
             MaterialTheme.colorScheme.onSecondaryContainer
         )
+        ToolJobWorker.STATUS_PREPARING -> Triple(
+            stringResource(R.string.job_status_preparing),
+            semantic.infoContainer,
+            semantic.onInfoContainer
+        )
         ToolJobWorker.STATUS_RUNNING -> Triple(
-            stringResource(R.string.converter_queue_status_running, percent),
+            stringResource(R.string.job_status_running, percent.coerceIn(0, 100)),
             semantic.infoContainer,
             semantic.onInfoContainer
         )
         ToolJobWorker.STATUS_SUCCEEDED -> Triple(
-            stringResource(R.string.converter_queue_status_done),
+            stringResource(R.string.job_status_completed),
             semantic.successContainer,
             semantic.onSuccessContainer
         )
         ToolJobWorker.STATUS_FAILED -> Triple(
-            stringResource(R.string.converter_queue_status_failed),
+            stringResource(R.string.job_status_failed),
             MaterialTheme.colorScheme.errorContainer,
             MaterialTheme.colorScheme.onErrorContainer
         )
+        ToolJobWorker.STATUS_INTERRUPTED -> Triple(
+            stringResource(R.string.job_status_interrupted),
+            semantic.warningContainer,
+            semantic.onWarningContainer
+        )
         else -> Triple(
-            stringResource(R.string.converter_queue_status_cancelled),
+            stringResource(R.string.job_status_cancelled),
             MaterialTheme.colorScheme.surfaceContainerHigh,
             MaterialTheme.colorScheme.onSurfaceVariant
         )

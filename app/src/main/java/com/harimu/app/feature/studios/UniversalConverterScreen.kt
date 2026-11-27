@@ -87,6 +87,7 @@ import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.feature.toolscreen.UploadConsentDialog
 import com.harimu.app.feature.toolscreen.buildParamValidators
 import com.harimu.app.feature.toolscreen.openFile
+import com.harimu.app.feature.toolscreen.retryCloudUpload
 import com.harimu.app.feature.toolscreen.saveFile
 import com.harimu.app.feature.toolscreen.shareFile
 import com.harimu.app.feature.toolscreen.uploadToCloud
@@ -113,6 +114,7 @@ fun UniversalConverterScreen(
 
     val state by vm.state.collectAsStateWithLifecycle()
     val jobs by vm.converterJobs.collectAsStateWithLifecycle()
+    val uploadTasks by container.uploadQueue.tasksFlow.collectAsStateWithLifecycle()
     val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
 
     var showUploadConsent by remember { mutableStateOf(false) }
@@ -283,7 +285,9 @@ fun UniversalConverterScreen(
                             },
                             onUploadOutput = { out ->
                                 uploadToCloud(out, container, settings, scope, context, isEnglish)
-                            }
+                            },
+                            uploadTasks = uploadTasks,
+                            onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) }
                         )
                     }
                 }
@@ -345,7 +349,9 @@ fun UniversalConverterScreen(
                         },
                         onUploadOutput = { out ->
                             uploadToCloud(out, container, settings, scope, context, isEnglish)
-                        }
+                        },
+                        uploadTasks = uploadTasks,
+                        onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) }
                     )
                 }
             }

@@ -3,6 +3,9 @@ package com.harimu.app.core.cloud
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -27,7 +30,8 @@ data class UploadTask(
     val status: UploadStatus = UploadStatus.QUEUED,
     val lastError: String = "",
     val remoteUrl: String = "",
-    val bytes: Long = 0L
+    val bytes: Long = 0L,
+    val sourceFilePath: String = ""
 )
 
 /** Kebijakan retry murni (diuji unit): 3 percobaan, jeda 2 s → 8 s → 30 s. */
@@ -50,8 +54,8 @@ object UploadRetryPolicy {
  *
  * Berkas hasil tool disalin ke `filesDir/cloud_queue/` agar tetap ada walau cache dibersihkan.
  * Antrean disimpan sebagai JSON di `filesDir/cloud/queue.json` (bukan DataStore) dan diproses
- * berurutan dengan retry eksponensial. Status dapat diamati lewat [observe] (Flow polling ringan
- * dari UI) atau [snapshot].
+ * berurutan dengan retry eksponensial. Status dapat diamati secara reaktif lewat [tasksFlow]
+ * atau dibaca seketika lewat [snapshot].
  *
  * Batas jujur:
  * - Antrean berjalan selama proses aplikasi hidup. Setelah proses mati, tugas berstatus QUEUED
@@ -67,9 +71,15 @@ class UploadQueue(
     private val stateFile = File(context.filesDir, "cloud/queue.json").apply { parentFile?.mkdirs() }
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false }
     private val mutex = Mutex()
+    private val _tasksFlow = MutableStateFlow(readLocked())
+    val tasksFlow: StateFlow<List<UploadTask>> = _tasksFlow.asStateFlow()
 
     suspend fun snapshot(): List<UploadTask> = withContext(Dispatchers.IO) {
-        mutex.withLock { readLocked() }
+        mutex.withLock {
+            val loaded = readLocked()
+            _tasksFlow.value = loaded
+            loaded
+        }
     }
 
     suspend fun enqueue(file: File, mimeType: String, provider: CloudProvider): UploadTask =
@@ -83,7 +93,8 @@ class UploadQueue(
                 displayName = file.name,
                 mimeType = mimeType,
                 provider = provider,
-                bytes = copied.length()
+                bytes = copied.length(),
+                sourceFilePath = file.absolutePath
             )
             mutex.withLock {
                 val tasks = readLocked().toMutableList()
@@ -92,6 +103,16 @@ class UploadQueue(
             }
             task
         }
+
+    suspend fun removeTask(taskId: String) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val tasks = readLocked()
+            tasks.firstOrNull { it.id == taskId }?.let { removed ->
+                File(removed.filePath).delete()
+            }
+            writeLocked(tasks.filterNot { it.id == taskId })
+        }
+    }
 
     suspend fun clearFinished() = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -176,6 +197,25 @@ class UploadQueue(
         processPending(configProvider, persistConfig, onProgress)
     }
 
+    suspend fun retryTask(
+        taskId: String,
+        configProvider: suspend () -> CloudConfig,
+        persistConfig: suspend (CloudConfig) -> Unit,
+        onProgress: suspend (UploadTask) -> Unit = {}
+    ): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val tasks = readLocked().map {
+                if (it.id == taskId && it.status == UploadStatus.FAILED) {
+                    it.copy(status = UploadStatus.QUEUED, attempts = 0, lastError = "")
+                } else {
+                    it
+                }
+            }
+            writeLocked(tasks)
+        }
+        processPending(configProvider, persistConfig, onProgress)
+    }
+
     private suspend fun update(task: UploadTask) = mutex.withLock {
         val tasks = readLocked().toMutableList()
         val index = tasks.indexOfFirst { it.id == task.id }
@@ -195,6 +235,14 @@ class UploadQueue(
         if (!temp.renameTo(stateFile)) {
             stateFile.writeText(json.encodeToString(tasks), Charsets.UTF_8)
             temp.delete()
+        }
+        _tasksFlow.value = tasks
+    }
+
+    companion object {
+        fun findLatestForFile(filePath: String, tasks: List<UploadTask>): UploadTask? {
+            if (filePath.isBlank()) return null
+            return tasks.firstOrNull { it.sourceFilePath == filePath || it.filePath == filePath }
         }
     }
 }

@@ -62,10 +62,13 @@ interface JobDao {
     @Query("SELECT * FROM jobs ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<JobEntity>>
 
+    @Query("SELECT * FROM jobs WHERE jobId = :jobId LIMIT 1")
+    fun observeById(jobId: String): Flow<JobEntity?>
+
     @Query("SELECT * FROM jobs WHERE toolId = :toolId ORDER BY createdAt DESC LIMIT 1")
     fun observeLatestForTool(toolId: String): Flow<JobEntity?>
 
-    @Query("SELECT * FROM jobs WHERE status IN ('QUEUED', 'RUNNING') ORDER BY createdAt ASC")
+    @Query("SELECT * FROM jobs WHERE status IN ('QUEUED', 'PREPARING', 'RUNNING') ORDER BY createdAt ASC")
     suspend fun getPendingOrRunning(): List<JobEntity>
 
     @Query("SELECT * FROM jobs WHERE jobId = :jobId LIMIT 1")
@@ -74,10 +77,26 @@ interface JobDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: JobEntity)
 
-    @Query("UPDATE jobs SET status = :status, progressPercent = :percent, progressMessage = :message, updatedAt = :updatedAt WHERE jobId = :jobId")
-    suspend fun updateProgress(jobId: String, status: String, percent: Int, message: String, updatedAt: Long = System.currentTimeMillis())
+    @Query(
+        "UPDATE jobs SET status = :status, progressPercent = :percent, progressMessage = :message, " +
+            "startedAt = CASE WHEN startedAt = 0 THEN :startedAt ELSE startedAt END, " +
+            "updatedAt = :updatedAt WHERE jobId = :jobId"
+    )
+    suspend fun updateProgress(
+        jobId: String,
+        status: String,
+        percent: Int,
+        message: String,
+        startedAt: Long = System.currentTimeMillis(),
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
-    @Query("UPDATE jobs SET status = :status, progressPercent = :percent, progressMessage = :message, outputPath = :outputPath, outputMime = :outputMime, summary = :summary, errorMessage = :errorMessage, updatedAt = :updatedAt WHERE jobId = :jobId")
+    @Query(
+        "UPDATE jobs SET status = :status, progressPercent = :percent, progressMessage = :message, " +
+            "outputPath = :outputPath, outputMime = :outputMime, summary = :summary, errorMessage = :errorMessage, " +
+            "outputsJson = :outputsJson, textOutput = :textOutput, isRetryable = :isRetryable, " +
+            "completedAt = :completedAt, updatedAt = :updatedAt WHERE jobId = :jobId"
+    )
     suspend fun updateCompletion(
         jobId: String,
         status: String,
@@ -87,10 +106,17 @@ interface JobDao {
         outputMime: String,
         summary: String,
         errorMessage: String,
+        outputsJson: String = "",
+        textOutput: String = "",
+        isRetryable: Boolean = false,
+        completedAt: Long = System.currentTimeMillis(),
         updatedAt: Long = System.currentTimeMillis()
     )
 
-    @Query("DELETE FROM jobs WHERE status NOT IN ('QUEUED', 'RUNNING')")
+    @Query("DELETE FROM jobs WHERE jobId = :jobId")
+    suspend fun deleteById(jobId: String)
+
+    @Query("DELETE FROM jobs WHERE status NOT IN ('QUEUED', 'PREPARING', 'RUNNING')")
     suspend fun clearFinished()
 }
 

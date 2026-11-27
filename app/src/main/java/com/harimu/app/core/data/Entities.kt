@@ -17,7 +17,11 @@ data class HistoryEntity(
     val fileSizeBytes: Long,
     val summary: String,
     val success: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val jobId: String = "",
+    val outputsJson: String = "",
+    val textOutput: String = "",
+    val errorMessage: String = ""
 )
 
 @Serializable
@@ -57,7 +61,16 @@ data class JobEntity(
     val summary: String = "",
     val errorMessage: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isEnglish: Boolean = false,
+    val executionMode: String = "WORKER",
+    val inputJson: String = "",
+    val inputSummary: String = "",
+    val outputsJson: String = "",
+    val textOutput: String = "",
+    val isRetryable: Boolean = false,
+    val startedAt: Long = 0L,
+    val completedAt: Long = 0L
 )
 
 @Serializable

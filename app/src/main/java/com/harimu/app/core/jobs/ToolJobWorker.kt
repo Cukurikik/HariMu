@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -49,15 +50,19 @@ class ToolJobWorker(
         val jobDao = db.jobDao()
         val historyDao = db.historyDao()
         val notificationId = (jobId.hashCode() and 0x7FFFFFFF).coerceAtLeast(1001)
+        val preparingMsg = applicationContext.getString(R.string.progress_preparing)
 
         runCatching {
-            setForeground(createForegroundInfo(notificationId, toolTitle, 0, ""))
+            setForeground(createForegroundInfo(notificationId, toolTitle, 0, preparingMsg))
         }
+        jobDao.updateProgress(jobId, STATUS_PREPARING, 0, preparingMsg)
 
         val tempDir = storage.createJobTempDir(jobId)
         try {
             if (!storage.hasEnoughDiskSpace()) {
                 val msg = applicationContext.getString(R.string.job_error_low_disk)
+                val existing = jobDao.getById(jobId)
+                val retryable = JobInputValidator.canRetryAfterFailure(applicationContext, existing)
                 jobDao.updateCompletion(
                     jobId = jobId,
                     status = STATUS_FAILED,
@@ -66,7 +71,8 @@ class ToolJobWorker(
                     outputPath = "",
                     outputMime = "",
                     summary = "",
-                    errorMessage = msg
+                    errorMessage = msg,
+                    isRetryable = retryable
                 )
                 return Result.failure(workDataOf(KEY_ERROR to msg))
             }
@@ -98,6 +104,9 @@ class ToolJobWorker(
                 }
                 outFile.writeText(reportText)
                 val summary = applicationContext.getString(R.string.job_dummy_done, outFile.name)
+                val outputsJson = ToolOutputCodec.encode(
+                    listOf(ToolOutputCodec.Entry(outFile.absolutePath, "text/plain", outFile.name))
+                )
 
                 jobDao.updateCompletion(
                     jobId = jobId,
@@ -107,7 +116,10 @@ class ToolJobWorker(
                     outputPath = outFile.absolutePath,
                     outputMime = "text/plain",
                     summary = summary,
-                    errorMessage = ""
+                    errorMessage = "",
+                    outputsJson = outputsJson,
+                    textOutput = reportText,
+                    isRetryable = false
                 )
                 historyDao.insert(
                     HistoryEntity(
@@ -119,14 +131,19 @@ class ToolJobWorker(
                         mimeType = "text/plain",
                         fileSizeBytes = outFile.length(),
                         summary = summary,
-                        success = true
+                        success = true,
+                        jobId = jobId,
+                        outputsJson = outputsJson,
+                        textOutput = reportText
                     )
                 )
                 return Result.success(
                     workDataOf(
                         KEY_OUTPUT_PATH to outFile.absolutePath,
                         KEY_OUTPUT_MIME to "text/plain",
-                        KEY_SUMMARY to summary
+                        KEY_SUMMARY to summary,
+                        KEY_OUTPUTS_JSON to outputsJson,
+                        KEY_TEXT_OUTPUT to reportText
                     )
                 )
             } else {
@@ -143,22 +160,45 @@ class ToolJobWorker(
             }
         } catch (ce: CancellationException) {
             withContext(NonCancellable) {
-                val cancelText = applicationContext.getString(R.string.action_cancel)
-                jobDao.updateCompletion(
-                    jobId = jobId,
-                    status = STATUS_CANCELLED,
-                    percent = 0,
-                    message = cancelText,
-                    outputPath = "",
-                    outputMime = "",
-                    summary = "",
-                    errorMessage = ""
-                )
+                val existing = jobDao.getById(jobId)
+                if (existing?.status != STATUS_CANCELLED) {
+                    val isSystemInterruption = isSystemStopReason()
+                    val retryable = JobInputValidator.canRetryAfterFailure(applicationContext, existing)
+                    if (isSystemInterruption) {
+                        val interruptedMsg = applicationContext.getString(R.string.job_interrupted_system)
+                        jobDao.updateCompletion(
+                            jobId = jobId,
+                            status = STATUS_INTERRUPTED,
+                            percent = existing?.progressPercent ?: 0,
+                            message = interruptedMsg,
+                            outputPath = "",
+                            outputMime = "",
+                            summary = "",
+                            errorMessage = interruptedMsg,
+                            isRetryable = retryable
+                        )
+                    } else {
+                        val cancelText = applicationContext.getString(R.string.action_cancel)
+                        jobDao.updateCompletion(
+                            jobId = jobId,
+                            status = STATUS_CANCELLED,
+                            percent = existing?.progressPercent ?: 0,
+                            message = cancelText,
+                            outputPath = "",
+                            outputMime = "",
+                            summary = "",
+                            errorMessage = "",
+                            isRetryable = retryable
+                        )
+                    }
+                }
             }
             throw ce
         } catch (t: Throwable) {
             val err = t.localizedMessage ?: "Unknown error"
             withContext(NonCancellable) {
+                val existing = jobDao.getById(jobId)
+                val retryable = JobInputValidator.canRetryAfterFailure(applicationContext, existing)
                 jobDao.updateCompletion(
                     jobId = jobId,
                     status = STATUS_FAILED,
@@ -167,7 +207,8 @@ class ToolJobWorker(
                     outputPath = "",
                     outputMime = "",
                     summary = "",
-                    errorMessage = err
+                    errorMessage = err,
+                    isRetryable = retryable
                 )
             }
             return Result.failure(workDataOf(KEY_ERROR to err))
@@ -177,6 +218,13 @@ class ToolJobWorker(
                 app?.container?.jobManager?.onWorkerFinished(jobId)
             }
         }
+    }
+
+    private fun isSystemStopReason(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        val reason = stopReason
+        return reason != WorkInfo.STOP_REASON_NOT_STOPPED &&
+            reason != WorkInfo.STOP_REASON_CANCELLED_BY_APP
     }
 
     /**
@@ -204,7 +252,7 @@ class ToolJobWorker(
         }
         if (tool == null) {
             val msg = "Tool $toolId tidak terdaftar"
-            jobDao.updateCompletion(jobId, STATUS_FAILED, 0, msg, "", "", "", msg)
+            jobDao.updateCompletion(jobId, STATUS_FAILED, 0, msg, "", "", "", msg, isRetryable = false)
             return Result.failure(workDataOf(KEY_ERROR to msg))
         }
         val container = (applicationContext as? HariMuApp)?.container
@@ -216,7 +264,8 @@ class ToolJobWorker(
             models = container?.modelManager
         )
         val input = ToolInputCodec.decode(inputJson)
-        var lastMessage = applicationContext.getString(R.string.progress_queued)
+        val retryableOnFail = JobInputValidator.canRetryStoredInput(applicationContext, tool, input)
+        var lastMessage = applicationContext.getString(R.string.progress_preparing)
 
         return try {
             val terminal = tool.run(ctx, input)
@@ -229,7 +278,13 @@ class ToolJobWorker(
                         }
                         is ToolProgress.Running -> {
                             lastMessage = progress.message
-                            jobDao.updateProgress(jobId, STATUS_RUNNING, progress.percent.coerceIn(0, 100), progress.message)
+                            val dbStatus = if (isPreparingSignal(progress.percent, progress.message)) {
+                                STATUS_PREPARING
+                            } else {
+                                STATUS_RUNNING
+                            }
+                            val pct = progress.percent.coerceIn(0, 100)
+                            jobDao.updateProgress(jobId, dbStatus, pct, progress.message)
                             setProgress(
                                 workDataOf(
                                     KEY_PROGRESS_PERCENT to progress.percent,
@@ -252,6 +307,12 @@ class ToolJobWorker(
                     val outputs = terminal.result.outputs
                     val first = outputs.firstOrNull()
                     val summary = terminal.result.summary
+                    val entries = outputs.map {
+                        ToolOutputCodec.Entry(it.file.absolutePath, it.mimeType, it.displayName)
+                    }
+                    val outputsJson = ToolOutputCodec.encode(entries)
+                    val textOutput = terminal.result.textOutput.orEmpty()
+
                     jobDao.updateCompletion(
                         jobId = jobId,
                         status = STATUS_SUCCEEDED,
@@ -260,9 +321,12 @@ class ToolJobWorker(
                         outputPath = first?.file?.absolutePath ?: "",
                         outputMime = first?.mimeType ?: "text/plain",
                         summary = summary,
-                        errorMessage = ""
+                        errorMessage = "",
+                        outputsJson = outputsJson,
+                        textOutput = textOutput,
+                        isRetryable = false
                     )
-                    if (outputs.isNotEmpty()) {
+                    if (outputs.isNotEmpty() || textOutput.isNotBlank()) {
                         db.historyDao().insert(
                             HistoryEntity(
                                 toolId = toolId,
@@ -273,12 +337,12 @@ class ToolJobWorker(
                                 mimeType = first?.mimeType ?: "text/plain",
                                 fileSizeBytes = first?.file?.length() ?: 0L,
                                 summary = summary,
-                                success = true
+                                success = true,
+                                jobId = jobId,
+                                outputsJson = outputsJson,
+                                textOutput = textOutput
                             )
                         )
-                    }
-                    val entries = outputs.map {
-                        ToolOutputCodec.Entry(it.file.absolutePath, it.mimeType, it.displayName)
                     }
                     runCatching { setForeground(createForegroundInfo(notificationId, toolTitle, 100, summary)) }
                     Result.success(
@@ -286,17 +350,37 @@ class ToolJobWorker(
                             KEY_OUTPUT_PATH to (first?.file?.absolutePath ?: ""),
                             KEY_OUTPUT_MIME to (first?.mimeType ?: "text/plain"),
                             KEY_SUMMARY to summary,
-                            KEY_OUTPUTS_JSON to ToolOutputCodec.encode(entries),
-                            KEY_TEXT_OUTPUT to (terminal.result.textOutput ?: "")
+                            KEY_OUTPUTS_JSON to outputsJson,
+                            KEY_TEXT_OUTPUT to textOutput
                         )
                     )
                 }
                 is ToolProgress.Failed -> {
-                    jobDao.updateCompletion(jobId, STATUS_FAILED, 0, terminal.error, "", "", "", terminal.error)
+                    jobDao.updateCompletion(
+                        jobId = jobId,
+                        status = STATUS_FAILED,
+                        percent = 0,
+                        message = terminal.error,
+                        outputPath = "",
+                        outputMime = "",
+                        summary = "",
+                        errorMessage = terminal.error,
+                        isRetryable = retryableOnFail
+                    )
                     Result.failure(workDataOf(KEY_ERROR to terminal.error))
                 }
                 else -> {
-                    jobDao.updateCompletion(jobId, STATUS_FAILED, 0, lastMessage, "", "", "", lastMessage)
+                    jobDao.updateCompletion(
+                        jobId = jobId,
+                        status = STATUS_FAILED,
+                        percent = 0,
+                        message = lastMessage,
+                        outputPath = "",
+                        outputMime = "",
+                        summary = "",
+                        errorMessage = lastMessage,
+                        isRetryable = retryableOnFail
+                    )
                     Result.failure(workDataOf(KEY_ERROR to lastMessage))
                 }
             }
@@ -305,7 +389,17 @@ class ToolJobWorker(
         } catch (t: Throwable) {
             val err = t.localizedMessage ?: "Tool gagal dijalankan"
             withContext(NonCancellable) {
-                jobDao.updateCompletion(jobId, STATUS_FAILED, 0, err, "", "", "", err)
+                jobDao.updateCompletion(
+                    jobId = jobId,
+                    status = STATUS_FAILED,
+                    percent = 0,
+                    message = err,
+                    outputPath = "",
+                    outputMime = "",
+                    summary = "",
+                    errorMessage = err,
+                    isRetryable = retryableOnFail
+                )
             }
             Result.failure(workDataOf(KEY_ERROR to err))
         }
@@ -375,9 +469,26 @@ class ToolJobWorker(
         const val KEY_ERROR = "error"
 
         const val STATUS_QUEUED = "QUEUED"
+        const val STATUS_PREPARING = "PREPARING"
         const val STATUS_RUNNING = "RUNNING"
         const val STATUS_SUCCEEDED = "SUCCEEDED"
         const val STATUS_FAILED = "FAILED"
         const val STATUS_CANCELLED = "CANCELLED"
+        const val STATUS_INTERRUPTED = "INTERRUPTED"
+
+        const val MODE_WORKER = "WORKER"
+        const val MODE_IN_PROCESS = "IN_PROCESS"
+
+        fun isActiveStatus(status: String): Boolean =
+            status == STATUS_QUEUED || status == STATUS_PREPARING || status == STATUS_RUNNING
+
+        fun isAttentionStatus(status: String): Boolean =
+            status == STATUS_FAILED || status == STATUS_CANCELLED || status == STATUS_INTERRUPTED
+
+        fun isPreparingSignal(percent: Int, message: String): Boolean =
+            percent == 0 && (
+                message.contains("Menyiapkan", ignoreCase = true) ||
+                    message.contains("Preparing", ignoreCase = true)
+                )
     }
 }

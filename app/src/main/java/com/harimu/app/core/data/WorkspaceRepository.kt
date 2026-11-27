@@ -41,7 +41,11 @@ class WorkspaceRepository(
         outputFile: File?,
         mimeType: String,
         summary: String,
-        success: Boolean = true
+        success: Boolean = true,
+        jobId: String = "",
+        outputsJson: String = "",
+        textOutput: String = "",
+        errorMessage: String = ""
     ) {
         db.historyDao().insert(
             HistoryEntity(
@@ -53,7 +57,11 @@ class WorkspaceRepository(
                 mimeType = mimeType,
                 fileSizeBytes = outputFile?.length() ?: 0L,
                 summary = summary,
-                success = success
+                success = success,
+                jobId = jobId,
+                outputsJson = outputsJson,
+                textOutput = textOutput,
+                errorMessage = errorMessage
             )
         )
     }

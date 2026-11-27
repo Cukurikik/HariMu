@@ -12,16 +12,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,14 +39,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.cloud.CloudConfig
 import com.harimu.app.core.cloud.CloudProvider
 import com.harimu.app.core.cloud.OAuthCallbackBus
 import com.harimu.app.core.cloud.OAuthPkce
 import com.harimu.app.core.cloud.UploadStatus
-import com.harimu.app.core.cloud.UploadTask
 import com.harimu.app.core.design.MonoTextStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,17 +69,17 @@ fun CloudConnectionsCard(container: AppContainer, isEnglish: Boolean) {
     var config by remember { mutableStateOf(CloudConfig()) }
     var loaded by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
-    var tasks by remember { mutableStateOf<List<UploadTask>>(emptyList()) }
+    val tasks by container.uploadQueue.tasksFlow.collectAsStateWithLifecycle()
     var codeInput by remember { mutableStateOf("") }
     var showCodeInput by remember { mutableStateOf(false) }
 
     fun refreshTasks() {
-        scope.launch(Dispatchers.IO) { tasks = container.uploadQueue.snapshot() }
+        scope.launch(Dispatchers.IO) { container.uploadQueue.snapshot() }
     }
 
     LaunchedEffect(Unit) {
         config = container.cloudStore.load()
-        tasks = container.uploadQueue.snapshot()
+        container.uploadQueue.snapshot()
         loaded = true
     }
 
@@ -318,7 +326,43 @@ fun CloudConnectionsCard(container: AppContainer, isEnglish: Boolean) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text(task.provider.name, style = MaterialTheme.typography.labelSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(task.provider.name, style = MaterialTheme.typography.labelSmall)
+                        if (task.status == UploadStatus.FAILED) {
+                            IconButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        container.uploadQueue.retryTask(
+                                            taskId = task.id,
+                                            configProvider = { container.cloudStore.load() },
+                                            persistConfig = { container.cloudStore.save(it) }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
+                                Icon(
+                                    Icons.Filled.Refresh,
+                                    contentDescription = stringResource(R.string.job_upload_retry)
+                                )
+                            }
+                        }
+                        if (task.status != UploadStatus.RUNNING) {
+                            IconButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        container.uploadQueue.removeTask(task.id)
+                                    }
+                                },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.action_delete)
+                                )
+                            }
+                        }
+                    }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -329,7 +373,6 @@ fun CloudConnectionsCard(container: AppContainer, isEnglish: Boolean) {
                                 configProvider = { container.cloudStore.load() },
                                 persistConfig = { container.cloudStore.save(it) }
                             )
-                            tasks = container.uploadQueue.snapshot()
                             withContext(Dispatchers.Main) {
                                 status = if (isEnglish) "$uploaded uploaded" else "$uploaded terunggah"
                             }
@@ -343,7 +386,6 @@ fun CloudConnectionsCard(container: AppContainer, isEnglish: Boolean) {
                                 configProvider = { container.cloudStore.load() },
                                 persistConfig = { container.cloudStore.save(it) }
                             )
-                            tasks = container.uploadQueue.snapshot()
                         }
                     }
                 ) { Text(if (isEnglish) "Retry failed" else "Ulangi gagal") }
@@ -351,7 +393,6 @@ fun CloudConnectionsCard(container: AppContainer, isEnglish: Boolean) {
                     onClick = {
                         scope.launch(Dispatchers.IO) {
                             container.uploadQueue.clearFinished()
-                            tasks = container.uploadQueue.snapshot()
                         }
                     }
                 ) { Text(if (isEnglish) "Clear finished" else "Bersihkan selesai") }
