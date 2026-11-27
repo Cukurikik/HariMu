@@ -85,6 +85,13 @@
       "skillPath": ".claude/skills/design-intelligence/SKILL.md",
       "computedHash": "b1321e7ee11b8c8eca1a211e1151bf392f2e2818128b587a8e441d1015ce1347"
     },
+    "design-system": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "commit": "11ca2b3bdd555649f278ee348c32a9302b24dcf1",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/design-system/SKILL.md",
+      "computedHash": "9d5c24edd9030632a5fbe859c2b74758433e8788111bd77a25539ee018062c65"
+    },
     "design-workflow": {
       "source": "c0x12c/ai-toolkit",
       "commit": "96b2c9d099f8507a95b9e43916f144594720a3c9",
@@ -126,6 +133,13 @@
       "sourceType": "github",
       "skillPath": "kotlin-tooling-immutable-collections-0-5-x-migration/SKILL.md",
       "computedHash": "fc7f89299011414be787c09cf6411fff8a0a02439990cd0f988955138544bf7d"
+    },
+    "workers-development": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/workers-development/SKILL.md",
+      "computedHash": "a5b7dd748116d8b83db7d198867badcdde53c9eb13bf884c7557d40d0c965e38"
     }
   }
 }
