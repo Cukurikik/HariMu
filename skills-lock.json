@@ -1,0 +1,131 @@
+{
+  "version": 2,
+  "skills": {
+    "antislop": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop/SKILL.md",
+      "computedHash": "461fe0d1355a364085060a42df11983ff23ac0192bab466f23ae5938f51a9454"
+    },
+    "antislop-code": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-code/SKILL.md",
+      "computedHash": "b5a101fe3c2aa4ebce2ceb4e435ef80272b3b70cc6be647a6aa31fe02452102e"
+    },
+    "antislop-copywriting": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-copywriting/SKILL.md",
+      "computedHash": "a962d0633adffc3dd03737c03c5d6ff0e4b77a13106752fd223849303130b0bd"
+    },
+    "antislop-human": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-human/SKILL.md",
+      "computedHash": "1d77dac77347852a3d25db479b1bfcbff957590d7775fa76de49e34fe3b93e0b"
+    },
+    "antislop-layoutmobile": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-layoutmobile/SKILL.md",
+      "computedHash": "c3f54f8a065e9c371a9c5bb5076b41fc06bbeaeaca125f35459a4b8b17be34f2"
+    },
+    "antislop-ui": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-ui/SKILL.md",
+      "computedHash": "09c3efcee47866061a1609e298068941eb1d35e73eea95ae67ea2453be3951a9"
+    },
+    "api-endpoint-creator": {
+      "source": "c0x12c/ai-toolkit",
+      "commit": "96b2c9d099f8507a95b9e43916f144594720a3c9",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/api-endpoint-creator/SKILL.md",
+      "computedHash": "88d0a16d9fc1cb44e6d1e30205a334c9bf6789e6733bba36e6f2f7adc3cea833"
+    },
+    "cloudflare": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/cloudflare/SKILL.md",
+      "computedHash": "c87fdf5939f1c0b86dc895af18dbff1be369707fc3f1cd9cc038c3c3be5c694f"
+    },
+    "cloudflare-deploy": {
+      "source": "JetBrains/skills",
+      "commit": "3f53782dec7b5424bf6e8efbb90a46ee26f31798",
+      "sourceType": "github",
+      "skillPath": "cloudflare-deploy/SKILL.md",
+      "computedHash": "4a6052a97e4785afee8ac92b31491ecd5dd494cc42372adfc2b195f04a094d01"
+    },
+    "compose-multiplatform-patterns": {
+      "source": "affaan-m/ecc",
+      "commit": "4adeee6732a12d1540f49a4d50a38ce8c97f9a53",
+      "sourceType": "github",
+      "skillPath": "skills/compose-multiplatform-patterns/SKILL.md",
+      "computedHash": "daccc6ffb3398e0d656fd9fb69032c7c5c1d546df9832e43799733d54321cb75"
+    },
+    "dependency-conflict-resolver": {
+      "source": "JetBrains/skills",
+      "commit": "3f53782dec7b5424bf6e8efbb90a46ee26f31798",
+      "sourceType": "github",
+      "skillPath": "dependency-conflict-resolver/SKILL.md",
+      "computedHash": "add3ebdc24847d20a4fdce25cb282a7c0b9ffa88a56becf4e64a2f3f7aa99206"
+    },
+    "design-intelligence": {
+      "source": "c0x12c/ai-toolkit",
+      "commit": "96b2c9d099f8507a95b9e43916f144594720a3c9",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/design-intelligence/SKILL.md",
+      "computedHash": "b1321e7ee11b8c8eca1a211e1151bf392f2e2818128b587a8e441d1015ce1347"
+    },
+    "design-workflow": {
+      "source": "c0x12c/ai-toolkit",
+      "commit": "96b2c9d099f8507a95b9e43916f144594720a3c9",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/design-workflow/SKILL.md",
+      "computedHash": "96db20bb63b50752fecba0f13a53e46e93a2d26c4ab1cbb6dd590d6d5807dab5"
+    },
+    "gateway-workers": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/gateway-workers/SKILL.md",
+      "computedHash": "bcbf091d931668274961a349c64c38f63aaf0f1fedc93fb61a9c0b8e15ee2160"
+    },
+    "google-mobile-ads-validate": {
+      "source": "google/skills",
+      "commit": "27c1beae9cd7c34aa4ebde9de3735898e50a1a19",
+      "sourceType": "github",
+      "skillPath": "skills/ads/google-mobile-ads-validate/SKILL.md",
+      "computedHash": "792ebe5e4bb275198f0c034c71897553792fd087f1b56573fad35aee1c1961ce"
+    },
+    "investigation-mode": {
+      "source": "xebia/gino-gelato-webinar",
+      "commit": "a96bb6b42c4e17d74b799333801d5b947f6c449b",
+      "sourceType": "github",
+      "skillPath": ".github/skills/investigation-mode/SKILL.md",
+      "computedHash": "98dd17376fd631fa74b7618bb37cfb47675f67d535d86ac0bcf325d7a4efdd7d"
+    },
+    "kotlin-backend-jpa-entity-mapping": {
+      "source": "JetBrains/skills",
+      "commit": "3f53782dec7b5424bf6e8efbb90a46ee26f31798",
+      "sourceType": "github",
+      "skillPath": "kotlin-backend-jpa-entity-mapping/SKILL.md",
+      "computedHash": "52cb0db5c7eb8931b82daa305e5bed89e75d3040f99fdfd8827359dd0c7baee1"
+    },
+    "kotlin-tooling-immutable-collections-0-5-x-migration": {
+      "source": "shirulot/codex-skill",
+      "commit": "b69de221062b2d747a51b2acb7b324b428382d1f",
+      "sourceType": "github",
+      "skillPath": "kotlin-tooling-immutable-collections-0-5-x-migration/SKILL.md",
+      "computedHash": "fc7f89299011414be787c09cf6411fff8a0a02439990cd0f988955138544bf7d"
+    }
+  }
+}
