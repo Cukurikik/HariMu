@@ -22,6 +22,34 @@
       "skillPath": "plugins/design-assets/skills/ai-image-generator/SKILL.md",
       "computedHash": "226e5257bcf16e44680a2a34c84f4be67a380c12e7f54cbd9f2e2eaf191da1d9"
     },
+    "android-accessibility": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/android-accessibility/SKILL.md",
+      "computedHash": "4d10c4c265d34260d61c65f1d93d710ee5ce9b0aea2ca6d057246ed4ca25b09e"
+    },
+    "android-background-work": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/android-background-work/SKILL.md",
+      "computedHash": "2301ad7aa2e0ad3fd23dc396a93b223294bd94da79428a615437a3b6aaf1c2cb"
+    },
+    "android-benchmark-comparison": {
+      "source": "chrisbanes/skills",
+      "commit": "2975135ec0ca55f96d79f9e413ecb40e47ed885a",
+      "sourceType": "github",
+      "skillPath": "skills/android-benchmark-comparison/SKILL.md",
+      "computedHash": "6b9fd4c90515c09b59bedf1fafd30c7cd369ad5779c3ae1af8bb9aae9a91a34a"
+    },
+    "android-data-persistence": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/android-data-persistence/SKILL.md",
+      "computedHash": "d43ce45db9330d45841beeb6197e0c23105c26089b1ba49780a786a5c4aec1a5"
+    },
     "android-debugging": {
       "source": "rcosteira79/android-skills",
       "commit": "fa39ae26f224fac45b32280f66ac839ae57b4c64",
@@ -29,12 +57,33 @@
       "skillPath": "plugins/android-skills/skills/android-debugging/SKILL.md",
       "computedHash": "12cb21419a0739adfabc5b58e4223beebe9076d3967667f23cd5beba6a327a81"
     },
+    "android-e2e-verification": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/android-e2e-verification/SKILL.md",
+      "computedHash": "a09385df33123a338c6b8c71bf518f46d96bc92b8b36942b1d0c57ddd20c5917"
+    },
     "android-kotlin-coroutines": {
       "source": "thebushidocollective/han",
       "commit": "162b86b81857c0acca9fdccfcf499120e9c6d85c",
       "sourceType": "github",
       "skillPath": "plugins/specialized/android/skills/kotlin-coroutines/SKILL.md",
       "computedHash": "61b27a12969d8ba53c0396f5fa4e9051acdbcaaf90753ce44ffaf4b0a53379e4"
+    },
+    "android-media-files-sharing": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-media-files-sharing/SKILL.md",
+      "computedHash": "e99a760a4546d18c3a4ad7cde4cf1f4c790167219f90fc1a81f498c3050bf05d"
+    },
+    "android-profiler": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "profilers/android-profiler/SKILL.md",
+      "computedHash": "8dfcfca81310cb187fe61381d3c6f7933f5eb1915ce06a67707fbbb23f318fe1"
     },
     "android-security-hardened": {
       "source": "prasad-vennam/awesome-android-ai-agent-skills",
@@ -98,6 +147,13 @@
       "sourceType": "github",
       "skillPath": "skills/antislop-ui/SKILL.md",
       "computedHash": "09c3efcee47866061a1609e298068941eb1d35e73eea95ae67ea2453be3951a9"
+    },
+    "api-and-interface-design": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/api-and-interface-design/SKILL.md",
+      "computedHash": "4524599ab372e17e474206f211c97065af1aa6a48d6cdadb123d7f79ad9af157"
     },
     "api-authentication": {
       "source": "secondsky/claude-skills",
@@ -533,12 +589,26 @@
       "skillPath": "skills/compose-animations/SKILL.md",
       "computedHash": "68acb77046efe5c8f1006e0466963a694b026ba16086a0ef54f87266b9f81f30"
     },
+    "compose-component-design": {
+      "source": "chrisbanes/skills",
+      "commit": "2975135ec0ca55f96d79f9e413ecb40e47ed885a",
+      "sourceType": "github",
+      "skillPath": "skills/compose-component-design/SKILL.md",
+      "computedHash": "834339beb676fb17e6c99ce69418314b9bbb7bc6f071c5bd8293fb414431747a"
+    },
     "compose-multiplatform-patterns": {
       "source": "affaan-m/ecc",
       "commit": "4adeee6732a12d1540f49a4d50a38ce8c97f9a53",
       "sourceType": "github",
       "skillPath": "skills/compose-multiplatform-patterns/SKILL.md",
       "computedHash": "daccc6ffb3398e0d656fd9fb69032c7c5c1d546df9832e43799733d54321cb75"
+    },
+    "compose-state-and-effects": {
+      "source": "chrisbanes/skills",
+      "commit": "2975135ec0ca55f96d79f9e413ecb40e47ed885a",
+      "sourceType": "github",
+      "skillPath": "skills/compose-state-and-effects/SKILL.md",
+      "computedHash": "014876335d01bf3f04966a1d9e1e955cfb0eeb76985a6e0821f416aa405d674b"
     },
     "compose-ui-testing-patterns": {
       "source": "chrisbanes/skills",
@@ -1233,6 +1303,13 @@
       "skillPath": "plugins/push-notification-setup/skills/push-notification-setup/SKILL.md",
       "computedHash": "8d80ec3487a5389d830186831b0de2a29f9da24580a9ea8d3f6d96de67f2a0e1"
     },
+    "r8-analyzer": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "performance/r8-analyzer/SKILL.md",
+      "computedHash": "fbd0f9f9e434b0732302d0de0ba69606ef3a5806478d35aa128e09fe4828f276"
+    },
     "react-best-practices": {
       "source": "secondsky/claude-skills",
       "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
@@ -1722,6 +1799,13 @@
       "sourceType": "github",
       "skillPath": "skills/workers-development/SKILL.md",
       "computedHash": "a5b7dd748116d8b83db7d198867badcdde53c9eb13bf884c7557d40d0c965e38"
+    },
+    "workers-profiling": {
+      "source": "cloudflare/skills",
+      "commit": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+      "sourceType": "github",
+      "skillPath": "skills/workers-profiling/SKILL.md",
+      "computedHash": "3a7b8b1c2cfa19b293a8f55967dab217481cc04eb0dffe4b99e90df879529850"
     },
     "wrangler": {
       "source": "cloudflare/skills",
