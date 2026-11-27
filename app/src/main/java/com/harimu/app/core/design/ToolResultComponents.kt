@@ -59,6 +59,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -119,17 +120,17 @@ fun ToolResultPreview(
 ) {
     val mime = output.mimeType.lowercase()
     when {
-        mime.startsWith("image/") -> ImageResultPreview(output = output, modifier = modifier)
-        mime.startsWith("video/") -> VideoResultPreview(output = output, modifier = modifier)
+        mime.startsWith("image/") -> ImageResultPreview(output = output, storage = storage, modifier = modifier)
+        mime.startsWith("video/") -> VideoResultPreview(output = output, storage = storage, modifier = modifier)
         mime.startsWith("audio/") -> AudioResultPreview(output = output, modifier = modifier)
         mime == "application/pdf" -> PdfResultPreview(output = output, storage = storage, modifier = modifier)
-        mime.startsWith("text/") || mime == "application/json" || mime == "application/xml" -> TextResultPreview(output = output, modifier = modifier)
+        mime.startsWith("text/") || mime == "application/json" || mime == "application/xml" -> TextResultPreview(output = output, storage = storage, modifier = modifier)
         else -> GenericResultPreview(output = output, modifier = modifier)
     }
 }
 
 @Composable
-private fun ImageResultPreview(output: ToolOutputFile, modifier: Modifier) {
+private fun ImageResultPreview(output: ToolOutputFile, storage: FileStorageManager, modifier: Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -146,13 +147,19 @@ private fun ImageResultPreview(output: ToolOutputFile, modifier: Modifier) {
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             )
-            Text(text = "${output.file.length()} bytes", style = MonoTextStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = "${output.displayName} • ${storage.formatBytes(output.file.length())}",
+                style = MonoTextStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
-private fun VideoResultPreview(output: ToolOutputFile, modifier: Modifier) {
+private fun VideoResultPreview(output: ToolOutputFile, storage: FileStorageManager, modifier: Modifier) {
     val context = LocalContext.current
     val exoPlayer = remember(output.file.toUri()) {
         androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
@@ -198,11 +205,17 @@ private fun VideoResultPreview(output: ToolOutputFile, modifier: Modifier) {
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play"
+                        contentDescription = stringResource(if (isPlaying) R.string.cd_pause else R.string.cd_play)
                     )
                 }
             }
-            Text(text = output.displayName, style = MonoTextStyle, color = MaterialTheme.colorScheme.secondary)
+            Text(
+                text = "${output.displayName} • ${storage.formatBytes(output.file.length())}",
+                style = MonoTextStyle,
+                color = MaterialTheme.colorScheme.secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -269,7 +282,7 @@ private fun AudioResultPreview(output: ToolOutputFile, modifier: Modifier) {
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play"
+                        contentDescription = stringResource(if (isPlaying) R.string.cd_pause else R.string.cd_play)
                     )
                 }
                 Text(
@@ -303,13 +316,29 @@ private fun PdfResultPreview(output: ToolOutputFile, storage: FileStorageManager
 }
 
 @Composable
-private fun TextResultPreview(output: ToolOutputFile, modifier: Modifier) {
-    val text = remember(output.file.lastModified()) {
-        try {
-            output.file.readText()
-        } catch (e: Exception) {
-            "[Cannot read text file]"
+private fun TextResultPreview(output: ToolOutputFile, storage: FileStorageManager, modifier: Modifier) {
+    val maxPreviewChars = 65_536
+    var text by remember(output.file.absolutePath, output.file.lastModified()) { mutableStateOf("") }
+    var isTruncated by remember(output.file.absolutePath, output.file.lastModified()) { mutableStateOf(false) }
+
+    LaunchedEffect(output.file.absolutePath, output.file.lastModified()) {
+        val (loadedText, truncated) = withContext(Dispatchers.IO) {
+            runCatching {
+                output.file.bufferedReader().use { reader ->
+                    val buffer = CharArray(maxPreviewChars + 1)
+                    val readCount = reader.read(buffer, 0, maxPreviewChars + 1)
+                    if (readCount <= 0) {
+                        "" to false
+                    } else if (readCount > maxPreviewChars) {
+                        String(buffer, 0, maxPreviewChars) to true
+                    } else {
+                        String(buffer, 0, readCount) to false
+                    }
+                }
+            }.getOrElse { "" to false }
         }
+        text = loadedText
+        isTruncated = truncated
     }
 
     Card(
@@ -332,7 +361,15 @@ private fun TextResultPreview(output: ToolOutputFile, modifier: Modifier) {
                 readOnly = true,
                 textStyle = MonoTextStyle
             )
-            Text(text = "${text.length} chars", style = MonoTextStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = if (isTruncated) {
+                    stringResource(R.string.result_text_truncated, storage.formatBytes(output.file.length()))
+                } else {
+                    "${text.length} chars"
+                },
+                style = MonoTextStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -423,6 +460,17 @@ fun ToolResultCard(
                     )
                 }
             }
+        }
+
+        // Verified output metadata
+        if (primaryOutput != null && primaryExists) {
+            Text(
+                text = "${primaryOutput.displayName} • ${storage.formatBytes(primaryOutput.file.length())} • ${primaryOutput.mimeType}",
+                style = MonoTextStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         // Preview
@@ -619,29 +667,45 @@ private fun ResultItemRow(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.xs)
         ) {
-            Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = "$index. ${output.displayName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val subtitle = if (exists) {
-                    "${storage.formatBytes(output.file.length())} • ${output.mimeType}"
-                } else {
-                    stringResource(R.string.job_file_missing)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                    Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
                 }
-                Text(text = subtitle, style = MonoTextStyle, color = if (exists) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(text = "$index. ${output.displayName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val subtitle = if (exists) {
+                        "${storage.formatBytes(output.file.length())} • ${output.mimeType}"
+                    } else {
+                        stringResource(R.string.job_file_missing)
+                    }
+                    Text(text = subtitle, style = MonoTextStyle, color = if (exists) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+                }
             }
             if (exists && onAction != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = { onAction(ResultAction.Open) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.action_open)) }
-                    IconButton(onClick = { onAction(ResultAction.Share) }) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share)) }
-                    IconButton(onClick = { onAction(ResultAction.Save) }) { Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.action_save)) }
-                    IconButton(onClick = { onAction(ResultAction.Delete) }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(onClick = { onAction(ResultAction.Open) }, modifier = Modifier.minimumInteractiveComponentSize()) {
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = stringResource(R.string.action_open))
+                    }
+                    IconButton(onClick = { onAction(ResultAction.Share) }, modifier = Modifier.minimumInteractiveComponentSize()) {
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share))
+                    }
+                    IconButton(onClick = { onAction(ResultAction.Save) }, modifier = Modifier.minimumInteractiveComponentSize()) {
+                        Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.action_save))
+                    }
+                    IconButton(onClick = { onAction(ResultAction.Delete) }, modifier = Modifier.minimumInteractiveComponentSize()) {
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }

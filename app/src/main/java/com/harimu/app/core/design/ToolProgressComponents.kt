@@ -65,7 +65,7 @@ sealed interface ToolProgressState {
     data class Done(val result: ToolResultSummary) : ToolProgressState
     data class Failed(val error: String, val isRetryable: Boolean = true) : ToolProgressState
     data class Interrupted(val message: String, val isRetryable: Boolean = false) : ToolProgressState
-    data object Cancelled : ToolProgressState
+    data class Cancelled(val isRetryable: Boolean = true) : ToolProgressState
 }
 
 data class ToolResultSummary(
@@ -152,6 +152,7 @@ fun ToolProgressView(
             modifier = modifier
         )
         is ToolProgressState.Cancelled -> CancelledProgressCard(
+            isRetryable = state.isRetryable,
             onRetry = callbacks.onRetry,
             onViewJobCenter = callbacks.onViewJobCenter,
             modifier = modifier
@@ -489,6 +490,7 @@ private fun InterruptedProgressCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CancelledProgressCard(
+    isRetryable: Boolean,
     onRetry: (() -> Unit)?,
     onViewJobCenter: (() -> Unit)?,
     modifier: Modifier
@@ -504,9 +506,12 @@ private fun CancelledProgressCard(
             Text(text = stringResource(R.string.progress_cancelled), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         Text(text = stringResource(R.string.progress_cancelled_message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!isRetryable) {
+            Text(text = stringResource(R.string.job_retry_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-            onRetry?.let {
-                HariMuSecondaryButton(text = stringResource(R.string.action_run_again), onClick = it, icon = Icons.Filled.Refresh)
+            if (isRetryable && onRetry != null) {
+                HariMuSecondaryButton(text = stringResource(R.string.action_run_again), onClick = onRetry, icon = Icons.Filled.Refresh)
             }
             onViewJobCenter?.let {
                 HariMuTextAction(text = stringResource(R.string.job_action_view_job_center), onClick = it, icon = Icons.Filled.WorkHistory)

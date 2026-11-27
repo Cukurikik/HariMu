@@ -36,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -162,13 +163,17 @@ fun ToolFileSelector(
                             style = MonoTextStyle,
                             color = MaterialTheme.colorScheme.secondary,
                             maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = {
-                            val newUris = selectedUris.toMutableList()
-                            newUris.removeAt(index)
-                            onUrisSelected(newUris)
-                        }) {
+                        IconButton(
+                            onClick = {
+                                val newUris = selectedUris.toMutableList()
+                                newUris.removeAt(index)
+                                onUrisSelected(newUris)
+                            },
+                            modifier = Modifier.minimumInteractiveComponentSize()
+                        ) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_delete))
                         }
                     }
@@ -268,9 +273,14 @@ private fun SecondaryFilePicker(
                     text = name,
                     style = MonoTextStyle,
                     color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onClearClick) {
+                IconButton(
+                    onClick = onClearClick,
+                    modifier = Modifier.minimumInteractiveComponentSize()
+                ) {
                     Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_clear_secondary))
                 }
             }
@@ -301,7 +311,12 @@ fun ToolInputPreview(
                 ImagePreviewCard(uri = uri, storage = storage, modifier = modifier)
             }
             secondaryUri?.let { uri ->
-                ImagePreviewCard(uri = uri, storage = storage, modifier = modifier, title = "Secondary Image")
+                ImagePreviewCard(
+                    uri = uri,
+                    storage = storage,
+                    modifier = modifier,
+                    title = stringResource(R.string.preview_secondary_image)
+                )
             }
         }
         InputSpec.PdfAndImage -> {
@@ -378,7 +393,7 @@ private fun ImagePreviewCard(
     modifier: Modifier = Modifier,
     title: String? = null
 ) {
-    val displayName = storage.getDisplayName(uri) ?: "Image"
+    val displayName = storage.getDisplayName(uri) ?: stringResource(R.string.fallback_image_name)
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -437,7 +452,7 @@ private fun VideoPreviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Video Preview", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(text = stringResource(R.string.preview_video_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             probe?.let { p ->
                 Text(
                     text = "${p.width}×${p.height} • ${com.harimu.app.core.media.FfmpegProgressParser.formatDurationMs(p.durationMs)}",
@@ -470,7 +485,7 @@ private fun VideoPreviewCard(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play"
+                        contentDescription = stringResource(if (isPlaying) R.string.cd_pause else R.string.cd_play)
                     )
                 }
             }
@@ -524,7 +539,7 @@ private fun AudioPreviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Audio Preview", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(text = stringResource(R.string.preview_audio_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             probe?.let { p ->
                 Text(
                     text = "${com.harimu.app.core.media.FfmpegProgressParser.formatDurationMs(p.durationMs)} • ${p.audioSampleRateHz} Hz • ${p.audioCodec.uppercase()}",
@@ -552,7 +567,7 @@ private fun AudioPreviewCard(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play"
+                        contentDescription = stringResource(if (isPlaying) R.string.cd_pause else R.string.cd_play)
                     )
                 }
                 Text(
@@ -608,7 +623,7 @@ private fun TextPreviewCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Text Input Preview", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(text = stringResource(R.string.preview_text_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             if (text.isBlank()) {
                 Text(text = hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {

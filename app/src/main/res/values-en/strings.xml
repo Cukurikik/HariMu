@@ -13,6 +13,8 @@
     <string name="cd_clear">Clear</string>
     <string name="cd_close">Close</string>
     <string name="cd_toggle_favorite">Toggle favorite</string>
+    <string name="cd_add_favorite">Add %1$s to favorites</string>
+    <string name="cd_remove_favorite">Remove %1$s from favorites</string>
     <string name="status_info">Information</string>
     <string name="status_warning">Warning</string>
     <string name="status_success">Completed</string>
@@ -20,13 +22,21 @@
     <!-- Home -->
     <string name="search_hint">Search tools (video, audio, image, PDF, converter)…</string>
     <string name="search_results_count">Search Results (%1$d)</string>
+    <string name="home_discover_title">Discover Tools</string>
+    <string name="home_discover_subtitle">%1$d tools available across %2$d categories</string>
+    <string name="home_open_catalog">Browse Catalog</string>
+    <string name="home_open_in_catalog">Open in Catalog</string>
+    <string name="home_see_all_count">See all (%1$d)</string>
+    <string name="home_favorites_empty_inline">No favorite tools yet. Tap the star icon in the Catalog to pin tools here.</string>
+    <string name="home_loading_workspace">Loading workspace…</string>
+    <string name="action_clear_search">Clear Search</string>
     <string name="hero_badge">DIGITAL SWISS KNIFE • ON-DEVICE</string>
     <string name="hero_title">Your Daily Utility Studio</string>
     <string name="hero_subtitle">Process video, audio, images, PDF, archives, and crypto keys directly on your device.</string>
     <string name="recently_used_title">Recently Used</string>
-    <string name="recently_used_empty">No tools run yet. Pick a group below to get started.</string>
+    <string name="recently_used_empty">No tools run yet. Pick a category below to get started.</string>
     <string name="favorites_title">Favorite Tools</string>
-    <string name="groups_title">Tool Groups</string>
+    <string name="groups_title">Tool Categories</string>
     <string name="tool_count_label">%1$d tools</string>
 
     <!-- Groups -->
@@ -48,9 +58,23 @@
     <!-- Shared Components & Actions -->
     <string name="catalog_all_count">All (%1$d)</string>
     <string name="catalog_empty_title">No matching tools</string>
-    <string name="catalog_empty_desc">Try another keyword or switch back to the All group filter.</string>
+    <string name="catalog_empty_desc">Try another keyword or reset your catalog filters.</string>
+    <string name="catalog_reset_filters">Reset Filters</string>
+    <string name="catalog_results_summary">Showing %1$d of %2$d tools</string>
+    <string name="catalog_filter_cap_all">All modes</string>
+    <string name="catalog_filter_cap_on_device">Offline</string>
+    <string name="catalog_filter_cap_online">Online</string>
+    <string name="catalog_filter_cap_model">Local Model</string>
+    <string name="catalog_sort_default">Sort: Category</string>
+    <string name="catalog_sort_az">Sort: A–Z</string>
+    <string name="catalog_filter_group_action">View all</string>
     <string name="favorites_empty_title">No Favorites Yet</string>
     <string name="favorites_empty_desc">Tap the star icon on any tool to pin it here for quick access.</string>
+    <string name="favorites_browse_catalog">Browse Catalog</string>
+    <string name="favorites_count_summary">%1$d pinned favorite tool(s)</string>
+    <string name="favorites_search_hint">Search favorites…</string>
+    <string name="favorites_filter_empty_title">No matching favorites</string>
+    <string name="favorites_filter_empty_desc">Adjust your search keyword or group filter to see your pinned tools.</string>
     <string name="history_count_title">%1$d Recent Jobs</string>
     <string name="history_empty_title">No History Yet</string>
     <string name="history_empty_desc">Exported files from video, audio, image, PDF, or converter tools will appear here.</string>
@@ -1029,4 +1053,68 @@
     <string name="pdf_studio_compare_cd_doc_b">Document B page %1$d</string>
     <string name="pdf_studio_compare_cd_diff">Visual diff page %1$d</string>
     <string name="pdf_studio_compare_diff_overlay">Visual Diff Overlay (Red = changed)</string>
+
+    <!-- B5 Workspace & Job UX -->
+    <string name="workspace_state_input_missing_title">Waiting for Input</string>
+    <string name="workspace_state_input_missing_file">Select an input file first to run this tool.</string>
+    <string name="workspace_state_input_missing_files_min">This tool requires at least %1$d input files (%2$d selected).</string>
+    <string name="workspace_state_input_missing_secondary">Select the required secondary file in the second picker.</string>
+    <string name="workspace_state_input_missing_text">Enter text in the input field first.</string>
+    <string name="workspace_state_invalid_title">Check Input or Parameters</string>
+    <string name="workspace_state_invalid_uri">A selected file is no longer readable by the system. Re-pick the file.</string>
+    <string name="workspace_state_invalid_trim_range">Trim end time (%1$.1f s) must be greater than start time (%2$.1f s).</string>
+    <string name="workspace_state_invalid_param">One or more parameters are invalid. Fix the highlighted fields.</string>
+    <string name="workspace_state_ready_title">Ready to Run</string>
+    <string name="workspace_state_ready_worker">Runs in the background job queue (max 2 parallel) so switching screens stays safe.</string>
+    <string name="workspace_state_ready_in_process">Runs directly in this session with real-time progress.</string>
+    <string name="workspace_perm_notifications_title">Progress Notification Permission</string>
+    <string name="workspace_perm_notifications_body">Allow notifications so background job progress and the cancel action remain visible.</string>
+    <string name="workspace_perm_notifications_action">Allow Notifications</string>
+    <string name="workspace_perm_notifications_settings">Notification Settings</string>
+    <string name="workspace_consent_needed_body">This tool calls the AI Gateway when started; upload confirmation will be requested before execution.</string>
+    <string name="workspace_model_required_missing">Local model %1$s (%2$s) is not downloaded on this device yet.</string>
+    <string name="workspace_model_required_ready">Local model %1$s (%2$s) is ready on this device.</string>
+    <string name="workspace_export_in_progress">Exporting %1$s to chosen destination…</string>
+    <string name="workspace_export_success">File exported: %1$s</string>
+    <string name="workspace_export_failed">Export failed for %1$s. Check storage space or folder permissions.</string>
+    <string name="workspace_open_no_app">No app on this device can open this file type.</string>
+    <string name="workspace_share_no_app">No sharing target app is available on this device.</string>
+    <string name="workspace_pane_input_preview">Input &amp; Preview</string>
+    <string name="workspace_pane_config_run">Configuration, Execution &amp; Result</string>
+
+    <string name="upload_consent_title">Allow cloud upload?</string>
+    <string name="upload_consent_body">This tool sends your file to the AI gateway configured in Settings. Files are processed for this request only and the gateway keeps no copy beyond the job lifetime. Continue?</string>
+    <string name="upload_consent_confirm">Allow upload</string>
+    <string name="upload_consent_cancel">Cancel</string>
+    <string name="cloud_upload_configure_first">Configure a cloud connection in Settings first</string>
+    <string name="cloud_upload_done">Uploaded to cloud</string>
+    <string name="cloud_upload_queued">Queued — will retry</string>
+    <string name="cloud_upload_still_pending">Upload still queued or failed</string>
+
+    <string name="preview_secondary_image">Secondary Image</string>
+    <string name="preview_video_title">Video Preview</string>
+    <string name="preview_audio_title">Audio Preview</string>
+    <string name="preview_text_title">Text Input Preview</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="perspective_reset_corners">Reset Corners</string>
+    <string name="perspective_coords_summary">TL (%1$d%%,%2$d%%) • BR (%3$d%%,%4$d%%)</string>
+
+    <string name="param_err_range">Value must be between %1$s and %2$s</string>
+    <string name="param_err_aes_password">AES-256 ZIP encryption requires 8+ characters</string>
+    <string name="param_err_pdf_password">Use 4+ characters for stronger protection</string>
+    <string name="param_err_invalid_option">Invalid option selected</string>
+    <string name="param_err_hex_color">Must be a valid hex color (e.g., #FF6B2C)</string>
+    <string name="param_err_email">Invalid email address</string>
+    <string name="result_text_truncated">Preview limited to first 64 KB (total %1$s). Use Save or Open to view full contents.</string>
+
+    <string name="converter_honest_cnv03">Audio track copy/transcode to MP3/AAC/WAV/FLAC. WAV/FLAC wraps decoded audio and does not restore lost source detail.</string>
+    <string name="converter_honest_cnv04">Uses device Media3/FFmpeg lanczos + unsharp scaling (max 60s &amp; ≤1080p input), not a neural super-resolution model.</string>
+    <string name="converter_honest_cnv06">Outputs 24-bit WAV/FLAC up to 96 kHz. Upsampling lossy inputs (e.g., MP3/AAC) cannot recover lost frequencies.</string>
+    <string name="converter_honest_cnv10">Powered by AndroidSVG 1.4 (up to 4096 px). SVG filter effects, system fonts, and SMIL/CSS animations are omitted.</string>
+    <string name="converter_honest_cnv17">Converts ZIP/7Z/TAR.GZ/RAR into sanitized clean ZIPs. RAR is read-only (writing RAR is unsupported); zip-slip &amp; 200x zip-bomb limits apply.</string>
+    <string name="converter_honest_cnv19">Reads spine text order into TXT/HTML/PDF. DRM-protected EPUBs are refused, and original images/CSS layouts are omitted.</string>
+    <string name="converter_honest_cnv20">Supports CBZ (ZIP) and read-only CBR (RAR) with natural page sorting. EPUB output is minimal image-per-page.</string>
+    <string name="converter_honest_cnv21">Supports TTF/OTF ⇄ WOFF 1.0 only. WOFF2 (Brotli) and OTF(CFF) ⇄ TTF outline conversions are rejected honestly.</string>
+    <string name="converter_honest_cnv22">TrueType glyph subsetting to WOFF 1.0 (drops hinting/GSUB/GPOS/kern). CFF/OTF and WOFF2 fonts are refused.</string>
 </resources>

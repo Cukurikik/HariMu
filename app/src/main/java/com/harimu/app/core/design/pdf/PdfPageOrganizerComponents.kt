@@ -423,7 +423,7 @@ private fun SelectablePageTile(
                         .graphicsLayer { rotationZ = rotationDeg.toFloat() }
                 )
             } else {
-                Text("...", style = MaterialTheme.typography.bodySmall)
+                Text("…", style = MaterialTheme.typography.bodySmall)
             }
             if (selected) {
                 Box(
@@ -482,7 +482,7 @@ private fun ReorderPageTile(
                         .graphicsLayer { rotationZ = rotationDeg.toFloat() }
                 )
             } else {
-                Text("...", style = MaterialTheme.typography.bodySmall)
+                Text("…", style = MaterialTheme.typography.bodySmall)
             }
             if (onRemove != null) {
                 IconButton(

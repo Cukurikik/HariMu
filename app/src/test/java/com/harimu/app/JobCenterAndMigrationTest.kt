@@ -392,13 +392,13 @@ class JobCenterAndMigrationTest {
                     current.any {
                         it.config.getOrNull(SemanticsProperties.Text)
                             ?.joinToString(" ")
-                            ?.contains("no longer exists", ignoreCase = true) == true
+                            ?.contains("moved or deleted", ignoreCase = true) == true
                     }
                 }
                 val missingWarning = scrolledHistory.firstOrNull {
                     it.config.getOrNull(SemanticsProperties.Text)
                         ?.joinToString(" ")
-                        ?.contains("no longer exists", ignoreCase = true) == true
+                        ?.contains("moved or deleted", ignoreCase = true) == true
                 }
                 assertNotNull("Expected missing-file warning on deleted output", missingWarning)
 

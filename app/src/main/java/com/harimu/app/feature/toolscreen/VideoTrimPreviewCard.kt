@@ -34,15 +34,11 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -254,16 +250,8 @@ fun VideoTrimPreviewCard(
             }
 
             if (showTrimStrip) {
-                Text(
-                    text = stringResource(R.string.video_trim_range_title),
-                    style = MaterialTheme.typography.labelLarge
-                )
-
-                var sliderStart by remember(videoUri, startSec) { mutableFloatStateOf(clampedStart) }
-                var sliderEnd by remember(videoUri, endSec, totalSec) { mutableFloatStateOf(effectiveEnd) }
-
-                val startFraction = (sliderStart / totalSec).coerceIn(0f, 1f)
-                val endFraction = (sliderEnd / totalSec).coerceIn(startFraction, 1f)
+                val startFraction = (clampedStart / totalSec).coerceIn(0f, 1f)
+                val endFraction = (effectiveEnd / totalSec).coerceIn(startFraction, 1f)
                 val playheadFraction = ((currentPosMs / 1000f) / totalSec).coerceIn(0f, 1f)
 
                 BoxWithConstraints(
@@ -334,70 +322,19 @@ fun VideoTrimPreviewCard(
                     )
                 }
 
-                RangeSlider(
-                    value = sliderStart..sliderEnd,
-                    onValueChange = { range ->
-                        val minGap = minOf(0.5f, totalSec * 0.1f)
-                        val s = range.start.coerceIn(0f, (totalSec - minGap).coerceAtLeast(0f))
-                        val e = range.endInclusive.coerceIn(s + minGap, totalSec)
-                        sliderStart = s
-                        sliderEnd = e
-                        onRangeChange(s, e)
-                    },
-                    onValueChangeFinished = {
-                        exoPlayer.seekTo((sliderStart * 1000f).toLong())
-                    },
-                    valueRange = 0f..totalSec,
-                    colors = SliderDefaults.colors(
-                        thumbColor = HariMuColors.ElectricOrange,
-                        activeTrackColor = HariMuColors.ElectricOrange
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("video_trim_range_slider")
+                MediaTrimRangeControls(
+                    mediaKey = videoUri,
+                    title = stringResource(R.string.video_trim_range_title),
+                    totalSec = totalSec,
+                    startSec = startSec,
+                    endSec = endSec,
+                    currentPlayheadMs = { exoPlayer.currentPosition },
+                    onSeekToMs = { exoPlayer.seekTo(it) },
+                    onRangeChange = onRangeChange,
+                    sliderTestTag = "video_trim_range_slider",
+                    setStartTestTag = "video_set_start_btn",
+                    setEndTestTag = "video_set_end_btn"
                 )
-
-                Text(
-                    text = stringResource(
-                        R.string.video_trim_range_labels,
-                        FfmpegProgressParser.formatDurationMs((sliderStart * 1000f).toLong()),
-                        FfmpegProgressParser.formatDurationMs((sliderEnd * 1000f).toLong())
-                    ),
-                    style = MonoTextStyle,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            val headSec = (exoPlayer.currentPosition / 1000f).coerceIn(0f, (sliderEnd - 0.5f).coerceAtLeast(0f))
-                            sliderStart = headSec
-                            onRangeChange(headSec, sliderEnd)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("video_set_start_btn")
-                    ) {
-                        Text(stringResource(R.string.video_set_start_playhead))
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            val headSec = (exoPlayer.currentPosition / 1000f).coerceIn(sliderStart + 0.5f, totalSec)
-                            sliderEnd = headSec
-                            onRangeChange(sliderStart, headSec)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("video_set_end_btn")
-                    ) {
-                        Text(stringResource(R.string.video_set_end_playhead))
-                    }
-                }
             }
         }
     }

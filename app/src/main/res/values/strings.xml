@@ -13,6 +13,8 @@
     <string name="cd_clear">Bersihkan</string>
     <string name="cd_close">Tutup</string>
     <string name="cd_toggle_favorite">Tandai favorit</string>
+    <string name="cd_add_favorite">Tambah %1$s ke favorit</string>
+    <string name="cd_remove_favorite">Hapus %1$s dari favorit</string>
     <string name="status_info">Informasi</string>
     <string name="status_warning">Peringatan</string>
     <string name="status_success">Berhasil</string>
@@ -20,13 +22,21 @@
     <!-- Beranda -->
     <string name="search_hint">Cari tool (video, audio, gambar, PDF, konverter)…</string>
     <string name="search_results_count">Hasil Pencarian (%1$d)</string>
+    <string name="home_discover_title">Temukan Tool</string>
+    <string name="home_discover_subtitle">%1$d tool tersedia dalam %2$d kategori</string>
+    <string name="home_open_catalog">Lihat Katalog</string>
+    <string name="home_open_in_catalog">Buka di Katalog</string>
+    <string name="home_see_all_count">Semua (%1$d)</string>
+    <string name="home_favorites_empty_inline">Belum ada tool favorit. Ketuk ikon bintang di Katalog untuk menyematkannya di sini.</string>
+    <string name="home_loading_workspace">Memuat data workspace…</string>
+    <string name="action_clear_search">Hapus Pencarian</string>
     <string name="hero_badge">PISAU LIPAT DIGITAL • ON-DEVICE</string>
     <string name="hero_title">Studio Utilitas Harian Anda</string>
     <string name="hero_subtitle">Proses video, audio, gambar, PDF, arsip, &amp; kunci kriptografi langsung di perangkat Anda.</string>
     <string name="recently_used_title">Terakhir dipakai</string>
-    <string name="recently_used_empty">Belum ada tool yang dijalankan. Pilih grup di bawah untuk mulai.</string>
+    <string name="recently_used_empty">Belum ada tool yang dijalankan. Pilih kategori di bawah untuk mulai.</string>
     <string name="favorites_title">Tool Favorit</string>
-    <string name="groups_title">Grup Tool</string>
+    <string name="groups_title">Kategori Tool</string>
     <string name="tool_count_label">%1$d tool</string>
 
     <!-- Grup -->
@@ -48,9 +58,23 @@
     <!-- Komponen Bersama & Aksi -->
     <string name="catalog_all_count">Semua (%1$d)</string>
     <string name="catalog_empty_title">Tool tidak ditemukan</string>
-    <string name="catalog_empty_desc">Coba kata kunci lain atau pilih filter grup Semua.</string>
+    <string name="catalog_empty_desc">Coba kata kunci lain atau atur ulang filter katalog.</string>
+    <string name="catalog_reset_filters">Atur Ulang Filter</string>
+    <string name="catalog_results_summary">Menampilkan %1$d dari %2$d tool</string>
+    <string name="catalog_filter_cap_all">Semua mode</string>
+    <string name="catalog_filter_cap_on_device">Offline</string>
+    <string name="catalog_filter_cap_online">Online</string>
+    <string name="catalog_filter_cap_model">Model Lokal</string>
+    <string name="catalog_sort_default">Urut: Kategori</string>
+    <string name="catalog_sort_az">Urut: A–Z</string>
+    <string name="catalog_filter_group_action">Lihat semua</string>
     <string name="favorites_empty_title">Belum Ada Favorit</string>
     <string name="favorites_empty_desc">Ketuk ikon bintang pada tool mana saja untuk menyimpannya di sini.</string>
+    <string name="favorites_browse_catalog">Jelajahi Katalog</string>
+    <string name="favorites_count_summary">%1$d tool favorit tersimpan</string>
+    <string name="favorites_search_hint">Cari di favorit…</string>
+    <string name="favorites_filter_empty_title">Tidak ada favorit yang cocok</string>
+    <string name="favorites_filter_empty_desc">Ubah kata kunci atau filter grup untuk melihat tool favorit Anda.</string>
     <string name="history_count_title">%1$d Riwayat Pemrosesan</string>
     <string name="history_empty_title">Belum Ada Riwayat</string>
     <string name="history_empty_desc">Hasil ekspor dari tool video, audio, gambar, PDF, atau konverter akan muncul di sini.</string>
@@ -1029,4 +1053,68 @@
     <string name="pdf_studio_compare_cd_doc_b">Dokumen B halaman %1$d</string>
     <string name="pdf_studio_compare_cd_diff">Diff visual halaman %1$d</string>
     <string name="pdf_studio_compare_diff_overlay">Overlay Diff Visual (Merah = berubah)</string>
+
+    <!-- B5 Workspace & Job UX -->
+    <string name="workspace_state_input_missing_title">Menunggu Masukan</string>
+    <string name="workspace_state_input_missing_file">Pilih berkas masukan terlebih dahulu untuk menjalankan tool ini.</string>
+    <string name="workspace_state_input_missing_files_min">Tool ini memerlukan minimal %1$d berkas masukan (baru terpilih %2$d).</string>
+    <string name="workspace_state_input_missing_secondary">Pilih berkas sekunder yang diperlukan pada kolom kedua.</string>
+    <string name="workspace_state_input_missing_text">Masukkan teks pada kolom masukan terlebih dahulu.</string>
+    <string name="workspace_state_invalid_title">Periksa Masukan atau Parameter</string>
+    <string name="workspace_state_invalid_uri">Salah satu berkas yang dipilih tidak lagi dapat dibaca oleh sistem. Pilih ulang berkas.</string>
+    <string name="workspace_state_invalid_trim_range">Waktu selesai trim (%1$.1f dtk) harus lebih besar daripada waktu mulai (%2$.1f dtk).</string>
+    <string name="workspace_state_invalid_param">Ada parameter yang belum valid. Perbaiki isian yang ditandai.</string>
+    <string name="workspace_state_ready_title">Siap Dijalankan</string>
+    <string name="workspace_state_ready_worker">Berjalan di antrean latar (maks. 2 paralel) agar aman saat berpindah layar.</string>
+    <string name="workspace_state_ready_in_process">Diproses langsung di sesi ini dengan progres real-time.</string>
+    <string name="workspace_perm_notifications_title">Izin Notifikasi Progres</string>
+    <string name="workspace_perm_notifications_body">Aktifkan izin notifikasi agar progres dan tombol batal tetap terlihat saat pemrosesan latar berjalan.</string>
+    <string name="workspace_perm_notifications_action">Izinkan Notifikasi</string>
+    <string name="workspace_perm_notifications_settings">Pengaturan Notifikasi</string>
+    <string name="workspace_consent_needed_body">Tool ini mengirim permintaan ke AI Gateway saat dijalankan; konfirmasi unggahan diminta sebelum eksekusi.</string>
+    <string name="workspace_model_required_missing">Model lokal %1$s (%2$s) belum terunduh di perangkat.</string>
+    <string name="workspace_model_required_ready">Model lokal %1$s (%2$s) sudah siap di perangkat.</string>
+    <string name="workspace_export_in_progress">Menyimpan %1$s ke tujuan pilihan…</string>
+    <string name="workspace_export_success">Berkas diekspor: %1$s</string>
+    <string name="workspace_export_failed">Ekspor gagal untuk %1$s. Periksa ruang penyimpanan atau izin folder.</string>
+    <string name="workspace_open_no_app">Tidak ada aplikasi di perangkat yang dapat membuka jenis berkas ini.</string>
+    <string name="workspace_share_no_app">Tidak ada aplikasi penerima berbagi di perangkat.</string>
+    <string name="workspace_pane_input_preview">Masukan &amp; Pratinjau</string>
+    <string name="workspace_pane_config_run">Konfigurasi, Eksekusi &amp; Hasil</string>
+
+    <string name="upload_consent_title">Izinkan unggahan cloud?</string>
+    <string name="upload_consent_body">Tool ini mengirim berkas Anda ke AI Gateway yang diatur di Pengaturan. Berkas hanya diproses untuk permintaan ini dan gateway tidak menyimpan salinan melebihi masa hidup job. Lanjutkan?</string>
+    <string name="upload_consent_confirm">Izinkan unggah</string>
+    <string name="upload_consent_cancel">Batal</string>
+    <string name="cloud_upload_configure_first">Atur koneksi cloud di Pengaturan dulu</string>
+    <string name="cloud_upload_done">Terunggah ke cloud</string>
+    <string name="cloud_upload_queued">Masuk antrean — akan dicoba ulang</string>
+    <string name="cloud_upload_still_pending">Unggahan masih tertunda atau gagal</string>
+
+    <string name="preview_secondary_image">Gambar Sekunder</string>
+    <string name="preview_video_title">Pratinjau Video</string>
+    <string name="preview_audio_title">Pratinjau Audio</string>
+    <string name="preview_text_title">Pratinjau Teks Masukan</string>
+    <string name="cd_play">Putar</string>
+    <string name="cd_pause">Jeda</string>
+    <string name="perspective_reset_corners">Reset Sudut</string>
+    <string name="perspective_coords_summary">KA (%1$d%%,%2$d%%) • KB (%3$d%%,%4$d%%)</string>
+
+    <string name="param_err_range">Nilai harus berada di antara %1$s dan %2$s</string>
+    <string name="param_err_aes_password">Enkripsi ZIP AES-256 disarankan minimal 8 karakter</string>
+    <string name="param_err_pdf_password">Gunakan minimal 4 karakter agar proteksi lebih kuat</string>
+    <string name="param_err_invalid_option">Opsi yang dipilih tidak valid</string>
+    <string name="param_err_hex_color">Harus berupa warna hex yang valid (mis. #FF6B2C)</string>
+    <string name="param_err_email">Alamat email tidak valid</string>
+    <string name="result_text_truncated">Pratinjau dibatasi 64 KB pertama (total %1$s). Gunakan Simpan/Buka untuk melihat isi lengkap.</string>
+
+    <string name="converter_honest_cnv03">Ekstraksi trek audio ke MP3/AAC/WAV/FLAC. WAV/FLAC hanya wadah lossless dari audio terdekode, tidak menambah detail.</string>
+    <string name="converter_honest_cnv04">Memakai skaler perangkat Media3/FFmpeg (maks 60 detik &amp; input ≤1080p), bukan model super-resolusi AI.</string>
+    <string name="converter_honest_cnv06">Menghasilkan WAV/FLAC 24-bit hingga 96 kHz. Upsampling sumber lossy tidak mengembalikan detail yang hilang.</string>
+    <string name="converter_honest_cnv10">Memakai AndroidSVG 1.4 (maks 4096 px). Filter SVG, font sistem, dan animasi tidak dirender.</string>
+    <string name="converter_honest_cnv17">Mengonversi ZIP/7Z/TAR.GZ/RAR ke ZIP bersih. RAR hanya bisa dibaca (tulis RAR tidak tersedia); proteksi zip-slip &amp; zip-bomb 200x aktif.</string>
+    <string name="converter_honest_cnv19">Membaca teks sesuai urutan spine ke TXT/HTML/PDF. EPUB ber-DRM ditolak, serta gambar &amp; CSS asli tidak disertakan.</string>
+    <string name="converter_honest_cnv20">Mendukung CBZ (ZIP) dan CBR/RAR (baca-saja) dengan urutan halaman alami. EPUB keluaran bersifat minimal per gambar.</string>
+    <string name="converter_honest_cnv21">Hanya mendukung TTF/OTF ⇄ WOFF 1.0. WOFF2 (Brotli) dan konversi outline OTF(CFF) ⇄ TTF ditolak secara jelas.</string>
+    <string name="converter_honest_cnv22">Subsetting glif TrueType ke WOFF 1.0 (tabel hinting/GSUB/GPOS/kern dibuang). Font CFF/OTF dan WOFF2 ditolak.</string>
 </resources>

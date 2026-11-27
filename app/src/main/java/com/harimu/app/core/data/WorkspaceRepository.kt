@@ -28,7 +28,7 @@ class WorkspaceRepository(
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
     val historyFlow: Flow<List<HistoryEntity>> = db.historyDao().observeAll()
-    val favoriteIdsFlow: Flow<Set<String>> = db.favoriteDao().observeFavoriteIds().map { it.toSet() }
+    val favoriteIdsFlow: Flow<Set<String>> = db.favoriteDao().observeFavoriteIds().map { LinkedHashSet(it) }
     val vaultKeysFlow: Flow<List<VaultKeyEntity>> = db.vaultKeyDao().observeAll()
     val videoProjectsFlow: Flow<List<VideoProjectEntity>> = db.videoProjectDao().observeAll()
     val audioProjectsFlow: Flow<List<AudioProjectEntity>> = db.audioProjectDao().observeAll()
@@ -70,10 +70,14 @@ class WorkspaceRepository(
     suspend fun clearHistory() = db.historyDao().clearAll()
 
     suspend fun toggleFavorite(toolId: String) {
-        if (db.favoriteDao().isFavorite(toolId)) {
-            db.favoriteDao().delete(toolId)
-        } else {
-            db.favoriteDao().insert(FavoriteEntity(toolId))
+        val normalizedId = toolId.trim()
+        if (normalizedId.isEmpty()) return
+        db.withTransaction {
+            if (db.favoriteDao().isFavorite(normalizedId)) {
+                db.favoriteDao().delete(normalizedId)
+            } else {
+                db.favoriteDao().insert(FavoriteEntity(normalizedId))
+            }
         }
     }
 

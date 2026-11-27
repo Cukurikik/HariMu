@@ -1,132 +1,70 @@
 package com.harimu.app.feature.toolscreen
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.harimu.app.AppContainer
 import com.harimu.app.R
-import com.harimu.app.core.cloud.UploadQueue
-import com.harimu.app.core.cloud.UploadTask
 import com.harimu.app.core.data.AppSettings
-import com.harimu.app.core.design.EngineBadge
-import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.HariMuThemeTokens
-import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ProgressCallbacks
-import com.harimu.app.core.design.ResultAction
-import com.harimu.app.core.design.ResultActions
-import com.harimu.app.core.design.ToolIdBadge
-import com.harimu.app.core.design.ToolFileSelector
-import com.harimu.app.core.design.ToolInputPreview
-import com.harimu.app.core.design.ToolMultiResultCard
 import com.harimu.app.core.design.ToolParameterPanel
 import com.harimu.app.core.design.ToolProgressView
-import com.harimu.app.core.design.ToolResultCard
-import com.harimu.app.core.design.accentColor
-import com.harimu.app.core.design.audio.AudioForgeToolPreviewSection
-import com.harimu.app.core.design.audio.resolveWaveformOverlaySpec
-import com.harimu.app.core.design.image.ImageForgeToolPreviewSection
-import com.harimu.app.core.converter.ConverterFormatMatrix
-import com.harimu.app.core.converter.DetectedSource
-import com.harimu.app.core.converter.SourceFormatDetector
 import com.harimu.app.core.media.Id3TagHelper
-import com.harimu.app.core.pdf.PdfOcrEngine
 import com.harimu.app.core.pdf.PdfVaultEngine
-import com.harimu.app.core.toolapi.InputSpec
-import com.harimu.app.core.toolapi.ToolGroup
-import com.harimu.app.core.toolapi.ToolOutputFile
-import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
-import com.harimu.app.core.toolapi.ToolResult
-import com.harimu.app.feature.studios.tabForPdfTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ToolScreen(
     toolId: String,
@@ -145,6 +83,8 @@ fun ToolScreen(
     val layout = HariMuThemeTokens.layout
     val scope = rememberCoroutineScope()
     var showUploadConsent by rememberSaveable { mutableStateOf(false) }
+    var notificationDeniedOnce by rememberSaveable { mutableStateOf(false) }
+
     val vm: ToolViewModel = viewModel(
         key = "tool_${toolId}_${initialJobId ?: "latest"}",
         factory = ToolViewModel.Factory(toolId, container, initialJobId)
@@ -155,35 +95,17 @@ fun ToolScreen(
     val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
     val tool = state.tool ?: return
 
-    var pendingExportFile by remember { mutableStateOf<ToolOutputFile?>(null) }
-    var audioPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
-    var isPlayingAudio by remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        onDispose { runCatching { audioPlayer?.release() } }
-    }
-
     // Auto-fill ID3 tags (AUD-18), PDF metadata (PDF-19), and AcroForm fields (PDF-21)
     LaunchedEffect(tool.id, state.selectedUris) {
         if (tool.id == "AUD-18" && state.selectedUris.isNotEmpty()) {
             val existing = withContext(Dispatchers.IO) {
                 Id3TagHelper.readTags(context, state.selectedUris.first())
             }
-            if ((state.paramValues["title"]?.toString()).isNullOrBlank() && existing.title.isNotBlank()) {
-                vm.setParam("title", existing.title)
-            }
-            if ((state.paramValues["artist"]?.toString()).isNullOrBlank() && existing.artist.isNotBlank()) {
-                vm.setParam("artist", existing.artist)
-            }
-            if ((state.paramValues["album"]?.toString()).isNullOrBlank() && existing.album.isNotBlank()) {
-                vm.setParam("album", existing.album)
-            }
-            if ((state.paramValues["year"]?.toString()).isNullOrBlank() && existing.year.isNotBlank()) {
-                vm.setParam("year", existing.year)
-            }
-            if ((state.paramValues["genre"]?.toString()).isNullOrBlank() && existing.genre.isNotBlank()) {
-                vm.setParam("genre", existing.genre)
-            }
+            if ((state.paramValues["title"]?.toString()).isNullOrBlank() && existing.title.isNotBlank()) vm.setParam("title", existing.title)
+            if ((state.paramValues["artist"]?.toString()).isNullOrBlank() && existing.artist.isNotBlank()) vm.setParam("artist", existing.artist)
+            if ((state.paramValues["album"]?.toString()).isNullOrBlank() && existing.album.isNotBlank()) vm.setParam("album", existing.album)
+            if ((state.paramValues["year"]?.toString()).isNullOrBlank() && existing.year.isNotBlank()) vm.setParam("year", existing.year)
+            if ((state.paramValues["genre"]?.toString()).isNullOrBlank() && existing.genre.isNotBlank()) vm.setParam("genre", existing.genre)
         } else if (tool.id == "PDF-19" && state.selectedUris.isNotEmpty()) {
             val existing = withContext(Dispatchers.IO) {
                 runCatching { PdfVaultEngine.readMetadata(context, container.storage, state.selectedUris.first()) }
@@ -192,9 +114,7 @@ fun ToolScreen(
             listOf("title", "author", "subject", "keywords").forEach { key ->
                 val cur = state.paramValues[key]?.toString().orEmpty()
                 val readVal = existing[key].orEmpty()
-                if (cur.isBlank() && readVal.isNotBlank()) {
-                    vm.setParam(key, readVal)
-                }
+                if (cur.isBlank() && readVal.isNotBlank()) vm.setParam(key, readVal)
             }
         } else if (tool.id == "PDF-21" && state.selectedUris.isNotEmpty()) {
             val fields = withContext(Dispatchers.IO) {
@@ -208,75 +128,127 @@ fun ToolScreen(
         }
     }
 
-    // File pickers
-    val singleImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { vm.setUris(listOf(it)) }
-    }
-    val multiImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(20)) { uris ->
-        if (uris.isNotEmpty()) vm.setUris(uris)
-    }
-    val singleVideoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { vm.setUris(listOf(it)) }
-    }
-    val multiVideoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(8)) { uris ->
-        if (uris.isNotEmpty()) vm.setUris(uris)
-    }
-    val singleDocPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { vm.setUris(listOf(it)) }
-    }
-    val multiDocPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) vm.setUris(uris)
-    }
-    val secondaryAudioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { vm.setSecondaryUri(it) }
-    }
-    val secondaryImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { vm.setSecondaryUri(it) }
-    }
-    val secondarySubtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { vm.setSecondaryUri(it) }
-    }
-    val secondaryBgMediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { vm.setSecondaryUri(it) }
+    val singleImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { vm.setUris(listOf(it)) } }
+    val multiImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(20)) { uris -> if (uris.isNotEmpty()) vm.setUris(uris) }
+    val singleVideoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { vm.setUris(listOf(it)) } }
+    val multiVideoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(8)) { uris -> if (uris.isNotEmpty()) vm.setUris(uris) }
+    val singleDocPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.setUris(listOf(it)) } }
+    val multiDocPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) vm.setUris(uris) }
+    val secondaryAudioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.setSecondaryUri(it) } }
+    val secondaryImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { vm.setSecondaryUri(it) } }
+    val secondarySubtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.setSecondaryUri(it) } }
+    val secondaryBgMediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.setSecondaryUri(it) } }
+
+    val pickers = remember(
+        singleImagePicker, multiImagePicker, singleVideoPicker, multiVideoPicker,
+        singleDocPicker, multiDocPicker, secondaryAudioPicker, secondaryImagePicker,
+        secondarySubtitlePicker, secondaryBgMediaPicker
+    ) {
+        Pickers(
+            singleImagePicker = singleImagePicker,
+            multiImagePicker = multiImagePicker,
+            singleVideoPicker = singleVideoPicker,
+            multiVideoPicker = multiVideoPicker,
+            singleDocPicker = singleDocPicker,
+            multiDocPicker = multiDocPicker,
+            secondaryAudioPicker = secondaryAudioPicker,
+            secondaryImagePicker = secondaryImagePicker,
+            secondarySubtitlePicker = secondarySubtitlePicker,
+            secondaryBgMediaPicker = secondaryBgMediaPicker
+        )
     }
 
+    val copiedToast = stringResource(R.string.toast_copied)
     val savedToast = stringResource(R.string.toast_saved)
     val saveFailedToast = stringResource(R.string.toast_save_failed)
-    val copiedToast = stringResource(R.string.toast_copied)
 
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+    LaunchedEffect(state.exportState) {
+        when (state.exportState) {
+            is ExportState.Succeeded -> Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
+            is ExportState.Failed -> Toast.makeText(context, saveFailedToast, Toast.LENGTH_SHORT).show()
+            else -> Unit
+        }
+    }
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val requestNotificationOnlyLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) {
+    ) { granted ->
+        hasNotificationPermission = granted
+        if (!granted) notificationDeniedOnce = true
+    }
+
+    val notificationBeforeRunLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasNotificationPermission = granted
+        if (!granted) notificationDeniedOnce = true
         vm.execute(isEnglish)
     }
 
+    val usesWorker = remember(tool.id) { vm.usesBackgroundWorker(tool) }
+
     fun triggerExecution() {
-        if (tool.isStub && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                return
-            }
+        val shouldRequestNotifications = (tool.isStub || usesWorker) &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !hasNotificationPermission &&
+            !notificationDeniedOnce
+        if (shouldRequestNotifications) {
+            notificationBeforeRunLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
         }
         vm.execute(isEnglish)
     }
 
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { destUri ->
-        val src = pendingExportFile
-        if (destUri != null && src != null) {
-            scope.launch {
-                val ok = withContext(Dispatchers.IO) {
-                    container.storage.copyFileToUri(src.file, destUri)
-                }
-                Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
-            }
+        vm.completeSafExport(destUri)
+    }
+
+    var hasUploadConsent by remember(tool.id) { mutableStateOf(!tool.requiresNetwork) }
+    LaunchedEffect(tool.id, tool.requiresNetwork, showUploadConsent) {
+        hasUploadConsent = if (tool.requiresNetwork) {
+            runCatching { container.aiClient.hasUploadConsent() }.getOrDefault(false)
+        } else {
+            true
         }
     }
 
-    // Convert ToolUiState to ToolProgressState
+    val isModelDownloaded = remember(tool.requiresModel) {
+        tool.requiresModel?.let { container.modelManager.isDownloaded(it.id) } ?: true
+    }
+
+    val readiness = remember(
+        tool.id,
+        state.selectedUris,
+        state.secondaryUri,
+        state.textInput,
+        state.paramValues,
+        usesWorker,
+        hasNotificationPermission,
+        hasUploadConsent,
+        isModelDownloaded
+    ) {
+        ToolWorkspaceValidator.evaluateReadiness(
+            context = context,
+            tool = tool,
+            selectedUris = state.selectedUris,
+            secondaryUri = state.secondaryUri,
+            textInput = state.textInput,
+            paramValues = state.paramValues,
+            usesWorker = usesWorker,
+            hasNotificationPermission = hasNotificationPermission,
+            hasUploadConsent = hasUploadConsent,
+            isModelDownloaded = isModelDownloaded,
+            checkUriReadability = true
+        )
+    }
+
     val progressState = remember(
         state.progress,
         state.isInterrupted,
@@ -287,9 +259,8 @@ fun ToolScreen(
         state.toUiProgressState()
     }
 
-    // Build parameter validators based on tool requirements
-    val paramValidators = remember(tool.id, tool.params) {
-        buildParamValidators(tool)
+    val paramValidators = remember(tool.id, tool.params, isEnglish) {
+        ToolWorkspaceValidator.buildParamValidators(context, tool)
     }
 
     Scaffold(
@@ -317,1064 +288,217 @@ fun ToolScreen(
                         onClick = onToggleFavorite,
                         modifier = Modifier
                             .testTag("fav_button_${tool.id}")
+                            .semantics { selected = isFavorite }
                             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                            contentDescription = stringResource(R.string.cd_toggle_favorite),
-                            tint = if (isFavorite) HariMuColors.ElectricOrange else MaterialTheme.colorScheme.onSurfaceVariant
+                            contentDescription = stringResource(
+                                if (isFavorite) R.string.cd_remove_favorite else R.string.cd_add_favorite,
+                                tool.title(isEnglish)
+                            ),
+                            tint = if (isFavorite) HariMuThemeTokens.semantic.favoriteAccent else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             )
         }
     ) { padding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.TopCenter
+                .padding(padding)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = layout.formMaxWidth)
-                    .verticalScroll(rememberScrollState())
-                    .padding(spacing.md),
-                verticalArrangement = Arrangement.spacedBy(spacing.md)
-            ) {
-                // Tool header card
-                ToolHeaderCard(tool = tool, isEnglish = isEnglish)
+            val isExpandedTwoPane = maxWidth >= 840.dp
+            val showReadinessCard = !state.isRunning &&
+                (state.progress == null || !readiness.isReadyToRun || state.validationError.isNotBlank())
 
-                // Stub notice
-                if (tool.isStub) {
-                    StubNoticeCard(tool = tool, isEnglish = isEnglish)
-                }
-
-                // PDF Vault Studio link & capability disclosure notices
-                PdfToolCapabilityCards(
-                    toolId = tool.id,
-                    group = tool.group,
-                    paramValues = state.paramValues,
-                    onOpenPdfStudio = onOpenPdfStudio
-                )
-
-                // Universal Converter workbench link, detected source format & honest capability disclosure
-                ConverterToolCapabilityCards(
-                    toolId = tool.id,
-                    group = tool.group,
-                    selectedUris = state.selectedUris,
-                    container = container,
-                    isEnglish = isEnglish,
-                    onOpenUniversalConverter = onOpenUniversalConverter
-                )
-
-                // Input section
-                InputSection(
-                    tool = tool,
-                    state = state,
-                    vm = vm,
-                    container = container,
-                    pickers = Pickers(
-                        singleImagePicker = singleImagePicker,
-                        multiImagePicker = multiImagePicker,
-                        singleVideoPicker = singleVideoPicker,
-                        multiVideoPicker = multiVideoPicker,
-                        singleDocPicker = singleDocPicker,
-                        multiDocPicker = multiDocPicker,
-                        secondaryAudioPicker = secondaryAudioPicker,
-                        secondaryImagePicker = secondaryImagePicker,
-                        secondarySubtitlePicker = secondarySubtitlePicker,
-                        secondaryBgMediaPicker = secondaryBgMediaPicker
-                    ),
-                    isEnglish = isEnglish
-                )
-
-                // Specialized preview cards (tool-specific)
-                SpecializedPreviews(
-                    tool = tool,
-                    state = state,
-                    vm = vm,
-                    container = container,
-                    isEnglish = isEnglish
-                )
-
-                // Parameter panel
-                if (tool.params.isNotEmpty()) {
-                    ToolParameterPanel(
-                        params = tool.params,
-                        paramValues = state.paramValues,
-                        onParamChange = { key, value -> vm.setParam(key, value) },
-                        validators = paramValidators,
-                        isEnglish = isEnglish
-                    )
-                }
-
-                // Run button with upload consent
-                RunButtonSection(
-                    tool = tool,
-                    state = state,
-                    showUploadConsent = { showUploadConsent = true },
-                    onExecute = ::triggerExecution,
-                    scope = scope,
-                    container = container,
-                    isEnglish = isEnglish
-                )
-
-                // Upload consent dialog
-                if (showUploadConsent) {
-                    UploadConsentDialog(
-                        onConfirm = {
-                            showUploadConsent = false
-                            scope.launch {
-                                runCatching { container.aiClient.grantUploadConsent() }
-                                triggerExecution()
-                            }
-                        },
-                        onDismiss = { showUploadConsent = false },
-                        isEnglish = isEnglish
-                    )
-                }
-
-                // Progress and result
-                ToolProgressView(
-                    state = progressState,
-                    callbacks = ProgressCallbacks(
-                        onCancel = { vm.cancel() },
-                        onRetry = { vm.retry(isEnglish) },
-                        jobId = state.activeJobId ?: state.lastJobId,
-                        onViewJobCenter = onOpenJobCenter
-                    )
-                )
-
-                // Detailed result view for Done state
-                if (state.progress is ToolProgress.Done) {
-                    val doneProgress = state.progress as ToolProgress.Done
-                    DetailedResultView(
-                        toolId = tool.id,
-                        result = doneProgress.result,
-                        context = context,
-                        container = container,
-                        settings = settings,
-                        pendingExportFile = { pendingExportFile = it },
-                        safSaveLauncher = safSaveLauncher,
-                        savedToast = savedToast,
-                        saveFailedToast = saveFailedToast,
-                        copiedToast = copiedToast,
-                        audioPlayer = { audioPlayer = it },
-                        isPlayingAudio = { isPlayingAudio = it },
-                        scope = scope,
-                        isEnglish = isEnglish,
-                        onOpenJobCenter = onOpenJobCenter
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ========================================================================
-// Supporting data classes and components
-// ========================================================================
-
-data class Pickers(
-    val singleImagePicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val multiImagePicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val singleVideoPicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val multiVideoPicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val singleDocPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    val multiDocPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    val secondaryAudioPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    val secondaryImagePicker: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
-    val secondarySubtitlePicker: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    val secondaryBgMediaPicker: androidx.activity.result.ActivityResultLauncher<Array<String>>
-)
-
-@Composable
-fun ToolHeaderCard(tool: com.harimu.app.core.toolapi.Tool, isEnglish: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = HariMuThemeTokens.layout.cardBorderAlpha))
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.xs)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.xs),
-                verticalArrangement = Arrangement.spacedBy(HariMuThemeTokens.spacing.xxs)
-            ) {
-                ToolIdBadge(id = tool.id, accent = tool.group.accentColor())
-                EngineBadge(engine = tool.engineLabel)
-                if (tool.isStub) EngineBadge(engine = stringResource(R.string.badge_coming_soon))
-                if (tool.requiresNetwork) EngineBadge(engine = stringResource(R.string.badge_needs_internet))
-                tool.requiresModel?.let { EngineBadge(engine = stringResource(R.string.badge_needs_model, it.sizeLabel)) }
-            }
-            Text(text = tool.description(isEnglish), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-fun StubNoticeCard(tool: com.harimu.app.core.toolapi.Tool, isEnglish: Boolean) {
-    Card(
-        modifier = Modifier.testTag("stub_notice_card"),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(imageVector = Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                Text(text = stringResource(R.string.stub_notice_title, tool.plannedPhase.ifBlank { "-" }), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
-            Text(text = stringResource(R.string.stub_notice_body, tool.plannedPhase.ifBlank { "-" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-        }
-    }
-}
-
-@Composable
-fun InputSection(
-    tool: com.harimu.app.core.toolapi.Tool,
-    state: ToolUiState,
-    vm: ToolViewModel,
-    container: AppContainer,
-    pickers: Pickers,
-    isEnglish: Boolean
-) {
-    val spec = tool.inputSpec
-    when (spec) {
-        InputSpec.None -> Unit
-        is InputSpec.TextInput -> {
-            OutlinedTextField(
-                value = state.textInput,
-                onValueChange = vm::setTextInput,
-                modifier = Modifier.fillMaxWidth().height(180.dp).testTag("tool_text_input"),
-                label = { Text(if (isEnglish) spec.hintEn else spec.hintId) },
-                textStyle = MonoTextStyle
-            )
-            ToolInputPreview(inputSpec = spec, selectedUris = state.selectedUris, secondaryUri = state.secondaryUri, params = state.paramValues, storage = container.storage, isEnglish = isEnglish)
-        }
-        else -> {
-            ToolFileSelector(
-                inputSpec = spec,
-                selectedUris = state.selectedUris,
-                secondaryUri = state.secondaryUri,
-                onUrisSelected = vm::setUris,
-                onSecondaryUriSelected = vm::setSecondaryUri,
-                storage = container.storage,
-                isEnglish = isEnglish,
-                onPickSingleImage = { pickers.singleImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                onPickMultipleImages = { pickers.multiImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                onPickSingleVideo = { pickers.singleVideoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                onPickMultipleVideos = { pickers.multiVideoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                onPickSingleDocument = { mimeTypes -> pickers.singleDocPicker.launch(mimeTypes) },
-                onPickMultipleDocuments = { mimeTypes -> pickers.multiDocPicker.launch(mimeTypes) },
-                onPickSecondaryAudio = { pickers.secondaryAudioPicker.launch(arrayOf("audio/*")) },
-                onPickSecondaryImage = { pickers.secondaryImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                onPickSecondaryDocument = { mimeTypes -> pickers.secondarySubtitlePicker.launch(mimeTypes) },
-                onPickSecondaryMedia = { pickers.secondaryBgMediaPicker.launch(arrayOf("image/*", "video/*")) }
-            )
-            ToolInputPreview(inputSpec = spec, selectedUris = state.selectedUris, secondaryUri = state.secondaryUri, params = state.paramValues, storage = container.storage, isEnglish = isEnglish)
-        }
-    }
-}
-
-@Composable
-fun SpecializedPreviews(
-    tool: com.harimu.app.core.toolapi.Tool,
-    state: ToolUiState,
-    vm: ToolViewModel,
-    container: AppContainer,
-    isEnglish: Boolean
-) {
-    // Video safety warnings
-    if (tool.id == "VID-12" || tool.id == "VID-19") {
-        VideoSafetyWarningCard(isReverse = tool.id == "VID-19")
-    }
-
-    // Video trim/preview cards
-    val isSingleVideoSpec = tool.inputSpec == InputSpec.SingleVideo ||
-        tool.inputSpec == InputSpec.VideoAndAudio ||
-        tool.inputSpec == InputSpec.VideoAndImage ||
-        tool.inputSpec == InputSpec.VideoAndSubtitle ||
-        tool.inputSpec == InputSpec.VideoAndMedia
-
-    if (isSingleVideoSpec && state.selectedUris.isNotEmpty()) {
-        val videoUri = state.selectedUris.first()
-        when (tool.id) {
-            "VID-14" -> RoiLogoPreviewCard(
-                videoUri = videoUri,
-                xPct = (state.paramValues["xPct"] as? Number)?.toFloat() ?: 70f,
-                yPct = (state.paramValues["yPct"] as? Number)?.toFloat() ?: 5f,
-                wPct = (state.paramValues["wPct"] as? Number)?.toFloat() ?: 22f,
-                hPct = (state.paramValues["hPct"] as? Number)?.toFloat() ?: 14f
-            )
-            "VID-25" -> FaceBlurPreviewCard(videoUri = videoUri)
-            else -> {
-                val showTrim = tool.id == "VID-01" || tool.id == "VID-21"
-                val startVal = (state.paramValues["startSec"] as? Number)?.toFloat() ?: 0f
-                val endVal = (state.paramValues["endSec"] as? Number)?.toFloat() ?: 0f
-                VideoTrimPreviewCard(
-                    videoUri = videoUri,
-                    showTrimStrip = showTrim,
-                    startSec = startVal,
-                    endSec = endVal,
-                    onRangeChange = { newStart, newEnd ->
-                        vm.setParam("startSec", newStart)
-                        vm.setParam("endSec", newEnd)
-                        if (tool.id == "VID-21") {
-                            vm.setParam("mode", "Rentang Pilihan")
-                        }
-                    }
-                )
-            }
-        }
-    }
-
-    // Perspective correction preview
-    if (tool.id == "IMG-06" && state.selectedUris.isNotEmpty()) {
-        val keys = listOf("tlX", "tlY", "trX", "trY", "brX", "brY", "blX", "blY")
-        val defaults = listOf(8f, 8f, 92f, 8f, 92f, 92f, 8f, 92f)
-        PerspectivePointsCard(
-            imageUri = state.selectedUris.first(),
-            points = keys.mapIndexed { index, key -> (state.paramValues[key] as? Number)?.toFloat() ?: defaults[index] },
-            onPointChange = { index, value -> vm.setParam(keys[index], value) }
-        )
-    }
-
-    // Filter preview
-    if (tool.id == "IMG-33" && state.selectedUris.isNotEmpty()) {
-        FilterPreviewCard(
-            imageUri = state.selectedUris.first(),
-            preset = state.paramValues["preset"]?.toString() ?: "Vintage",
-            brightness = (state.paramValues["brightness"] as? Number)?.toFloat() ?: 0f,
-            contrast = (state.paramValues["contrast"] as? Number)?.toFloat() ?: 1.05f,
-            saturation = (state.paramValues["saturation"] as? Number)?.toFloat() ?: 1f,
-            temperature = (state.paramValues["temperature"] as? Number)?.toFloat() ?: 0f,
-            blurRadius = (state.paramValues["blur"] as? Number)?.toInt() ?: 0,
-            vignette = (state.paramValues["vignette"] as? Number)?.toInt() ?: 0
-        )
-    }
-
-    // Visual previews for Image Forge tools (crop, canvas expander, straighten, bokeh, flare, overlays, LUT, format support)
-    if (tool.group == ToolGroup.IMAGE && !tool.isStub) {
-        ImageForgeToolPreviewSection(
-            toolId = tool.id,
-            selectedUris = state.selectedUris,
-            textInput = state.textInput,
-            params = state.paramValues,
-            onParamChange = { key, value -> vm.setParam(key, value) },
-            isEnglish = isEnglish
-        )
-    }
-
-    // PDF page picker
-    if (tool.group == ToolGroup.PDF && !tool.isStub &&
-        state.selectedUris.isNotEmpty() &&
-        tool.inputSpec != InputSpec.MultiplePdfs &&
-        tool.inputSpec != InputSpec.MultipleImages
-    ) {
-        val pdfUri = state.selectedUris.first()
-        if (tool.id == "PDF-04") {
-            PdfPagePickerCard(
-                pdfUri = pdfUri,
-                storage = container.storage,
-                isEnglish = isEnglish,
-                reorderMode = true,
-                pages = PdfVaultEngine.parsePagesLoose(state.paramValues["order"]?.toString() ?: ""),
-                onPagesChange = { order -> vm.setParam("order", order.joinToString(",")) }
-            )
-        } else if (tool.params.any { it.key == "pages" }) {
-            PdfPagePickerCard(
-                pdfUri = pdfUri,
-                storage = container.storage,
-                isEnglish = isEnglish,
-                reorderMode = false,
-                pages = PdfVaultEngine.parsePagesLoose(state.paramValues["pages"]?.toString() ?: ""),
-                onPagesChange = { pages -> vm.setParam("pages", PdfVaultEngine.formatPageRange(pages)) },
-                previewRotationDeg = if (tool.id == "PDF-03") {
-                    state.paramValues["angle"]?.toString()?.toIntOrNull() ?: 0
-                } else 0
-            )
-        }
-    }
-
-    // Audio preview + Audio Forge visual cards
-    val isSingleAudioSpec = tool.inputSpec == InputSpec.SingleAudio ||
-        tool.inputSpec == InputSpec.AudioAndImage ||
-        tool.inputSpec == InputSpec.AudioAndWatermarkAudio
-    val doneAudioOutput = (state.progress as? ToolProgress.Done)
-        ?.result
-        ?.outputs
-        ?.firstOrNull { it.mimeType.startsWith("audio/") }
-    val audioOverlaySpec = remember(tool.id, state.paramValues) {
-        resolveWaveformOverlaySpec(tool.id, state.paramValues)
-    }
-    val showAudioCard = !tool.isStub && (
-        (isSingleAudioSpec && state.selectedUris.isNotEmpty()) ||
-            (tool.group == ToolGroup.AUDIO && doneAudioOutput != null)
-    )
-    if (showAudioCard) {
-        AudioBeforeAfterPreviewCard(
-            inputUri = if (isSingleAudioSpec) state.selectedUris.firstOrNull() else null,
-            outputFile = doneAudioOutput?.file,
-            showTrimControls = tool.id == "AUD-09",
-            startSec = (state.paramValues["startSec"] as? Number)?.toFloat() ?: 0f,
-            endSec = (state.paramValues["endSec"] as? Number)?.toFloat() ?: 15f,
-            overlaySpec = audioOverlaySpec,
-            onRangeChange = { newStart, newEnd ->
-                vm.setParam("startSec", newStart)
-                vm.setParam("endSec", newEnd)
-            }
-        )
-    }
-    if (tool.group == ToolGroup.AUDIO && !tool.isStub) {
-        AudioForgeToolPreviewSection(
-            toolId = tool.id,
-            params = state.paramValues,
-            secondaryUri = state.secondaryUri,
-            isEnglish = isEnglish
-        )
-    }
-}
-
-@Composable
-fun RunButtonSection(
-    tool: com.harimu.app.core.toolapi.Tool,
-    state: ToolUiState,
-    showUploadConsent: () -> Unit,
-    onExecute: () -> Unit,
-    scope: kotlinx.coroutines.CoroutineScope,
-    container: AppContainer,
-    isEnglish: Boolean
-) {
-    Button(
-        onClick = {
-            if (tool.requiresNetwork && !state.isRunning) {
-                scope.launch {
-                    val consent = runCatching { container.aiClient.hasUploadConsent() }.getOrDefault(false)
-                    if (consent) onExecute() else showUploadConsent()
-                }
-            } else {
-                onExecute()
-            }
-        },
-        enabled = !state.isRunning,
-        modifier = Modifier.fillMaxWidth().height(52.dp).testTag("run_tool_button")
-    ) {
-        Text(
-            text = when {
-                state.isRunning -> stringResource(R.string.action_processing)
-                tool.isStub -> stringResource(R.string.action_run_dummy_job)
-                else -> stringResource(R.string.action_run_tool)
-            },
-            style = MaterialTheme.typography.titleSmall
-        )
-    }
-}
-
-@Composable
-fun UploadConsentDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    isEnglish: Boolean
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (isEnglish) "Allow cloud upload?" else "Izinkan unggahan cloud?") },
-        text = {
-            Text(if (isEnglish) {
-                "This tool sends your file to the AI gateway configured in Settings. " +
-                    "Files are processed for this request only and the gateway keeps no copy " +
-                    "beyond the job lifetime. Continue?"
-            } else {
-                "Tool ini mengirim berkas Anda ke AI Gateway yang diatur di Pengaturan. " +
-                    "Berkas hanya diproses untuk permintaan ini dan gateway tidak menyimpan " +
-                    "salinan melebihi masa hidup job. Lanjutkan?"
-            })
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text(if (isEnglish) "Allow upload" else "Izinkan unggah") }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text(if (isEnglish) "Cancel" else "Batal") }
-        }
-    )
-}
-
-@Composable
-fun DetailedResultView(
-    toolId: String,
-    result: ToolResult,
-    context: Context,
-    container: AppContainer,
-    settings: AppSettings,
-    pendingExportFile: (ToolOutputFile) -> Unit,
-    safSaveLauncher: androidx.activity.result.ActivityResultLauncher<String>,
-    savedToast: String,
-    saveFailedToast: String,
-    copiedToast: String,
-    audioPlayer: (MediaPlayer?) -> Unit,
-    isPlayingAudio: (Boolean) -> Unit,
-    scope: kotlinx.coroutines.CoroutineScope,
-    isEnglish: Boolean,
-    onOpenJobCenter: (() -> Unit)? = null
-) {
-    var deletedPaths by remember(result.outputs) { mutableStateOf(emptySet<String>()) }
-    val visibleOutputs = remember(result.outputs, deletedPaths) {
-        result.outputs.filterNot { it.file.absolutePath in deletedPaths }
-    }
-    val effectiveResult = remember(result, visibleOutputs) {
-        if (visibleOutputs.size == result.outputs.size) result else result.copy(outputs = visibleOutputs)
-    }
-    val firstOut = effectiveResult.outputs.firstOrNull()
-    val uploadTasks by container.uploadQueue.tasksFlow.collectAsStateWithLifecycle()
-    val matchedUpload = firstOut?.let { UploadQueue.findLatestForFile(it.file.absolutePath, uploadTasks) }
-
-    ToolResultCard(
-        result = effectiveResult,
-        storage = container.storage,
-        actions = ResultActions(
-            onOpen = firstOut?.let { out -> { openFile(out, container.storage, context) } },
-            onShare = firstOut?.let { out -> { shareFile(out, container.storage, context) } },
-            onSave = firstOut?.let { out -> { saveFile(out, container.storage, settings, scope, context, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher) } },
-            onUploadToCloud = firstOut?.let { out -> { uploadToCloud(out, container, settings, scope, context, isEnglish) } },
-            onCopyText = { txt -> copyText(txt, context, copiedToast) }
-        ),
-        showPreview = false, // We'll show custom previews below
-        uploadTask = matchedUpload,
-        onRetryUpload = { task -> retryCloudUpload(task, container, scope, context, isEnglish) },
-        onViewJobCenter = onOpenJobCenter
-    )
-
-    // Additional previews for all outputs
-    if (effectiveResult.outputs.size > 1) {
-        ToolMultiResultCard(
-            outputs = effectiveResult.outputs,
-            storage = container.storage,
-            onItemClick = { out -> openFile(out, container.storage, context) },
-            onItemAction = { out, action ->
-                when (action) {
-                    ResultAction.Open, ResultAction.Details -> openFile(out, container.storage, context)
-                    ResultAction.Share -> shareFile(out, container.storage, context)
-                    ResultAction.Save -> saveFile(out, container.storage, settings, scope, context, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher)
-                    ResultAction.Delete -> {
-                        scope.launch {
-                            val deleted = withContext(Dispatchers.IO) {
-                                out.file.delete() || !out.file.exists()
-                            }
-                            if (deleted) {
-                                deletedPaths = deletedPaths + out.file.absolutePath
-                            }
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    if (effectiveResult.outputs.isNotEmpty()) {
-        effectiveResult.outputs.forEach { out ->
-            if (out.file.exists()) {
-                when {
-                    out.mimeType.startsWith("video/") && toolId == "AUD-28" -> {
-                        VideoTrimPreviewCard(
-                            videoUri = out.file.toUri(),
-                            showTrimStrip = false,
-                            startSec = 0f,
-                            endSec = 0f,
-                            onRangeChange = { _, _ -> }
+            if (isExpandedTwoPane) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = spacing.md, vertical = spacing.md)
+                        .testTag("tool_two_pane_layout"),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.lg)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(spacing.md)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.workspace_pane_input_preview),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
                         )
+                        ToolHeaderCard(tool = tool, isEnglish = isEnglish)
+                        if (tool.isStub) StubNoticeCard(tool = tool)
+                        PdfToolCapabilityCards(tool.id, tool.group, state.paramValues, onOpenPdfStudio)
+                        ConverterToolCapabilityCards(tool.id, tool.group, state.selectedUris, container, isEnglish, onOpenUniversalConverter)
+                        InputSection(tool, state, vm, container, pickers, isEnglish)
+                        SpecializedPreviews(tool, state, vm, container, isEnglish)
                     }
-                    out.mimeType.startsWith("image/") -> {
-                        AsyncImage(
-                            model = out.file,
-                            contentDescription = out.displayName,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(spacing.md)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.workspace_pane_config_run),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                    }
-                    out.mimeType.startsWith("audio/") -> {
-                        AudioPlaybackButton(
-                            file = out.file,
-                            audioPlayer = audioPlayer,
-                            isPlayingAudio = isPlayingAudio,
-                            copiedToast = copiedToast,
+                        if (showReadinessCard) {
+                            WorkspaceReadinessCard(
+                                readiness = readiness,
+                                notificationDeniedOnce = notificationDeniedOnce,
+                                onRequestNotifications = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        requestNotificationOnlyLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                }
+                            )
+                        }
+                        if (tool.params.isNotEmpty()) {
+                            ToolParameterPanel(
+                                params = tool.params,
+                                paramValues = state.paramValues,
+                                onParamChange = vm::setParam,
+                                validators = paramValidators,
+                                isEnglish = isEnglish
+                            )
+                        }
+                        RunButtonSection(
+                            tool = tool,
+                            state = state,
+                            readiness = readiness,
+                            showUploadConsent = { showUploadConsent = true },
+                            onExecute = ::triggerExecution,
+                            scope = scope,
                             container = container
                         )
+                        ToolProgressView(
+                            state = progressState,
+                            callbacks = ProgressCallbacks(
+                                onCancel = vm::cancel,
+                                onRetry = { vm.retry(isEnglish) },
+                                jobId = state.activeJobId ?: state.lastJobId,
+                                onViewJobCenter = onOpenJobCenter
+                            )
+                        )
+                        val doneProgress = state.progress as? ToolProgress.Done
+                        if (doneProgress != null) {
+                            DetailedResultView(
+                                toolId = tool.id,
+                                toolGroup = tool.group,
+                                result = doneProgress.result,
+                                state = state,
+                                vm = vm,
+                                context = context,
+                                container = container,
+                                settings = settings,
+                                safSaveLauncher = safSaveLauncher,
+                                copiedToast = copiedToast,
+                                scope = scope,
+                                onOpenJobCenter = onOpenJobCenter
+                            )
+                        }
                     }
                 }
-            }
-        }
-    }
-
-    // Text output
-    result.textOutput?.let { txt ->
-        Box(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.label_output), style = MaterialTheme.typography.labelMedium)
-                    IconButton(
-                        onClick = { copyText(txt, context, copiedToast) },
-                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    ) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.action_copy), modifier = Modifier.size(18.dp))
-                    }
-                }
-                Text(txt, style = MonoTextStyle)
-            }
-        }
-    }
-}
-
-// Helper functions
-fun openFile(output: ToolOutputFile, storage: com.harimu.app.core.files.FileStorageManager, context: Context) {
-    runCatching {
-        context.startActivity(Intent.createChooser(storage.buildOpenIntent(output.file, output.mimeType), output.displayName))
-    }
-}
-
-fun shareFile(output: ToolOutputFile, storage: com.harimu.app.core.files.FileStorageManager, context: Context) {
-    context.startActivity(Intent.createChooser(storage.buildShareIntent(output.file, output.mimeType), output.displayName))
-}
-
-fun saveFile(
-    output: ToolOutputFile,
-    storage: com.harimu.app.core.files.FileStorageManager,
-    settings: AppSettings,
-    scope: kotlinx.coroutines.CoroutineScope,
-    context: Context,
-    savedToast: String,
-    saveFailedToast: String,
-    pendingExportFile: (ToolOutputFile) -> Unit,
-    safSaveLauncher: androidx.activity.result.ActivityResultLauncher<String>
-) {
-    val defaultTreeUri = settings.outputFolderUri
-    if (defaultTreeUri.isNotBlank()) {
-        scope.launch(Dispatchers.IO) {
-            val savedUri = storage.saveToTreeUri(source = output.file, treeUri = defaultTreeUri.toUri(), mimeType = output.mimeType)
-            withContext(Dispatchers.Main) {
-                if (savedUri != null) {
-                    Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
-                } else {
-                    pendingExportFile(output)
-                    safSaveLauncher.launch(output.displayName)
-                }
-            }
-        }
-    } else {
-        pendingExportFile(output)
-        safSaveLauncher.launch(output.displayName)
-    }
-}
-
-fun uploadToCloud(
-    output: ToolOutputFile,
-    container: AppContainer,
-    settings: AppSettings,
-    scope: kotlinx.coroutines.CoroutineScope,
-    context: Context,
-    isEnglish: Boolean
-) {
-    if (!output.file.exists()) {
-        Toast.makeText(context, context.getString(R.string.job_file_missing), Toast.LENGTH_SHORT).show()
-        return
-    }
-    scope.launch(Dispatchers.IO) {
-        val config = container.cloudStore.load()
-        if (!config.isConfigured()) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, if (isEnglish) "Configure a cloud connection in Settings first" else "Atur koneksi cloud di Pengaturan dulu", Toast.LENGTH_LONG).show()
-            }
-        } else {
-            container.uploadQueue.enqueue(output.file, output.mimeType, config.provider)
-            val uploaded = container.uploadQueue.processPending(
-                configProvider = { container.cloudStore.load() },
-                persistConfig = { container.cloudStore.save(it) }
-            )
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, if (uploaded > 0) {
-                    if (settings.isEnglish) "Uploaded to cloud" else "Terunggah ke cloud"
-                } else {
-                    if (settings.isEnglish) "Queued — will retry" else "Masuk antrean — akan dicoba ulang"
-                }, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-}
-
-fun retryCloudUpload(
-    task: UploadTask,
-    container: AppContainer,
-    scope: kotlinx.coroutines.CoroutineScope,
-    context: Context,
-    isEnglish: Boolean
-) {
-    scope.launch(Dispatchers.IO) {
-        val uploaded = container.uploadQueue.retryTask(
-            taskId = task.id,
-            configProvider = { container.cloudStore.load() },
-            persistConfig = { container.cloudStore.save(it) }
-        )
-        withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                if (uploaded > 0) {
-                    if (isEnglish) "Uploaded to cloud" else "Terunggah ke cloud"
-                } else {
-                    if (isEnglish) "Upload still queued or failed" else "Unggahan masih tertunda atau gagal"
-                },
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-}
-
-fun copyText(text: String, context: Context, copiedToast: String) {
-    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("HariMu", text))
-    Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
-}
-
-@Composable
-fun AudioPlaybackButton(
-    file: java.io.File,
-    audioPlayer: (MediaPlayer?) -> Unit,
-    isPlayingAudio: (Boolean) -> Unit,
-    copiedToast: String,
-    container: AppContainer
-) {
-    var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    var playing by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    DisposableEffect(Unit) {
-        onDispose { runCatching { player?.release() } }
-    }
-
-    OutlinedButton(
-        onClick = {
-            if (playing) {
-                runCatching { player?.stop(); player?.release() }
-                player = null
-                playing = false
-                isPlayingAudio(false)
-                audioPlayer(null)
             } else {
-                runCatching {
-                    player?.release()
-                    player = MediaPlayer().apply {
-                        setDataSource(file.absolutePath)
-                        prepare()
-                        setOnCompletionListener { playing = false; isPlayingAudio(false); audioPlayer(null) }
-                        start()
-                    }
-                    playing = true
-                    isPlayingAudio(true)
-                    audioPlayer(player)
-                }
-            }
-        },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Icon(if (playing) Icons.Filled.Stop else Icons.Filled.PlayArrow, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text(if (playing) stringResource(R.string.action_stop_audio) else stringResource(R.string.action_play_audio))
-    }
-}
-
-// Parameter validators
-fun buildParamValidators(tool: com.harimu.app.core.toolapi.Tool): Map<String, (Any) -> com.harimu.app.core.design.ParamValidation> {
-    val validators = mutableMapOf<String, (Any) -> com.harimu.app.core.design.ParamValidation>()
-
-    tool.params.forEach { param ->
-        when (param) {
-            is ToolParam.SliderParam -> {
-                validators[param.key] = { value ->
-                    if (value is Number) {
-                        val v = value.toFloat()
-                        if (v < param.min || v > param.max) {
-                            com.harimu.app.core.design.ParamValidation.Invalid("Value must be between ${param.min} and ${param.max}")
-                        } else {
-                            com.harimu.app.core.design.ParamValidation.Valid
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = layout.formMaxWidth)
+                            .verticalScroll(rememberScrollState())
+                            .padding(spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(spacing.md)
+                    ) {
+                        ToolHeaderCard(tool = tool, isEnglish = isEnglish)
+                        if (tool.isStub) StubNoticeCard(tool = tool)
+                        PdfToolCapabilityCards(tool.id, tool.group, state.paramValues, onOpenPdfStudio)
+                        ConverterToolCapabilityCards(tool.id, tool.group, state.selectedUris, container, isEnglish, onOpenUniversalConverter)
+                        InputSection(tool, state, vm, container, pickers, isEnglish)
+                        if (showReadinessCard) {
+                            WorkspaceReadinessCard(
+                                readiness = readiness,
+                                notificationDeniedOnce = notificationDeniedOnce,
+                                onRequestNotifications = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        requestNotificationOnlyLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                }
+                            )
                         }
-                    } else com.harimu.app.core.design.ParamValidation.Valid
-                }
-            }
-            is ToolParam.TextParam -> {
-                if (param.key == "password" || param.key.contains("pass", ignoreCase = true) || param.key.contains("pwd", ignoreCase = true)) {
-                    // For encryption creation tools warn gently if short; unlock tools allow any existing password.
-                    if (tool.id == "CNV-18") {
-                        validators[param.key] = { value ->
-                            val s = value.toString()
-                            if (s.isNotEmpty() && s.length < 8) {
-                                com.harimu.app.core.design.ParamValidation.Warning("AES-256 ZIP encryption requires 8+ characters")
-                            } else {
-                                com.harimu.app.core.design.ParamValidation.Valid
-                            }
+                        SpecializedPreviews(tool, state, vm, container, isEnglish)
+                        if (tool.params.isNotEmpty()) {
+                            ToolParameterPanel(
+                                params = tool.params,
+                                paramValues = state.paramValues,
+                                onParamChange = vm::setParam,
+                                validators = paramValidators,
+                                isEnglish = isEnglish
+                            )
                         }
-                    } else if (tool.id == "PDF-10" || tool.id == "CNV-16") {
-                        validators[param.key] = { value ->
-                            val s = value.toString()
-                            if (s.isNotEmpty() && s.length < 4) {
-                                com.harimu.app.core.design.ParamValidation.Warning("Use 4+ characters for stronger protection")
-                            } else {
-                                com.harimu.app.core.design.ParamValidation.Valid
-                            }
+                        RunButtonSection(
+                            tool = tool,
+                            state = state,
+                            readiness = readiness,
+                            showUploadConsent = { showUploadConsent = true },
+                            onExecute = ::triggerExecution,
+                            scope = scope,
+                            container = container
+                        )
+                        ToolProgressView(
+                            state = progressState,
+                            callbacks = ProgressCallbacks(
+                                onCancel = vm::cancel,
+                                onRetry = { vm.retry(isEnglish) },
+                                jobId = state.activeJobId ?: state.lastJobId,
+                                onViewJobCenter = onOpenJobCenter
+                            )
+                        )
+                        val doneProgress = state.progress as? ToolProgress.Done
+                        if (doneProgress != null) {
+                            DetailedResultView(
+                                toolId = tool.id,
+                                toolGroup = tool.group,
+                                result = doneProgress.result,
+                                state = state,
+                                vm = vm,
+                                context = context,
+                                container = container,
+                                settings = settings,
+                                safSaveLauncher = safSaveLauncher,
+                                copiedToast = copiedToast,
+                                scope = scope,
+                                onOpenJobCenter = onOpenJobCenter
+                            )
                         }
                     }
-                } else if (param.key == "color" || param.key.contains("Hex")) {
-                    validators[param.key] = com.harimu.app.core.design.ParamValidators.hexColor()
-                } else if (param.key == "email") {
-                    validators[param.key] = com.harimu.app.core.design.ParamValidators.email()
                 }
             }
-            is ToolParam.DropdownParam -> {
-                validators[param.key] = { value ->
-                    if (value !in param.options) {
-                        com.harimu.app.core.design.ParamValidation.Invalid("Invalid option selected")
-                    } else {
-                        com.harimu.app.core.design.ParamValidation.Valid
-                    }
-                }
-            }
-            is ToolParam.ToggleParam -> Unit
-        }
-    }
 
-    return validators
-}
-
-@Composable
-private fun PdfToolCapabilityCards(
-    toolId: String,
-    group: ToolGroup,
-    paramValues: Map<String, Any>,
-    onOpenPdfStudio: ((initialTab: String, toolId: String) -> Unit)?
-) {
-    val context = LocalContext.current
-    val isPdfOrBridge = group == ToolGroup.PDF || toolId in setOf("CNV-13", "CNV-14", "CNV-15")
-
-    if (isPdfOrBridge && onOpenPdfStudio != null) {
-        OutlinedButton(
-            onClick = { onOpenPdfStudio(tabForPdfTool(toolId).name, toolId) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("tool_open_pdf_studio_btn")
-        ) {
-            Icon(Icons.Filled.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.pdf_studio_open_in_tool),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-
-    val honestBodyRes = when (toolId) {
-        "PDF-06", "PDF-07", "CNV-13" -> R.string.pdf_honest_basic_conversion_body
-        "PDF-13" -> R.string.pdf_honest_unwatermark_body
-        "PDF-09", "PDF-14" -> R.string.pdf_honest_raster_body
-        else -> null
-    }
-
-    if (honestBodyRes != null) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("pdf_honest_notice_card"),
-            colors = CardDefaults.cardColors(containerColor = HariMuThemeTokens.semantic.warningContainer),
-            border = BorderStroke(1.dp, HariMuThemeTokens.semantic.warning.copy(alpha = 0.5f))
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = HariMuThemeTokens.semantic.onWarningContainer,
-                    modifier = Modifier.size(20.dp)
+            if (showUploadConsent) {
+                UploadConsentDialog(
+                    onConfirm = {
+                        showUploadConsent = false
+                        scope.launch {
+                            runCatching { container.aiClient.grantUploadConsent() }
+                            hasUploadConsent = true
+                            triggerExecution()
+                        }
+                    },
+                    onDismiss = { showUploadConsent = false }
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(R.string.pdf_honest_basic_conversion_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = HariMuThemeTokens.semantic.onWarningContainer
-                    )
-                    Text(
-                        text = stringResource(honestBodyRes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = HariMuThemeTokens.semantic.onWarningContainer
-                    )
-                }
-            }
-        }
-    }
-
-    if (toolId == "PDF-15" || toolId == "PDF-16" || toolId == "CNV-15") {
-        val rawLang = paramValues["language"]?.toString() ?: "Indonesia"
-        val codes = rawLang.split("+").map { PdfOcrEngine.codeFromLabel(it.trim()) }.distinct()
-        val missing = remember(codes, context) { PdfOcrEngine.missing(context, codes) }
-        val ready = missing.isEmpty()
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("pdf_ocr_readiness_card"),
-            shape = RoundedCornerShape(10.dp),
-            color = if (ready) HariMuThemeTokens.semantic.successContainer else HariMuThemeTokens.semantic.infoContainer
-        ) {
-            Text(
-                text = if (ready) {
-                    stringResource(R.string.pdf_studio_ocr_ready) + " (${codes.joinToString("+")})"
-                } else {
-                    stringResource(R.string.pdf_studio_ocr_need_download) + " (${missing.joinToString("+")})"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (ready) HariMuThemeTokens.semantic.onSuccessContainer else HariMuThemeTokens.semantic.onInfoContainer,
-                modifier = Modifier.padding(10.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ConverterToolCapabilityCards(
-    toolId: String,
-    group: ToolGroup,
-    selectedUris: List<Uri>,
-    container: AppContainer,
-    isEnglish: Boolean,
-    onOpenUniversalConverter: ((toolId: String) -> Unit)?
-) {
-    if (group != ToolGroup.CONVERTER) return
-    val context = LocalContext.current
-
-    if (onOpenUniversalConverter != null) {
-        OutlinedButton(
-            onClick = { onOpenUniversalConverter(toolId) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .minimumInteractiveComponentSize()
-                .testTag("tool_open_converter_btn")
-        ) {
-            Icon(Icons.Filled.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.converter_open_workbench_cta),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-
-    var detectedSources by remember(toolId, selectedUris) { mutableStateOf<List<DetectedSource>>(emptyList()) }
-    LaunchedEffect(toolId, selectedUris) {
-        detectedSources = if (selectedUris.isEmpty()) {
-            emptyList()
-        } else {
-            withContext(Dispatchers.IO) {
-                selectedUris.map { uri -> SourceFormatDetector.detectFromUri(context, container.storage, uri) }
-            }
-        }
-    }
-
-    if (detectedSources.isNotEmpty()) {
-        val summaryLine = detectedSources.joinToString(", ") { src ->
-            "${src.displayName} → ${src.format.badge} (${src.detectionMethod})"
-        }
-        val notes = detectedSources.mapNotNull { src ->
-            src.note(isEnglish) ?: ConverterFormatMatrix.unsupportedReason(src.format, isEnglish)
-        }.distinct()
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("converter_detected_format_card"),
-            shape = RoundedCornerShape(10.dp),
-            color = if (notes.isEmpty()) HariMuThemeTokens.semantic.infoContainer else HariMuThemeTokens.semantic.warningContainer
-        ) {
-            Column(
-                modifier = Modifier.padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = summaryLine,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (notes.isEmpty()) HariMuThemeTokens.semantic.onInfoContainer else HariMuThemeTokens.semantic.onWarningContainer
-                )
-                notes.forEach { note ->
-                    Text(
-                        text = note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = HariMuThemeTokens.semantic.onWarningContainer
-                    )
-                }
-            }
-        }
-    }
-
-    val honestNote = when (toolId) {
-        "CNV-03" -> if (isEnglish) "Audio track copy/transcode to MP3/AAC/WAV/FLAC. WAV/FLAC wraps decoded audio and does not restore lost source detail."
-        else "Ekstraksi trek audio ke MP3/AAC/WAV/FLAC. WAV/FLAC hanya wadah lossless dari audio terdekode, tidak menambah detail."
-        "CNV-04" -> if (isEnglish) "Uses device Media3/FFmpeg lanczos + unsharp scaling (max 60s & ≤1080p input), not a neural super-resolution model."
-        else "Memakai skaler perangkat Media3/FFmpeg (maks 60 detik & input ≤1080p), bukan model super-resolusi AI."
-        "CNV-06" -> if (isEnglish) "Outputs 24-bit WAV/FLAC up to 96 kHz. Upsampling lossy inputs (e.g., MP3/AAC) cannot recover lost frequencies."
-        else "Menghasilkan WAV/FLAC 24-bit hingga 96 kHz. Upsampling sumber lossy tidak mengembalikan detail yang hilang."
-        "CNV-10" -> if (isEnglish) "Powered by AndroidSVG 1.4 (up to 4096 px). SVG filter effects, system fonts, and SMIL/CSS animations are omitted."
-        else "Memakai AndroidSVG 1.4 (maks 4096 px). Filter SVG, font sistem, dan animasi tidak dirender."
-        "CNV-17" -> if (isEnglish) "Converts ZIP/7Z/TAR.GZ/RAR into sanitized clean ZIPs. RAR is read-only (writing RAR is unsupported); zip-slip & 200x zip-bomb limits apply."
-        else "Mengonversi ZIP/7Z/TAR.GZ/RAR ke ZIP bersih. RAR hanya bisa dibaca (tulis RAR tidak tersedia); proteksi zip-slip & zip-bomb 200x aktif."
-        "CNV-19" -> if (isEnglish) "Reads spine text order into TXT/HTML/PDF. DRM-protected EPUBs are refused, and original images/CSS layouts are omitted."
-        else "Membaca teks sesuai urutan spine ke TXT/HTML/PDF. EPUB ber-DRM ditolak, serta gambar & CSS asli tidak disertakan."
-        "CNV-20" -> if (isEnglish) "Supports CBZ (ZIP) and read-only CBR (RAR) with natural page sorting. EPUB output is minimal image-per-page."
-        else "Mendukung CBZ (ZIP) dan CBR/RAR (baca-saja) dengan urutan halaman alami. EPUB keluaran bersifat minimal per gambar."
-        "CNV-21" -> if (isEnglish) "Supports TTF/OTF ⇄ WOFF 1.0 only. WOFF2 (Brotli) and OTF(CFF) ⇄ TTF outline conversions are rejected honestly."
-        else "Hanya mendukung TTF/OTF ⇄ WOFF 1.0. WOFF2 (Brotli) dan konversi outline OTF(CFF) ⇄ TTF ditolak secara jelas."
-        "CNV-22" -> if (isEnglish) "TrueType glyph subsetting to WOFF 1.0 (drops hinting/GSUB/GPOS/kern). CFF/OTF and WOFF2 fonts are refused."
-        else "Subsetting glif TrueType ke WOFF 1.0 (tabel hinting/GSUB/GPOS/kern dibuang). Font CFF/OTF dan WOFF2 ditolak."
-        else -> null
-    }
-
-    if (honestNote != null) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("converter_honest_notice_card"),
-            colors = CardDefaults.cardColors(containerColor = HariMuThemeTokens.semantic.warningContainer),
-            border = BorderStroke(1.dp, HariMuThemeTokens.semantic.warning.copy(alpha = 0.5f))
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = HariMuThemeTokens.semantic.onWarningContainer,
-                    modifier = Modifier.size(20.dp)
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(R.string.converter_honest_limits_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = HariMuThemeTokens.semantic.onWarningContainer
-                    )
-                    Text(
-                        text = honestNote,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = HariMuThemeTokens.semantic.onWarningContainer
-                    )
-                }
             }
         }
     }

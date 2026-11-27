@@ -256,7 +256,6 @@ private fun ValidatedSliderParam(
                 onValueChange(snapped)
             },
             valueRange = param.min..param.max,
-            enabled = validation.isValid,
             colors = SliderDefaults.colors(
                 thumbColor = if (!validation.isValid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 activeTrackColor = if (!validation.isValid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
@@ -297,7 +296,6 @@ private fun ValidatedDropdownParam(
                 FilterChip(
                     selected = isSelected,
                     onClick = { onValueChange(option) },
-                    enabled = validation.isValid,
                     label = {
                         Text(
                             text = option,
@@ -322,14 +320,16 @@ private fun ValidatedDropdownParam(
                         disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     ),
                     border = FilterChipDefaults.filterChipBorder(
-                        enabled = validation.isValid,
+                        enabled = true,
                         selected = isSelected,
                         borderColor = if (!validation.isValid) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.outline.copy(alpha = HariMuThemeTokens.borders.subtleAlpha),
                         selectedBorderColor = if (!validation.isValid) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.primary
                     ),
-                    modifier = Modifier.minimumInteractiveComponentSize()
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("FilterChip_${param.key}_$option")
                 )
             }
         }
@@ -351,7 +351,6 @@ private fun ValidatedToggleParam(
             .minimumInteractiveComponentSize()
             .toggleable(
                 value = value,
-                enabled = validation.isValid,
                 role = Role.Switch,
                 onValueChange = { onValueChange(it) }
             )
@@ -369,8 +368,7 @@ private fun ValidatedToggleParam(
         Spacer(modifier = Modifier.width(HariMuThemeTokens.spacing.sm))
         Switch(
             checked = value,
-            onCheckedChange = if (validation.isValid) { checked -> onValueChange(checked) } else null,
-            enabled = validation.isValid
+            onCheckedChange = { checked -> onValueChange(checked) }
         )
     }
 }

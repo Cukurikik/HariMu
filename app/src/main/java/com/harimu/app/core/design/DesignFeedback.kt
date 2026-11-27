@@ -204,7 +204,8 @@ fun EmptyState(
     subtitle: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    actionTestTag: String? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
     val icons = HariMuThemeTokens.icons
@@ -251,7 +252,8 @@ fun EmptyState(
                 Spacer(modifier = Modifier.height(spacing.sm))
                 HariMuSecondaryButton(
                     text = actionLabel,
-                    onClick = onAction
+                    onClick = onAction,
+                    modifier = if (actionTestTag != null) Modifier.testTag(actionTestTag) else Modifier
                 )
             }
         }

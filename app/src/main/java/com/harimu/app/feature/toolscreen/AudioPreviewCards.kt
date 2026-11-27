@@ -31,15 +31,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -488,77 +484,19 @@ fun AudioBeforeAfterPreviewCard(
             }
 
             if (isTrimActiveOnCurrent) {
-                Text(
-                    text = stringResource(R.string.audio_trim_range_title),
-                    style = MaterialTheme.typography.labelLarge
+                MediaTrimRangeControls(
+                    mediaKey = activeUri,
+                    title = stringResource(R.string.audio_trim_range_title),
+                    totalSec = totalSec,
+                    startSec = startSec,
+                    endSec = endSec,
+                    currentPlayheadMs = { exoPlayer.currentPosition },
+                    onSeekToMs = { exoPlayer.seekTo(it) },
+                    onRangeChange = onRangeChange,
+                    sliderTestTag = "audio_trim_range_slider",
+                    setStartTestTag = "audio_set_start_btn",
+                    setEndTestTag = "audio_set_end_btn"
                 )
-                var sliderStart by remember(activeUri, startSec) { mutableFloatStateOf(clampedStart) }
-                var sliderEnd by remember(activeUri, endSec, totalSec) { mutableFloatStateOf(effectiveEnd) }
-
-                RangeSlider(
-                    value = sliderStart..sliderEnd,
-                    onValueChange = { range ->
-                        val minGap = minOf(0.5f, totalSec * 0.1f)
-                        val s = range.start.coerceIn(0f, (totalSec - minGap).coerceAtLeast(0f))
-                        val e = range.endInclusive.coerceIn(s + minGap, totalSec)
-                        sliderStart = s
-                        sliderEnd = e
-                        onRangeChange(s, e)
-                    },
-                    onValueChangeFinished = {
-                        exoPlayer.seekTo((sliderStart * 1000f).toLong())
-                    },
-                    valueRange = 0f..totalSec,
-                    colors = SliderDefaults.colors(
-                        thumbColor = HariMuColors.ElectricOrange,
-                        activeTrackColor = HariMuColors.ElectricOrange
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("audio_trim_range_slider")
-                )
-
-                Text(
-                    text = stringResource(
-                        R.string.video_trim_range_labels,
-                        FfmpegProgressParser.formatDurationMs((sliderStart * 1000f).toLong()),
-                        FfmpegProgressParser.formatDurationMs((sliderEnd * 1000f).toLong())
-                    ),
-                    style = MonoTextStyle,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            val headSec = (exoPlayer.currentPosition / 1000f).coerceIn(0f, (sliderEnd - 0.5f).coerceAtLeast(0f))
-                            sliderStart = headSec
-                            onRangeChange(headSec, sliderEnd)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("audio_set_start_btn")
-                    ) {
-                        Text(stringResource(R.string.video_set_start_playhead))
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            val headSec = (exoPlayer.currentPosition / 1000f).coerceIn(sliderStart + 0.5f, totalSec)
-                            sliderEnd = headSec
-                            onRangeChange(sliderStart, headSec)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("audio_set_end_btn")
-                    ) {
-                        Text(stringResource(R.string.video_set_end_playhead))
-                    }
-                }
             }
         }
     }

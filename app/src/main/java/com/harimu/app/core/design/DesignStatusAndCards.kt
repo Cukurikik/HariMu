@@ -47,10 +47,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.harimu.app.R
+import com.harimu.app.core.toolapi.ModelSpec
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolGroup
 
@@ -254,7 +257,10 @@ fun ToolCard(
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
-    isStub: Boolean = false
+    isStub: Boolean = false,
+    requiresNetwork: Boolean = false,
+    requiresModel: ModelSpec? = null,
+    groupLabel: String? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
     val shapes = HariMuThemeTokens.shapes
@@ -308,8 +314,25 @@ fun ToolCard(
                 ) {
                     ToolIdBadge(id = id, accent = accent)
                     EngineBadge(engine = engineLabel)
-                    if (isStub) {
-                        CapabilityBadge(label = stringResource(R.string.badge_coming_soon))
+                    if (!groupLabel.isNullOrBlank()) {
+                        CapabilityBadge(
+                            label = groupLabel,
+                            containerColor = accent.copy(alpha = 0.12f),
+                            contentColor = iconTint
+                        )
+                    }
+                    when {
+                        isStub -> CapabilityBadge(label = stringResource(R.string.badge_coming_soon))
+                        requiresModel != null -> CapabilityBadge(
+                            label = stringResource(R.string.badge_needs_model, requiresModel.name),
+                            containerColor = semantic.infoContainer,
+                            contentColor = semantic.onInfoContainer
+                        )
+                        requiresNetwork -> CapabilityBadge(
+                            label = stringResource(R.string.badge_needs_internet),
+                            containerColor = semantic.warningContainer,
+                            contentColor = semantic.onWarningContainer
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
@@ -333,11 +356,15 @@ fun ToolCard(
                 onClick = onToggleFavorite,
                 modifier = Modifier
                     .minimumInteractiveComponentSize()
+                    .semantics { selected = isFavorite }
                     .testTag("fav_button_$id")
             ) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                    contentDescription = stringResource(R.string.cd_toggle_favorite),
+                    contentDescription = stringResource(
+                        if (isFavorite) R.string.cd_remove_favorite else R.string.cd_add_favorite,
+                        title
+                    ),
                     tint = if (isFavorite) semantic.favoriteAccent else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -352,7 +379,8 @@ fun ToolRowCard(
     isFavorite: Boolean,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showGroupBadge: Boolean = false
 ) {
     ToolCard(
         id = tool.id,
@@ -365,7 +393,10 @@ fun ToolRowCard(
         onClick = onClick,
         onToggleFavorite = onToggleFavorite,
         modifier = modifier,
-        isStub = tool.isStub
+        isStub = tool.isStub,
+        requiresNetwork = tool.requiresNetwork,
+        requiresModel = tool.requiresModel,
+        groupLabel = if (showGroupBadge) stringResource(tool.group.titleRes) else null
     )
 }
 

@@ -19,6 +19,7 @@ import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolContext
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolInputCodec
 import com.harimu.app.core.toolapi.ToolOutputCodec
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
@@ -39,6 +40,13 @@ import java.io.File
 import java.util.UUID
 import kotlin.math.abs
 
+sealed interface ExportState {
+    data object Idle : ExportState
+    data class Exporting(val displayName: String) : ExportState
+    data class Succeeded(val displayName: String) : ExportState
+    data class Failed(val displayName: String) : ExportState
+}
+
 data class ToolUiState(
     val tool: Tool? = null,
     val selectedUris: List<Uri> = emptyList(),
@@ -53,14 +61,18 @@ data class ToolUiState(
     val isRetryable: Boolean = false,
     val isInterrupted: Boolean = false,
     val isCancelled: Boolean = false,
-    val jobErrorMessage: String = ""
+    val jobErrorMessage: String = "",
+    val validationError: String = "",
+    val exportState: ExportState = ExportState.Idle,
+    val pendingExportOutput: ToolOutputFile? = null,
+    val deletedOutputPaths: Set<String> = emptySet()
 ) {
     fun toUiProgressState(): ToolProgressState = when {
         isInterrupted -> ToolProgressState.Interrupted(
             message = jobErrorMessage,
             isRetryable = isRetryable
         )
-        isCancelled -> ToolProgressState.Cancelled
+        isCancelled -> ToolProgressState.Cancelled(isRetryable = isRetryable)
         progress is ToolProgress.Failed -> ToolProgressState.Failed(
             error = progress.error,
             isRetryable = isRetryable
@@ -105,6 +117,7 @@ class ToolViewModel(
     private var runJob: Job? = null
     private var appContextRef: Context? = null
     private var sessionJobId: String? = initialJobId
+    private var hydratedInitialJob = false
 
     init {
         val tool = ToolRegistry.findById(toolId)
@@ -163,6 +176,20 @@ class ToolViewModel(
     }
 
     private suspend fun applyObservedJob(job: JobEntity) {
+        if (!initialJobId.isNullOrBlank() && !hydratedInitialJob) {
+            hydratedInitialJob = true
+            if (job.inputJson.isNotBlank()) {
+                val decoded = ToolInputCodec.decode(job.inputJson)
+                _state.update { current ->
+                    current.copy(
+                        selectedUris = if (current.selectedUris.isEmpty()) decoded.uris else current.selectedUris,
+                        secondaryUri = current.secondaryUri ?: decoded.secondaryUri,
+                        textInput = if (decoded.textInput.isNotBlank()) decoded.textInput else current.textInput,
+                        paramValues = current.paramValues + decoded.params
+                    )
+                }
+            }
+        }
         when (job.status) {
             ToolJobWorker.STATUS_QUEUED -> _state.update {
                 it.copy(
@@ -298,24 +325,54 @@ class ToolViewModel(
 
     fun setUris(uris: List<Uri>) {
         _state.update {
-            it.copy(selectedUris = uris, progress = null, isInterrupted = false, isCancelled = false, jobErrorMessage = "")
+            it.copy(
+                selectedUris = uris,
+                progress = null,
+                isInterrupted = false,
+                isCancelled = false,
+                jobErrorMessage = "",
+                validationError = "",
+                exportState = ExportState.Idle,
+                deletedOutputPaths = emptySet()
+            )
         }
     }
 
     fun setSecondaryUri(uri: Uri?) {
         _state.update {
-            it.copy(secondaryUri = uri, progress = null, isInterrupted = false, isCancelled = false, jobErrorMessage = "")
+            it.copy(
+                secondaryUri = uri,
+                progress = null,
+                isInterrupted = false,
+                isCancelled = false,
+                jobErrorMessage = "",
+                validationError = "",
+                exportState = ExportState.Idle
+            )
         }
     }
 
     fun setTextInput(text: String) {
         _state.update {
-            it.copy(textInput = text, progress = null, isInterrupted = false, isCancelled = false, jobErrorMessage = "")
+            it.copy(
+                textInput = text,
+                progress = null,
+                isInterrupted = false,
+                isCancelled = false,
+                jobErrorMessage = "",
+                validationError = "",
+                exportState = ExportState.Idle
+            )
         }
     }
 
     fun setParam(key: String, value: Any) {
-        _state.update { it.copy(paramValues = it.paramValues + (key to value)) }
+        _state.update {
+            it.copy(
+                paramValues = it.paramValues + (key to value),
+                validationError = ""
+            )
+        }
     }
 
     fun execute(isEnglish: Boolean) {
@@ -347,17 +404,38 @@ class ToolViewModel(
         }
 
         val ctxRef = appContextRef ?: return
+        val input = ToolInput(
+            uris = _state.value.selectedUris,
+            secondaryUri = _state.value.secondaryUri,
+            textInput = _state.value.textInput,
+            params = _state.value.paramValues
+        )
+        val validation = ToolWorkspaceValidator.validateWorkspaceInput(
+            context = ctxRef,
+            tool = tool,
+            input = input,
+            checkUriReadability = true
+        )
+        if (!validation.isValid) {
+            _state.update {
+                it.copy(
+                    validationError = validation.errorMessage.orEmpty()
+                )
+            }
+            return
+        }
+        _state.update {
+            it.copy(
+                validationError = "",
+                exportState = ExportState.Idle,
+                deletedOutputPaths = emptySet()
+            )
+        }
         runJob?.cancel()
 
         // Tool berat (video/audio/PDF/konverter/AI) dijalankan WorkManager + foreground service
         // supaya tidak mati saat aplikasi di latar belakang.
         if (shouldUseWorker(tool)) {
-            val input = ToolInput(
-                uris = _state.value.selectedUris,
-                secondaryUri = _state.value.secondaryUri,
-                textInput = _state.value.textInput,
-                params = _state.value.paramValues
-            )
             runJob = viewModelScope.launch {
                 _state.update {
                     it.copy(
@@ -529,6 +607,8 @@ class ToolViewModel(
         }
     }
 
+    fun usesBackgroundWorker(tool: Tool): Boolean = shouldUseWorker(tool)
+
     private fun shouldUseWorker(tool: Tool): Boolean =
         tool.requiresNetwork || tool.requiresModel != null ||
             tool.group == ToolGroup.VIDEO || tool.group == ToolGroup.AUDIO ||
@@ -583,7 +663,16 @@ class ToolViewModel(
             execute(isEnglish)
             return
         }
-        val failedJobId = _state.value.lastJobId ?: return
+        val failedJobId = _state.value.lastJobId
+        if (failedJobId.isNullOrBlank()) {
+            _state.update {
+                it.copy(
+                    isRetryable = false,
+                    jobErrorMessage = ctxRef?.getString(R.string.job_retry_unavailable) ?: it.jobErrorMessage
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             val retried = container.jobManager.retryJob(failedJobId, isEnglish)
             if (retried != null) {
@@ -596,9 +685,86 @@ class ToolViewModel(
                         jobStatus = retried.status,
                         isInterrupted = false,
                         isCancelled = false,
+                        validationError = "",
                         progress = ToolProgress.Queued
                     )
                 }
+            } else {
+                _state.update {
+                    it.copy(
+                        isRetryable = false,
+                        jobErrorMessage = ctxRef?.getString(R.string.job_retry_unavailable) ?: it.jobErrorMessage
+                    )
+                }
+            }
+        }
+    }
+
+    fun beginSafExport(output: ToolOutputFile) {
+        _state.update { it.copy(pendingExportOutput = output, exportState = ExportState.Idle) }
+    }
+
+    fun completeSafExport(destUri: Uri?) {
+        val output = _state.value.pendingExportOutput
+        if (destUri == null || output == null) {
+            _state.update { it.copy(pendingExportOutput = null) }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(exportState = ExportState.Exporting(output.displayName)) }
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { container.storage.copyFileToUri(output.file, destUri) }.getOrDefault(false)
+            }
+            _state.update {
+                it.copy(
+                    pendingExportOutput = null,
+                    exportState = if (ok) ExportState.Succeeded(output.displayName) else ExportState.Failed(output.displayName)
+                )
+            }
+        }
+    }
+
+    fun exportToDefaultFolderOrRequestSaf(
+        output: ToolOutputFile,
+        defaultTreeUri: String,
+        onRequestSaf: (ToolOutputFile) -> Unit
+    ) {
+        if (defaultTreeUri.isBlank()) {
+            beginSafExport(output)
+            onRequestSaf(output)
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(exportState = ExportState.Exporting(output.displayName)) }
+            val savedUri = withContext(Dispatchers.IO) {
+                runCatching {
+                    container.storage.saveToTreeUri(
+                        source = output.file,
+                        treeUri = Uri.parse(defaultTreeUri),
+                        mimeType = output.mimeType
+                    )
+                }.getOrNull()
+            }
+            if (savedUri != null) {
+                _state.update { it.copy(exportState = ExportState.Succeeded(output.displayName)) }
+            } else {
+                beginSafExport(output)
+                onRequestSaf(output)
+            }
+        }
+    }
+
+    fun clearExportState() {
+        _state.update { it.copy(exportState = ExportState.Idle) }
+    }
+
+    fun deleteOutput(output: ToolOutputFile) {
+        viewModelScope.launch {
+            val deleted = withContext(Dispatchers.IO) {
+                runCatching { output.file.delete() || !output.file.exists() }.getOrDefault(false)
+            }
+            if (deleted) {
+                _state.update { it.copy(deletedOutputPaths = it.deletedOutputPaths + output.file.absolutePath) }
             }
         }
     }

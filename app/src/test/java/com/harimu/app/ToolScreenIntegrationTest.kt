@@ -26,9 +26,24 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
 import com.harimu.app.core.data.AppSettings
+import com.harimu.app.core.data.JobEntity
 import com.harimu.app.core.design.HariMuTheme
+import com.harimu.app.core.design.ParamValidation
 import com.harimu.app.core.design.ThemeMode
+import com.harimu.app.core.design.ToolParameterPanel
+import com.harimu.app.core.jobs.ToolJobWorker
+import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolInputCodec
+import com.harimu.app.core.toolapi.ToolOutputFile
+import com.harimu.app.core.toolapi.ToolParam
+import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.core.toolapi.ToolRegistry
+import com.harimu.app.feature.toolscreen.ExportState
 import com.harimu.app.feature.toolscreen.ToolScreen
+import com.harimu.app.feature.toolscreen.ToolViewModel
+import com.harimu.app.feature.toolscreen.ToolWorkspaceValidator
+import com.harimu.app.feature.toolscreen.WorkspaceStage
+import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -166,10 +181,10 @@ class ToolScreenIntegrationTest {
         withMainActivity { activity ->
             val container = (activity.application as HariMuApp).container
 
-            // Test with compound input tool (VID-08 Video to Audio - VideoAndAudio)
+            // Test with compound input tool (VID-13 Add Music/Audio - VideoAndAudio)
             setTestContent(activity, isEnglish = true) {
                 ToolScreen(
-                    toolId = "VID-08",
+                    toolId = "VID-13",
                     container = container,
                     isEnglish = true,
                     isFavorite = false,
@@ -183,9 +198,9 @@ class ToolScreenIntegrationTest {
             // Verify secondary audio picker button
             val secondaryAudioBtn = nodes.firstOrNull {
                 it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Background Audio") == true ||
-                it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Audio Latar") == true
+                    it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Audio Latar") == true
             }
-            assertNotNull("Expected secondary audio picker for VID-08", secondaryAudioBtn)
+            assertNotNull("Expected secondary audio picker for VID-13", secondaryAudioBtn)
         }
     }
 
@@ -281,6 +296,263 @@ class ToolScreenIntegrationTest {
 
             val tiledToggle = nodes.firstOrNull { it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Tiled") == true }
             assertNotNull("Expected Tiled Pattern toggle parameter", tiledToggle)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun workspaceValidatorCoversAllRealStages() {
+        withMainActivity { activity ->
+            val pdfMerge = ToolRegistry.findById("PDF-01")!!
+            val vidMergeAudio = ToolRegistry.findById("VID-13")!!
+            val vidTrim = ToolRegistry.findById("VID-01")!!
+            val cnvJsonXml = ToolRegistry.findById("CNV-23")!!
+            val pdfWm = ToolRegistry.findById("PDF-11")
+
+            val tempA = File(activity.cacheDir, "b5_a.bin").apply { writeText("A") }
+            val tempB = File(activity.cacheDir, "b5_b.bin").apply { writeText("B") }
+            val uriA = Uri.fromFile(tempA)
+            val uriB = Uri.fromFile(tempB)
+
+            // InputMissing for min-2 file tool
+            val missingTwo = ToolWorkspaceValidator.validateWorkspaceInput(
+                context = activity,
+                tool = pdfMerge,
+                input = ToolInput(uris = listOf(uriA))
+            )
+            assertFalse(missingTwo.isValid)
+            assertEquals(WorkspaceStage.INPUT_MISSING, missingTwo.stage)
+
+            // Ready when 2 readable files supplied
+            val twoReady = ToolWorkspaceValidator.validateWorkspaceInput(
+                context = activity,
+                tool = pdfMerge,
+                input = ToolInput(uris = listOf(uriA, uriB))
+            )
+            assertTrue(twoReady.isValid)
+            assertEquals(WorkspaceStage.READY, twoReady.stage)
+
+            // Compound VideoAndAudio requires secondaryUri
+            val missingSecondary = ToolWorkspaceValidator.validateWorkspaceInput(
+                context = activity,
+                tool = vidMergeAudio,
+                input = ToolInput(uris = listOf(uriA), secondaryUri = null)
+            )
+            assertFalse(missingSecondary.isValid)
+            assertEquals(WorkspaceStage.INPUT_MISSING, missingSecondary.stage)
+
+            // PdfAndImage only requires secondaryUri when mode == Gambar
+            if (pdfWm != null) {
+                val textMode = ToolWorkspaceValidator.validateWorkspaceInput(
+                    context = activity,
+                    tool = pdfWm,
+                    input = ToolInput(uris = listOf(uriA), params = mapOf("mode" to "Teks"))
+                )
+                assertTrue(textMode.isValid)
+
+                val imageModeMissing = ToolWorkspaceValidator.validateWorkspaceInput(
+                    context = activity,
+                    tool = pdfWm,
+                    input = ToolInput(uris = listOf(uriA), params = mapOf("mode" to "Gambar"))
+                )
+                assertFalse(imageModeMissing.isValid)
+                assertEquals(WorkspaceStage.INPUT_MISSING, imageModeMissing.stage)
+            }
+
+            // Unreadable file => InvalidInput
+            val missingUri = Uri.fromFile(File(activity.cacheDir, "does_not_exist_123.mp4"))
+            val unreadable = ToolWorkspaceValidator.validateWorkspaceInput(
+                context = activity,
+                tool = vidTrim,
+                input = ToolInput(uris = listOf(missingUri))
+            )
+            assertFalse(unreadable.isValid)
+            assertEquals(WorkspaceStage.INVALID_INPUT, unreadable.stage)
+
+            // Trim endSec <= startSec (with endSec > 0) => InvalidInput; endSec == 0 => Ready
+            val badTrim = ToolWorkspaceValidator.validateWorkspaceInput(
+                context = activity,
+                tool = vidTrim,
+                input = ToolInput(uris = listOf(uriA), params = mapOf("startSec" to 12f, "endSec" to 4f))
+            )
+            assertFalse(badTrim.isValid)
+            assertEquals(WorkspaceStage.INVALID_INPUT, badTrim.stage)
+
+            val endAtFileEnd = ToolWorkspaceValidator.validateWorkspaceInput(
+                context = activity,
+                tool = vidTrim,
+                input = ToolInput(uris = listOf(uriA), params = mapOf("startSec" to 12f, "endSec" to 0f))
+            )
+            assertTrue(endAtFileEnd.isValid)
+
+            // TextInput blank => InputMissing; non-blank => Ready
+            assertEquals(
+                WorkspaceStage.INPUT_MISSING,
+                ToolWorkspaceValidator.validateWorkspaceInput(activity, cnvJsonXml, ToolInput(textInput = "  ")).stage
+            )
+            assertEquals(
+                WorkspaceStage.READY,
+                ToolWorkspaceValidator.validateWorkspaceInput(activity, cnvJsonXml, ToolInput(textInput = "{\"a\":1}")).stage
+            )
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun invalidParameterDoesNotDisableControlAndRemainsEditable() {
+        withMainActivity { activity ->
+            val currentVal = mutableStateOf(0f)
+            val param = ToolParam.SliderParam("angle", "Angle", "Angle", 0f, 360f, 0f)
+            val toggleParam = ToolParam.ToggleParam("flag", "Enable Option", "Enable Option", false)
+            setTestContent(activity, isEnglish = true) {
+                ToolParameterPanel(
+                    params = listOf(param, toggleParam),
+                    paramValues = mapOf("angle" to currentVal.value, "flag" to false),
+                    onParamChange = { key, value ->
+                        if (key == "angle") currentVal.value = (value as Number).toFloat()
+                    },
+                    validators = mapOf(
+                        "angle" to { ParamValidation.Invalid("Out of range test") },
+                        "flag" to { ParamValidation.Invalid("Toggle error test") }
+                    ),
+                    isEnglish = true
+                )
+            }
+            val nodes = collectSemanticsNodes(activity.window.decorView)
+            val switchNode = nodes.firstOrNull {
+                it.config.getOrNull(SemanticsProperties.ToggleableState) != null
+            }
+            assertNotNull("Expected toggle switch in parameter panel", switchNode)
+            assertNull(
+                "Invalid parameter control must remain enabled so user can fix it",
+                switchNode!!.config.getOrNull(SemanticsProperties.Disabled)
+            )
+            val errMsg = nodes.firstOrNull {
+                it.config.getOrNull(SemanticsProperties.Text)?.joinToString(" ")?.contains("Out of range test") == true
+            }
+            assertNotNull("Expected validation error message", errMsg)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun toolViewModelHydratesJobExportsSafelyAndHandlesRetry() {
+        withMainActivity { activity ->
+            val container = (activity.application as HariMuApp).container
+            val srcInput = File(activity.cacheDir, "b5_vm_in.json").apply { writeText("{\"k\":1}") }
+            val inputJson = ToolInputCodec.encode(
+                ToolInput(
+                    uris = listOf(Uri.fromFile(srcInput)),
+                    textInput = "{\"hello\":\"world\"}",
+                    params = mapOf("direction" to "JSON → XML")
+                )
+            )
+            val failedJob = JobEntity(
+                jobId = "b5-hydrated-job",
+                workRequestId = "b5-work-req",
+                toolId = "CNV-23",
+                toolTitle = "JSON/XML",
+                groupName = "CONVERTER",
+                isDummy = false,
+                status = ToolJobWorker.STATUS_FAILED,
+                executionMode = ToolJobWorker.MODE_IN_PROCESS,
+                errorMessage = "Simulated failure",
+                inputJson = inputJson,
+                isRetryable = true,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+            runBlocking { container.database.jobDao().upsert(failedJob) }
+
+            val vm = ToolViewModel("CNV-23", container, initialJobId = "b5-hydrated-job")
+            vm.bindContext(activity)
+            val deadline = System.currentTimeMillis() + 3000L
+            while (vm.state.value.lastJobId != "b5-hydrated-job" && System.currentTimeMillis() < deadline) {
+                ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+                Thread.sleep(20L)
+            }
+            assertEquals("b5-hydrated-job", vm.state.value.lastJobId)
+            assertEquals("{\"hello\":\"world\"}", vm.state.value.textInput)
+            assertEquals("JSON → XML", vm.state.value.paramValues["direction"])
+
+            // Lifecycle-safe SAF export writes real bytes and updates ExportState
+            val exportSource = File(activity.cacheDir, "b5_export_src.txt").apply { writeText("export-payload-123") }
+            val exportDest = File(activity.cacheDir, "b5_export_dest.txt")
+            val outFile = ToolOutputFile(exportSource, "text/plain", "b5_export_dest.txt")
+            vm.beginSafExport(outFile)
+            assertEquals(outFile, vm.state.value.pendingExportOutput)
+            vm.completeSafExport(Uri.fromFile(exportDest))
+            val exportDeadline = System.currentTimeMillis() + 3000L
+            while (vm.state.value.exportState !is ExportState.Succeeded && System.currentTimeMillis() < exportDeadline) {
+                ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+                Thread.sleep(20L)
+            }
+            assertTrue(vm.state.value.exportState is ExportState.Succeeded)
+            assertEquals("export-payload-123", exportDest.readText())
+
+            // Delete output updates deletedOutputPaths
+            vm.deleteOutput(outFile)
+            val delDeadline = System.currentTimeMillis() + 2000L
+            while (exportSource.absolutePath !in vm.state.value.deletedOutputPaths && System.currentTimeMillis() < delDeadline) {
+                ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+                Thread.sleep(20L)
+            }
+            assertFalse(exportSource.exists())
+            assertTrue(exportSource.absolutePath in vm.state.value.deletedOutputPaths)
+
+            // Retry with missing jobId surfaces retry unavailable message cleanly
+            val emptyVm = ToolViewModel("VID-01", container, initialJobId = null)
+            emptyVm.bindContext(activity)
+            emptyVm.retry(isEnglish = true)
+            assertFalse(emptyVm.state.value.isRetryable)
+            assertTrue(emptyVm.state.value.jobErrorMessage.isNotBlank())
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w900dp-h600dp")
+    fun toolScreenAdaptiveTabletTwoPaneRenders() {
+        withMainActivity { activity ->
+            val container = (activity.application as HariMuApp).container
+            setTestContent(activity, isEnglish = true) {
+                ToolScreen(
+                    toolId = "CNV-23",
+                    container = container,
+                    isEnglish = true,
+                    isFavorite = false,
+                    onToggleFavorite = {},
+                    onBack = {}
+                )
+            }
+            val nodes = collectSemanticsNodes(activity.window.decorView)
+            assertNotNull("Expected two-pane layout on tablet width", findByTag(nodes, "tool_two_pane_layout"))
+            assertNotNull("Expected workspace readiness card", findByTag(nodes, "workspace_readiness_card"))
+            assertNotNull("Expected run button", findByTag(nodes, "run_tool_button"))
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun toolScreenWorksAcrossRepresentativeEngineCategories() {
+        val representativeIds = listOf("CORE-03", "VID-01", "AUD-09", "IMG-06", "PDF-01", "CNV-23")
+        withMainActivity { activity ->
+            val container = (activity.application as HariMuApp).container
+            representativeIds.forEach { id ->
+                setTestContent(activity, isEnglish = true) {
+                    ToolScreen(
+                        toolId = id,
+                        container = container,
+                        isEnglish = true,
+                        isFavorite = false,
+                        onToggleFavorite = {},
+                        onBack = {}
+                    )
+                }
+                val nodes = collectSemanticsNodes(activity.window.decorView)
+                assertNotNull("Missing header card for $id", findByTag(nodes, "tool_card_$id"))
+                assertNotNull("Missing readiness card for $id", findByTag(nodes, "workspace_readiness_card"))
+                assertNotNull("Missing run button for $id", findByTag(nodes, "run_tool_button"))
+            }
         }
     }
 

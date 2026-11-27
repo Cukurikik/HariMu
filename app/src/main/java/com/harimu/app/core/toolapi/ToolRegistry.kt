@@ -57,14 +57,30 @@ object ToolRegistry {
 
     fun search(query: String, isEnglish: Boolean, groupFilter: ToolGroup? = null): List<Tool> {
         val q = query.trim().lowercase()
-        return allTools.filter { tool ->
-            val groupMatch = groupFilter == null || tool.group == groupFilter
-            val queryMatch = q.isEmpty() ||
-                tool.id.lowercase().contains(q) ||
-                tool.title(isEnglish).lowercase().contains(q) ||
-                tool.description(isEnglish).lowercase().contains(q) ||
-                tool.engineLabel.lowercase().contains(q)
-            groupMatch && queryMatch
-        }
+        val scoped = if (groupFilter == null) allTools else allTools.filter { it.group == groupFilter }
+        if (q.isEmpty()) return scoped
+
+        val tokens = q.split(Regex("\\s+")).filter { it.isNotBlank() }
+        return scoped.mapNotNull { tool ->
+            val idLower = tool.id.lowercase()
+            val primaryTitle = tool.title(isEnglish).lowercase()
+            val secondaryTitle = tool.title(!isEnglish).lowercase()
+            val primaryDesc = tool.description(isEnglish).lowercase()
+            val engineLower = tool.engineLabel.lowercase()
+            val groupLabel = (if (isEnglish) tool.group.titleEn else tool.group.titleId).lowercase()
+            val searchable = "$idLower $primaryTitle $secondaryTitle $primaryDesc $engineLower $groupLabel"
+
+            val matches = tokens.all { token -> searchable.contains(token) }
+            if (!matches) return@mapNotNull null
+
+            val rank = when {
+                idLower == q -> 0
+                primaryTitle.startsWith(q) -> 1
+                primaryTitle.contains(q) -> 2
+                idLower.contains(q) || secondaryTitle.contains(q) -> 3
+                else -> 4
+            }
+            rank to tool
+        }.sortedBy { it.first }.map { it.second }
     }
 }

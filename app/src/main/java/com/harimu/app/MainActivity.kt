@@ -93,7 +93,7 @@ import java.util.Locale
 @Serializable data object HistoryRoute
 @Serializable data object FavoritesRoute
 @Serializable data object SettingsRoute
-@Serializable data class CatalogRoute(val groupName: String? = null)
+@Serializable data class CatalogRoute(val groupName: String? = null, val initialQuery: String? = null)
 @Serializable data class ToolRoute(val toolId: String, val jobId: String? = null)
 @Serializable data object VoiceRecorderRoute
 @Serializable data object ScreenRecorderRoute
@@ -198,11 +198,18 @@ private fun HariMuRoot(
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
-    val favoriteIds by container.workspace.favoriteIdsFlow.collectAsStateWithLifecycle(initialValue = emptySet())
-    val historyItems by container.workspace.historyFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val favoriteIdsOrNull by container.workspace.favoriteIdsFlow.collectAsStateWithLifecycle(initialValue = null)
+    val favoriteIds = favoriteIdsOrNull ?: emptySet()
+    val favoritesLoaded = favoriteIdsOrNull != null
+    val historyItemsOrNull by container.workspace.historyFlow.collectAsStateWithLifecycle(initialValue = null)
+    val historyItems = historyItemsOrNull ?: emptyList()
+    val historyLoaded = historyItemsOrNull != null
     val allJobs by container.jobManager.observeAllJobs().collectAsStateWithLifecycle(initialValue = emptyList())
     val activeJobCount = remember(allJobs) { allJobs.count { ToolJobWorker.isActiveStatus(it.status) } }
     val attentionJobCount = remember(allJobs) { allJobs.count { ToolJobWorker.isAttentionStatus(it.status) } }
+    val toggleFavorite: (String) -> Unit = remember(container) {
+        { id -> scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(id) } }
+    }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDest = navBackStackEntry?.destination
     // The first frame has no back stack entry yet; show the frame as if Home were active.
@@ -259,8 +266,14 @@ private fun HariMuRoot(
         onSelectDestination = { destination -> navController.navigateToTopLevel(destination) },
         topBar = {
             if (currentTopLevel != null && !currentTopLevel.providesOwnTopBar) {
+                val topBarTitleRes = when (currentTopLevel) {
+                    TopLevelDestination.FAVORITES -> R.string.nav_favorites
+                    TopLevelDestination.HISTORY -> R.string.nav_history
+                    TopLevelDestination.SETTINGS -> R.string.nav_settings
+                    else -> R.string.app_name
+                }
                 HariMuTopBar(
-                    title = stringResource(R.string.app_name),
+                    title = stringResource(topBarTitleRes),
                     onBack = if (!currentTopLevel.showInNavigationBar) {
                         { navController.popBackStack() }
                     } else {
@@ -295,12 +308,16 @@ private fun HariMuRoot(
                                 else -> navController.navigate(CatalogRoute(group.name))
                             }
                         },
-                        onToggleFavorite = { id ->
-                            scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(id) }
-                        },
+                        onToggleFavorite = toggleFavorite,
                         activeJobCount = activeJobCount,
                         attentionJobCount = attentionJobCount,
-                        onOpenJobCenter = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) }
+                        onOpenJobCenter = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
+                        isLoadingWorkspace = !favoritesLoaded || !historyLoaded,
+                        onOpenCatalog = { navController.navigateToTopLevel(TopLevelDestination.CATALOG) },
+                        onOpenFavorites = { navController.navigateToTopLevel(TopLevelDestination.FAVORITES) },
+                        onSearchInCatalog = { query ->
+                            navController.navigate(CatalogRoute(groupName = null, initialQuery = query))
+                        }
                     )
                 }
                 composable<HistoryRoute> {
@@ -316,9 +333,9 @@ private fun HariMuRoot(
                         isEnglish = settings.isEnglish,
                         favoriteIds = favoriteIds,
                         onOpenTool = ::openTool,
-                        onToggleFavorite = { id ->
-                            scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(id) }
-                        }
+                        onToggleFavorite = toggleFavorite,
+                        isLoading = !favoritesLoaded,
+                        onBrowseCatalog = { navController.navigateToTopLevel(TopLevelDestination.CATALOG) }
                     )
                 }
                 composable<SettingsRoute> {
@@ -340,12 +357,10 @@ private fun HariMuRoot(
                         isEnglish = settings.isEnglish,
                         favoriteIds = favoriteIds,
                         onOpenTool = ::openTool,
-                        onToggleFavorite = { id ->
-                            scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(id) }
-                        },
-                        // Direct entries into a group keep an explicit way back; the catalog tab
-                        // itself is a root destination and has nothing to pop.
-                        onBack = if (args.groupName != null) {
+                        onToggleFavorite = toggleFavorite,
+                        // Direct entries into a group or pre-filled query keep an explicit way back;
+                        // the catalog tab itself is a root destination and has nothing to pop.
+                        onBack = if (args.groupName != null || !args.initialQuery.isNullOrBlank()) {
                             { navController.popBackStack() }
                         } else {
                             null
@@ -356,7 +371,8 @@ private fun HariMuRoot(
                         onOpenPdfVault = { navController.navigate(PdfVaultRoute) },
                         onOpenPdfStudio = { navController.navigate(PdfStudioRoute()) },
                         onOpenUniversalConverter = { navController.navigate(UniversalConverterRoute()) },
-                        onOpenVideoForge = { navController.navigate(VideoForgeRoute) }
+                        onOpenVideoForge = { navController.navigate(VideoForgeRoute) },
+                        initialQuery = args.initialQuery.orEmpty()
                     )
                 }
                 composable<ToolRoute> { entry ->
@@ -366,9 +382,7 @@ private fun HariMuRoot(
                         container = container,
                         isEnglish = settings.isEnglish,
                         isFavorite = args.toolId in favoriteIds,
-                        onToggleFavorite = {
-                            scope.launch(Dispatchers.IO) { container.workspace.toggleFavorite(args.toolId) }
-                        },
+                        onToggleFavorite = { toggleFavorite(args.toolId) },
                         onBack = { navController.popBackStack() },
                         onOpenPdfStudio = { tab, id ->
                             navController.navigate(PdfStudioRoute(initialTab = tab, initialToolId = id))
