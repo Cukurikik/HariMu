@@ -15,6 +15,7 @@ import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.StaticOverlaySettings
 import com.arthenica.ffmpegkit.FFmpegKitConfig
+import com.harimu.app.core.media.FfmpegCapabilities
 import com.harimu.app.core.media.Media3Request
 import com.harimu.app.core.media.Media3TransformerEngine
 import com.harimu.app.core.media.MediaJob
@@ -72,6 +73,7 @@ fun videoForgeBatch2Tools(
             val probe = validation.probes.first()
             val strength = input.getString("strength", "Sedang")
             val cropBorder = input.getBoolean("cropBorder", true)
+            FfmpegCapabilities.requireFilter("deshake", ctx.isEnglish)
             val vf = VideoBatch2Math.buildStabilizeFilter(strength, cropBorder)
 
             emitAll(
@@ -85,14 +87,18 @@ fun videoForgeBatch2Tools(
                     expectedDurationMs = probe.durationMs,
                     isEnglish = ctx.isEnglish
                 ) { inputs, output ->
-                    listOf(
-                        "-y", "-i", inputs.first().absolutePath,
-                        "-vf", vf,
-                        "-c:v", "mpeg4", "-q:v", "3",
-                        "-c:a", "copy",
-                        "-movflags", "+faststart",
-                        output.absolutePath
-                    )
+                    buildList {
+                        add("-y"); add("-i"); add(inputs.first().absolutePath)
+                        add("-vf"); add(vf)
+                        add("-c:v"); add("mpeg4"); add("-q:v"); add("3")
+                        if (probe.hasAudio) {
+                            add("-c:a"); add("copy")
+                        } else {
+                            add("-an")
+                        }
+                        add("-movflags"); add("+faststart")
+                        add(output.absolutePath)
+                    }
                 }
             )
         }.flowOn(Dispatchers.IO)
@@ -127,8 +133,8 @@ fun videoForgeBatch2Tools(
                 return@flow
             }
             val probe = validation.probes.first()
-            val srcW = probe.width.takeIf { it > 0 } ?: 1280
-            val srcH = probe.height.takeIf { it > 0 } ?: 720
+            val srcW = probe.orientedWidth.takeIf { it > 0 } ?: 1280
+            val srcH = probe.orientedHeight.takeIf { it > 0 } ?: 720
             val roi = VideoBatch2Math.clampRoiRect(
                 srcWidth = srcW,
                 srcHeight = srcH,
@@ -138,6 +144,11 @@ fun videoForgeBatch2Tools(
                 hPct = input.getFloat("hPct", 14f)
             )
             val mode = input.getString("mode", "Blur Halus")
+            when {
+                mode.contains("Piksel", ignoreCase = true) -> FfmpegCapabilities.requireFilter("scale", ctx.isEnglish)
+                mode.contains("Rata", ignoreCase = true) -> FfmpegCapabilities.requireFilter("avgblur", ctx.isEnglish)
+                else -> FfmpegCapabilities.requireFilter("gblur", ctx.isEnglish)
+            }
             val strength = input.getFloat("strength", 18f).roundToInt()
             val fc = VideoBatch2Math.buildRemoveLogoFilter(roi, mode, strength)
 
@@ -152,14 +163,18 @@ fun videoForgeBatch2Tools(
                     expectedDurationMs = probe.durationMs,
                     isEnglish = ctx.isEnglish
                 ) { inputs, output ->
-                    listOf(
-                        "-y", "-i", inputs.first().absolutePath,
-                        "-filter_complex", fc,
-                        "-c:v", "mpeg4", "-q:v", "3",
-                        "-c:a", "copy",
-                        "-movflags", "+faststart",
-                        output.absolutePath
-                    )
+                    buildList {
+                        add("-y"); add("-i"); add(inputs.first().absolutePath)
+                        add("-filter_complex"); add(fc)
+                        add("-c:v"); add("mpeg4"); add("-q:v"); add("3")
+                        if (probe.hasAudio) {
+                            add("-c:a"); add("copy")
+                        } else {
+                            add("-an")
+                        }
+                        add("-movflags"); add("+faststart")
+                        add(output.absolutePath)
+                    }
                 }
             )
         }.flowOn(Dispatchers.IO)
@@ -208,6 +223,10 @@ fun videoForgeBatch2Tools(
             val bgBox = input.getBoolean("bgBox", true)
             val startSec = input.getFloat("startSec", 0f).coerceAtLeast(0f)
             val endSec = input.getFloat("endSec", 0f).coerceAtLeast(0f)
+            if (probe.durationMs > 0L && (startSec * 1000f).toLong() >= probe.durationMs) {
+                emit(ToolProgress.Failed(if (ctx.isEnglish) "Show start time reaches or exceeds video duration." else "Waktu mulai tampil melebihi durasi video."))
+                return@flow
+            }
             val hasTiming = startSec > 0.05f || (endSec > 0.05f && (probe.durationMs <= 0L || endSec * 1000f < probe.durationMs - 200f))
             if (endSec > 0f && endSec <= startSec) {
                 emit(ToolProgress.Failed(if (ctx.isEnglish) "End time must exceed start time." else "Waktu selesai tampil harus lebih besar dari waktu mulai."))
@@ -336,7 +355,11 @@ fun videoForgeBatch2Tools(
             val mix = mode.contains("Campur", ignoreCase = true) || mode.contains("Mix", ignoreCase = true)
             val addedVol = input.getFloat("addedVol", 100f)
             val origVol = input.getFloat("origVol", 60f)
-            val offsetSec = input.getFloat("offsetSec", 0f)
+            val offsetSec = input.getFloat("offsetSec", 0f).coerceAtLeast(0f)
+            if (probe.durationMs > 0L && (offsetSec * 1000f).toLong() >= probe.durationMs) {
+                emit(ToolProgress.Failed(if (ctx.isEnglish) "Audio offset reaches or exceeds video duration." else "Jeda mulai audio melebihi durasi video."))
+                return@flow
+            }
             val (fc, outMap) = VideoBatch2Math.buildAddAudioFilter(
                 videoHasAudio = probe.hasAudio,
                 mixWithOriginal = mix,
@@ -417,6 +440,10 @@ fun videoForgeBatch2Tools(
             val opacityPct = input.getFloat("opacityPct", 85f).coerceIn(10f, 100f)
             val startSec = input.getFloat("startSec", 0f).coerceAtLeast(0f)
             val endSec = input.getFloat("endSec", 0f).coerceAtLeast(0f)
+            if (probe.durationMs > 0L && (startSec * 1000f).toLong() >= probe.durationMs) {
+                emit(ToolProgress.Failed(if (ctx.isEnglish) "Show start time reaches or exceeds video duration." else "Waktu mulai tampil melebihi durasi video."))
+                return@flow
+            }
             if (endSec > 0f && endSec <= startSec) {
                 emit(ToolProgress.Failed(if (ctx.isEnglish) "End time must exceed start time." else "Waktu selesai tampil harus lebih besar dari waktu mulai."))
                 return@flow
@@ -424,7 +451,7 @@ fun videoForgeBatch2Tools(
             val hasTiming = startSec > 0.05f || (endSec > 0.05f && (probe.durationMs <= 0L || endSec * 1000f < probe.durationMs - 200f))
 
             val jobDir = ctx.storage.createJobTempDir("imgovr_${UUID.randomUUID().toString().take(6)}")
-            val localImg = decodeScaledOverlayBitmap(ctx.appContext, imgUri, probe.width.takeIf { it > 0 } ?: 1280, scalePct)
+            val localImg = decodeScaledOverlayBitmap(ctx.appContext, imgUri, probe.orientedWidth.takeIf { it > 0 } ?: 1280, scalePct)
             if (localImg == null) {
                 MediaUriUtils.cleanupQuietly(jobDir)
                 emit(ToolProgress.Failed(if (ctx.isEnglish) "Could not decode overlay image." else "Gagal membaca gambar overlay."))
@@ -563,13 +590,14 @@ fun videoForgeBatch2Tools(
             }
 
             val probe = validation.probes.first()
+            FfmpegCapabilities.requireFilter("ass", ctx.isEnglish)
             val jobDir = ctx.storage.createJobTempDir("sub_${UUID.randomUUID().toString().take(6)}")
             val assFile = File(jobDir, "styled_subs.ass")
             assFile.writeText(
                 SubtitleParser.toAssContent(
                     cues = cues,
-                    playResW = probe.width.takeIf { it > 0 } ?: 1280,
-                    playResH = probe.height.takeIf { it > 0 } ?: 720,
+                    playResW = probe.orientedWidth.takeIf { it > 0 } ?: 1280,
+                    playResH = probe.orientedHeight.takeIf { it > 0 } ?: 720,
                     fontSize = input.getFloat("fontSize", 36f).roundToInt(),
                     colorName = input.getString("color", "Putih"),
                     styleMode = input.getString("style", "Outline Hitam"),
@@ -592,15 +620,19 @@ fun videoForgeBatch2Tools(
                         expectedDurationMs = probe.durationMs,
                         isEnglish = ctx.isEnglish
                     ) { inputs, output ->
-                        listOf(
-                            "-y",
-                            "-i", inputs.first().absolutePath,
-                            "-vf", "ass='$escapedAssPath'",
-                            "-c:v", "mpeg4", "-q:v", "3",
-                            "-c:a", "copy",
-                            "-movflags", "+faststart",
-                            output.absolutePath
-                        )
+                        buildList {
+                            add("-y")
+                            add("-i"); add(inputs.first().absolutePath)
+                            add("-vf"); add("ass='$escapedAssPath'")
+                            add("-c:v"); add("mpeg4"); add("-q:v"); add("3")
+                            if (probe.hasAudio) {
+                                add("-c:a"); add("copy")
+                            } else {
+                                add("-an")
+                            }
+                            add("-movflags"); add("+faststart")
+                            add(output.absolutePath)
+                        }
                     }
                 )
             } finally {

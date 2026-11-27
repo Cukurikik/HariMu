@@ -94,6 +94,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
@@ -136,8 +139,19 @@ fun AudioStudioScreen(
     val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
 
     val playbackController = remember(context) { AudioStudioPlaybackController(context.applicationContext) }
-    DisposableEffect(playbackController) {
-        onDispose { playbackController.release() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, playbackController) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                playbackController.pauseAll()
+                vm.setPlaying(false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            playbackController.release()
+        }
     }
 
     var showProjectsDialog by remember { mutableStateOf(false) }
@@ -154,6 +168,7 @@ fun AudioStudioScreen(
 
     val savedToast = stringResource(R.string.toast_saved)
     val saveFailedToast = stringResource(R.string.toast_save_failed)
+    val shareNoAppToast = stringResource(R.string.workspace_share_no_app)
 
     val audioPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -189,7 +204,7 @@ fun AudioStudioScreen(
         vm.ensureClipWaveforms(context)
     }
 
-    LaunchedEffect(state.isPlaying, state.playheadPositionMs, state.tracks, state.masterVolume) {
+    LaunchedEffect(state.isPlaying, state.tracks, state.masterVolume) {
         playbackController.syncState(
             tracks = state.tracks,
             masterVolume = state.masterVolume,
@@ -198,13 +213,13 @@ fun AudioStudioScreen(
         )
     }
 
-    // Playhead ticker
-    LaunchedEffect(state.isPlaying, state.totalDurationMs) {
-        if (state.isPlaying) {
+    // Playhead ticker bounded by actual timeline clip duration
+    LaunchedEffect(state.isPlaying, state.actualDurationMs, state.tracks, state.masterVolume) {
+        if (state.isPlaying && state.actualDurationMs > 0L) {
             val startTime = System.currentTimeMillis() - state.playheadPositionMs
             while (state.isPlaying) {
                 val current = System.currentTimeMillis() - startTime
-                if (current >= state.totalDurationMs) {
+                if (current >= state.actualDurationMs) {
                     vm.seekPlayhead(0L)
                     vm.setPlaying(false)
                     playbackController.pauseAll()
@@ -212,8 +227,16 @@ fun AudioStudioScreen(
                     break
                 }
                 vm.seekPlayhead(current)
+                playbackController.syncState(
+                    tracks = state.tracks,
+                    masterVolume = state.masterVolume,
+                    playheadPositionMs = current,
+                    isPlaying = true
+                )
                 delay(50L)
             }
+        } else if (state.isPlaying) {
+            vm.setPlaying(false)
         }
     }
 
@@ -226,7 +249,7 @@ fun AudioStudioScreen(
         track to clip
     }
     val hasAnySolo = remember(state.tracks) { state.tracks.any { it.solo && !it.mute } }
-    val hasAnyClips = remember(state.tracks) { state.tracks.any { it.clips.isNotEmpty() } }
+    val hasAnyClips = state.hasAnyClips
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -298,7 +321,7 @@ fun AudioStudioScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.FolderOpen,
-                            contentDescription = if (isEnglish) "Open Project" else "Buka Proyek"
+                            contentDescription = stringResource(R.string.audio_studio_open_projects)
                         )
                     }
                     IconButton(
@@ -309,7 +332,7 @@ fun AudioStudioScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.SaveAlt,
-                            contentDescription = if (isEnglish) "Export" else "Ekspor",
+                            contentDescription = stringResource(R.string.audio_studio_export_short),
                             tint = HariMuColors.GroupAudio
                         )
                     }
@@ -336,15 +359,17 @@ fun AudioStudioScreen(
                                 vm.seekPlayhead(0L)
                                 playbackController.seekTo(state.tracks, 0L)
                             },
+                            enabled = hasAnyClips,
                             modifier = Modifier.minimumInteractiveComponentSize()
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.FirstPage,
-                                contentDescription = if (isEnglish) "Rewind to start" else "Kembali ke awal"
+                                contentDescription = stringResource(R.string.audio_studio_rewind)
                             )
                         }
                         FilledIconButton(
                             onClick = { vm.togglePlay() },
+                            enabled = hasAnyClips,
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = HariMuColors.GroupAudio,
                                 contentColor = Color.White
@@ -373,7 +398,7 @@ fun AudioStudioScreen(
                     }
 
                     Text(
-                        text = "${AudioTimelineMath.formatDurationMs(state.playheadPositionMs)} / ${AudioTimelineMath.formatDurationMs(state.totalDurationMs)}",
+                        text = "${AudioTimelineMath.formatDurationMs(state.playheadPositionMs)} / ${AudioTimelineMath.formatDurationMs(state.actualDurationMs)}",
                         style = MonoTextStyle.copy(fontWeight = FontWeight.SemiBold),
                         color = HariMuColors.GroupAudio,
                         modifier = Modifier.align(Alignment.CenterVertically)
@@ -431,7 +456,7 @@ fun AudioStudioScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (isEnglish) "Tracks Mixer (${state.tracks.size}/8)" else "Mixer Track (${state.tracks.size}/8)",
+                                    text = "${stringResource(R.string.audio_studio_mixer_title)} (${state.tracks.size}/8)",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -444,7 +469,7 @@ fun AudioStudioScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Add,
-                                        contentDescription = if (isEnglish) "Add Track" else "Tambah Track"
+                                        contentDescription = stringResource(R.string.audio_studio_add_track)
                                     )
                                 }
                             }
@@ -513,7 +538,7 @@ fun AudioStudioScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.ZoomOut,
-                                        contentDescription = if (isEnglish) "Zoom Out" else "Perkecil"
+                                        contentDescription = stringResource(R.string.audio_studio_zoom_out)
                                     )
                                 }
                                 Text(
@@ -526,7 +551,7 @@ fun AudioStudioScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.ZoomIn,
-                                        contentDescription = if (isEnglish) "Zoom In" else "Perbesar"
+                                        contentDescription = stringResource(R.string.audio_studio_zoom_in)
                                     )
                                 }
                             }
@@ -547,7 +572,7 @@ fun AudioStudioScreen(
                                 Icon(Icons.Filled.AudioFile, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isEnglish) "Add Audio" else "Tambah Audio",
+                                    text = stringResource(R.string.audio_studio_add_audio_cta),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -669,7 +694,7 @@ fun AudioStudioScreen(
     if (showProjectsDialog) {
         AlertDialog(
             onDismissRequest = { showProjectsDialog = false },
-            title = { Text(if (isEnglish) "Audio Projects" else "Proyek Audio") },
+            title = { Text(stringResource(R.string.audio_studio_projects_title)) },
             text = {
                 LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                     item {
@@ -684,9 +709,19 @@ fun AudioStudioScreen(
                         ) {
                             Icon(Icons.Filled.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (isEnglish) "Create New Project" else "Buat Proyek Baru")
+                            Text(stringResource(R.string.audio_studio_new_project))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    if (savedProjects.isEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.audio_studio_no_projects),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
                     items(savedProjects, key = { it.id }) { proj ->
                         Card(
@@ -731,7 +766,7 @@ fun AudioStudioScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showProjectsDialog = false }) {
-                    Text(if (isEnglish) "Close" else "Tutup")
+                    Text(stringResource(R.string.action_close))
                 }
             }
         )
@@ -756,12 +791,12 @@ fun AudioStudioScreen(
                     }
                     showRenameProjectDialog = false
                 }) {
-                    Text(if (isEnglish) "Save" else "Simpan")
+                    Text(stringResource(R.string.action_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRenameProjectDialog = false }) {
-                    Text(if (isEnglish) "Cancel" else "Batal")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -770,12 +805,12 @@ fun AudioStudioScreen(
     if (showAddTrackDialog) {
         AlertDialog(
             onDismissRequest = { showAddTrackDialog = false },
-            title = { Text(if (isEnglish) "Add New Track" else "Tambah Track Baru") },
+            title = { Text(stringResource(R.string.audio_studio_add_track)) },
             text = {
                 OutlinedTextField(
                     value = newTrackName,
                     onValueChange = { newTrackName = it },
-                    label = { Text(if (isEnglish) "Track Name" else "Nama Track") },
+                    label = { Text(stringResource(R.string.audio_studio_track_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -786,12 +821,12 @@ fun AudioStudioScreen(
                     newTrackName = ""
                     showAddTrackDialog = false
                 }) {
-                    Text(if (isEnglish) "Add" else "Tambah")
+                    Text(stringResource(R.string.audio_studio_add_track))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddTrackDialog = false }) {
-                    Text(if (isEnglish) "Cancel" else "Batal")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -814,12 +849,12 @@ fun AudioStudioScreen(
                     vm.renameTrack(targetTrack.trackId, renameTrackDraft)
                     renamingTrack = null
                 }) {
-                    Text(if (isEnglish) "Save" else "Simpan")
+                    Text(stringResource(R.string.action_save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { renamingTrack = null }) {
-                    Text(if (isEnglish) "Cancel" else "Batal")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -854,17 +889,23 @@ fun AudioStudioScreen(
                             out.displayName
                         )
                     )
+                }.onFailure {
+                    Toast.makeText(context, shareNoAppToast, Toast.LENGTH_SHORT).show()
                 }
             }
         },
         onShareResult = doneOutput?.let { out ->
             {
-                context.startActivity(
-                    Intent.createChooser(
-                        container.storage.buildShareIntent(out.file, out.mimeType),
-                        out.displayName
+                runCatching {
+                    context.startActivity(
+                        Intent.createChooser(
+                            container.storage.buildShareIntent(out.file, out.mimeType),
+                            out.displayName
+                        )
                     )
-                )
+                }.onFailure {
+                    Toast.makeText(context, shareNoAppToast, Toast.LENGTH_SHORT).show()
+                }
             }
         },
         onSaveResult = doneOutput?.let { out ->

@@ -1117,4 +1117,18 @@
     <string name="converter_honest_cnv20">Mendukung CBZ (ZIP) dan CBR/RAR (baca-saja) dengan urutan halaman alami. EPUB keluaran bersifat minimal per gambar.</string>
     <string name="converter_honest_cnv21">Hanya mendukung TTF/OTF ⇄ WOFF 1.0. WOFF2 (Brotli) dan konversi outline OTF(CFF) ⇄ TTF ditolak secara jelas.</string>
     <string name="converter_honest_cnv22">Subsetting glif TrueType ke WOFF 1.0 (tabel hinting/GSUB/GPOS/kern dibuang). Font CFF/OTF dan WOFF2 ditolak.</string>
+
+    <string name="tool_open_cta">Buka alat →</string>
+    <string name="tool_tap_to_open">Sentuh untuk buka</string>
+    <string name="tool_count_badge">%1$d alat</string>
+    <string name="tool_search_placeholder_default">Cari alat…</string>
+    <string name="editor_set_start">Set Mulai</string>
+    <string name="editor_set_end">Set Selesai</string>
+    <string name="editor_reset_trim">Reset</string>
+    <string name="editor_export_badge">Ekspor: %1$d°</string>
+    <string name="editor_last_saved_time">Tersimpan %1$s</string>
+    <string name="video_preview_error">Video tidak dapat diputar</string>
+    <string name="video_preview_loading">Memuat pratinjau…</string>
+    <string name="roi_preview_unavailable">Pratinjau frame tidak tersedia</string>
+    <string name="action_close">Tutup</string>
 </resources>

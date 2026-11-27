@@ -14,6 +14,7 @@ import com.harimu.app.core.media.VideoEditorMath
 import com.harimu.app.core.toolapi.ToolProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ data class VideoEditorUiState(
     val clips: List<EditorClipSpec> = emptyList(),
     val selectedClipId: String? = null,
     val outputResolution: String = "720p",
+    val timelineZoom: Float = 1.0f,
     val createdAt: Long = System.currentTimeMillis(),
     val isExporting: Boolean = false,
     val progress: ToolProgress? = null,
@@ -55,6 +57,7 @@ class VideoEditorViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private var exportJob: Job? = null
+    private var autoSaveJob: Job? = null
 
     fun initializeDefaultTitle(defaultTitle: String) {
         _state.update { current ->
@@ -68,6 +71,7 @@ class VideoEditorViewModel(
 
     fun newProject(defaultTitle: String) {
         exportJob?.cancel()
+        autoSaveJob?.cancel()
         _state.value = VideoEditorUiState(
             projectId = UUID.randomUUID().toString(),
             title = defaultTitle,
@@ -79,6 +83,7 @@ class VideoEditorViewModel(
 
     fun loadProject(entity: VideoProjectEntity) {
         exportJob?.cancel()
+        autoSaveJob?.cancel()
         val loadedClips = container.workspace.decodeEditorClips(entity.clipsJson)
         _state.value = VideoEditorUiState(
             projectId = entity.id,
@@ -99,11 +104,16 @@ class VideoEditorViewModel(
 
     fun setTitle(title: String) {
         _state.update { it.copy(title = title) }
+        persistProjectDebounced()
     }
 
     fun setResolution(resolution: String) {
         _state.update { it.copy(outputResolution = resolution) }
         persistCurrentProjectQuietly()
+    }
+
+    fun setTimelineZoom(zoom: Float) {
+        _state.update { it.copy(timelineZoom = zoom.coerceIn(0.25f, 4.0f)) }
     }
 
     fun addClips(context: Context, uris: List<Uri>) {
@@ -185,9 +195,11 @@ class VideoEditorViewModel(
             val updated = st.clips.map { if (it.id == targetId) transform(it) else it }
             st.copy(clips = updated)
         }
+        persistProjectDebounced()
     }
 
     fun saveProjectNow(onSaved: () -> Unit = {}) {
+        autoSaveJob?.cancel()
         val st = _state.value
         viewModelScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
@@ -272,6 +284,15 @@ class VideoEditorViewModel(
         _state.update { it.copy(isExporting = false, progress = null) }
     }
 
+    private fun persistProjectDebounced() {
+        if (_state.value.clips.isEmpty()) return
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(750L)
+            persistCurrentProjectQuietly()
+        }
+    }
+
     private fun persistCurrentProjectQuietly() {
         val st = _state.value
         if (st.clips.isEmpty()) return
@@ -287,6 +308,12 @@ class VideoEditorViewModel(
                 _state.update { it.copy(lastSavedAt = System.currentTimeMillis()) }
             }
         }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        exportJob?.cancel()
+        super.onCleared()
     }
 
     class Factory(private val container: AppContainer) : ViewModelProvider.Factory {

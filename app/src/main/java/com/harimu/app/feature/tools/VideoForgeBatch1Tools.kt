@@ -70,13 +70,8 @@ fun videoForgeBatch1CoreTools(
                 val requestedEnd = (rawEndSec * 1000f).toLong()
                 if (probe.durationMs > 0L) requestedEnd.coerceAtMost(probe.durationMs) else requestedEnd
             }
-            if (endMs <= startMs) {
-                emit(
-                    ToolProgress.Failed(
-                        if (ctx.isEnglish) "End time must be greater than start time."
-                        else "Waktu selesai harus lebih besar dari waktu mulai."
-                    )
-                )
+            VideoToolMath.validateTrimRange(startMs, endMs, probe.durationMs, ctx.isEnglish)?.let { err ->
+                emit(ToolProgress.Failed(err))
                 return@flow
             }
 
@@ -141,8 +136,8 @@ fun videoForgeBatch1CoreTools(
                 return@flow
             }
             val firstProbe = validation.probes.first()
-            val targetW = VideoToolMath.makeEven(firstProbe.width.takeIf { it > 0 } ?: 1280)
-            val targetH = VideoToolMath.makeEven(firstProbe.height.takeIf { it > 0 } ?: 720)
+            val targetW = VideoToolMath.makeEven(firstProbe.orientedWidth.takeIf { it > 0 } ?: 1280)
+            val targetH = VideoToolMath.makeEven(firstProbe.orientedHeight.takeIf { it > 0 } ?: 720)
             val totalDur = validation.probes.sumOf { it.durationMs }
             val allHaveAudio = validation.probes.all { it.hasAudio }
 
@@ -223,8 +218,8 @@ fun videoForgeBatch1CoreTools(
             val probe = validation.probes.first()
             val ratio = input.getString("ratio", "1:1")
             val cropRect = VideoToolMath.calculateCropRect(
-                srcWidth = probe.width.takeIf { it > 0 } ?: 1280,
-                srcHeight = probe.height.takeIf { it > 0 } ?: 720,
+                srcWidth = probe.orientedWidth.takeIf { it > 0 } ?: 1280,
+                srcHeight = probe.orientedHeight.takeIf { it > 0 } ?: 720,
                 ratioLabel = ratio
             )
 
@@ -291,8 +286,8 @@ fun videoForgeBatch1CoreTools(
             val probe = validation.probes.first()
             val preset = input.getString("res", "720p")
             val dims = VideoToolMath.calculateTargetDimensions(
-                srcWidth = probe.width.takeIf { it > 0 } ?: 1280,
-                srcHeight = probe.height.takeIf { it > 0 } ?: 720,
+                srcWidth = probe.orientedWidth.takeIf { it > 0 } ?: 1280,
+                srcHeight = probe.orientedHeight.takeIf { it > 0 } ?: 720,
                 preset = preset
             )
 
@@ -566,8 +561,8 @@ fun videoForgeBatch1CoreTools(
             val probe = validation.probes.first()
             val crf = input.getFloat("crf", 24f).toInt().coerceIn(18, 35)
             val scaleChoice = input.getString("scale", "Asli")
-            val srcW = probe.width.takeIf { it > 0 } ?: 1280
-            val srcH = probe.height.takeIf { it > 0 } ?: 720
+            val srcW = probe.orientedWidth.takeIf { it > 0 } ?: 1280
+            val srcH = probe.orientedHeight.takeIf { it > 0 } ?: 720
             val targetDims = if (scaleChoice != "Asli" && scaleChoice != "Original") {
                 VideoToolMath.calculateTargetDimensions(srcW, srcH, scaleChoice)
             } else {

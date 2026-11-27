@@ -55,9 +55,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -101,6 +106,7 @@ fun WaveformView(
     val endF = trimEndFraction.coerceIn(startF, 1f)
     val playheadLineColor = MaterialTheme.colorScheme.onSurface
     val trimBorderColor = activeColor.copy(alpha = 0.85f)
+    val scrubCd = stringResource(R.string.cd_audio_waveform_scrub)
 
     Box(
         modifier = modifier
@@ -111,6 +117,7 @@ fun WaveformView(
             .let { base ->
                 if (onSeekFraction != null) {
                     base
+                        .semantics { contentDescription = scrubCd }
                         .pointerInput(onSeekFraction) {
                             detectTapGestures { offset ->
                                 val frac = (offset.x / size.width.toFloat().coerceAtLeast(1f)).coerceIn(0f, 1f)
@@ -293,7 +300,8 @@ fun AudioBeforeAfterPreviewCard(
     var currentPosMs by remember(exoPlayer) { mutableLongStateOf(0L) }
     var playerDurationMs by remember(exoPlayer) { mutableLongStateOf(0L) }
 
-    DisposableEffect(exoPlayer) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, exoPlayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
@@ -305,11 +313,19 @@ fun AudioBeforeAfterPreviewCard(
                 if (playbackState == Player.STATE_ENDED && exoPlayer.repeatMode == Player.REPEAT_MODE_OFF) {
                     exoPlayer.seekTo(0L)
                     exoPlayer.pause()
+                    currentPosMs = 0L
                 }
             }
         }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                exoPlayer.pause()
+            }
+        }
         exoPlayer.addListener(listener)
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }

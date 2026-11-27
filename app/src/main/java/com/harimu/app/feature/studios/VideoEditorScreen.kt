@@ -49,6 +49,7 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -79,7 +80,6 @@ import com.harimu.app.core.design.video.ExportDialog
 import com.harimu.app.core.design.video.TimelineTrack
 import com.harimu.app.core.design.video.VideoPreview
 import com.harimu.app.core.design.video.VideoPreviewPlaceholder
-import com.harimu.app.core.media.FfmpegProgressParser
 import com.harimu.app.core.media.VideoEditorMath
 import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolProgress
@@ -87,6 +87,8 @@ import com.harimu.app.feature.toolscreen.ToolPrefillData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.DateFormat
+import java.util.Date
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,6 +112,8 @@ fun VideoEditorScreen(
     val savedToast = stringResource(R.string.editor_project_saved_toast)
     val fileSavedToast = stringResource(R.string.toast_saved)
     val fileSaveFailedToast = stringResource(R.string.toast_save_failed)
+    val openNoAppToast = stringResource(R.string.workspace_open_no_app)
+    val shareNoAppToast = stringResource(R.string.workspace_share_no_app)
 
     LaunchedEffect(defaultTitle) {
         vm.initializeDefaultTitle(defaultTitle)
@@ -118,7 +122,6 @@ fun VideoEditorScreen(
     var showProjectsDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var pendingExportFile by remember { mutableStateOf<ToolOutputFile?>(null) }
-    var exportResolution by remember { mutableStateOf(state.outputResolution) }
 
     val addClipsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(12)
@@ -169,16 +172,16 @@ fun VideoEditorScreen(
                 },
                 actions = {
                     // Last saved indicator
-                    if (state.lastSavedAt != null) {
+                    state.lastSavedAt?.let { savedAt ->
+                        val formattedTime = remember(savedAt) {
+                            DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(savedAt))
+                        }
                         Text(
-                            text = stringResource(
-                                R.string.editor_last_saved,
-                                FfmpegProgressParser.formatDurationMs(System.currentTimeMillis() - state.lastSavedAt!!)
-                            ),
+                            text = stringResource(R.string.editor_last_saved_time, formattedTime),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
-                            modifier = Modifier.padding(end = 12.dp)
+                            modifier = Modifier.padding(end = 8.dp)
                         )
                     }
                     TextButton(
@@ -208,7 +211,6 @@ fun VideoEditorScreen(
                     // Export button opens dialog
                     Button(
                         onClick = {
-                            exportResolution = state.outputResolution
                             showExportDialog = true
                         },
                         enabled = state.clips.isNotEmpty() && !state.isExporting,
@@ -280,15 +282,18 @@ fun VideoEditorScreen(
         isOpen = showExportDialog,
         onDismiss = { showExportDialog = false },
         onExport = { resolution ->
-            showExportDialog = false
             vm.setResolution(resolution)
             vm.exportTimeline(context, isEnglish)
         },
         clipsCount = state.clips.size,
         totalDurationMs = state.totalDurationMs,
+        initialResolution = state.outputResolution,
+        onResolutionChanged = vm::setResolution,
         estimatedFileSizeBytes = estimateFileSize(state.clips, state.outputResolution),
+        estimateSizeBytes = { res -> estimateFileSize(state.clips, res) },
         progress = state.progress,
         result = (state.progress as? ToolProgress.Done)?.result,
+        onCancelExport = vm::cancelExport,
         onOpenResult = (state.progress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()?.let { o ->
             {
                 runCatching {
@@ -298,17 +303,23 @@ fun VideoEditorScreen(
                             o.displayName
                         )
                     )
+                }.onFailure {
+                    Toast.makeText(context, openNoAppToast, Toast.LENGTH_SHORT).show()
                 }
             }
         },
         onShareResult = (state.progress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()?.let { o ->
             {
-                context.startActivity(
-                    Intent.createChooser(
-                        container.storage.buildShareIntent(o.file, o.mimeType),
-                        o.displayName
+                runCatching {
+                    context.startActivity(
+                        Intent.createChooser(
+                            container.storage.buildShareIntent(o.file, o.mimeType),
+                            o.displayName
+                        )
                     )
-                )
+                }.onFailure {
+                    Toast.makeText(context, shareNoAppToast, Toast.LENGTH_SHORT).show()
+                }
             }
         },
         onSaveResult = (state.progress as? ToolProgress.Done)?.result?.outputs?.firstOrNull()?.let { o ->
@@ -405,6 +416,10 @@ private fun PortraitLayout(
             }
         }
 
+        var activePlayheadMs by remember(state.selectedClip?.id) {
+            mutableLongStateOf(state.selectedClip?.trimStartMs ?: 0L)
+        }
+
         // Preview area
         if (state.selectedClip != null) {
             VideoPreview(
@@ -418,6 +433,7 @@ private fun PortraitLayout(
                 speed = state.selectedClip!!.speed,
                 rotationDeg = state.selectedClip!!.rotationDeg,
                 durationMs = state.selectedClip!!.durationMs,
+                onPositionChanged = { pos -> activePlayheadMs = pos },
                 showTrimHandles = true
             )
         } else {
@@ -438,9 +454,15 @@ private fun PortraitLayout(
             clips = state.clips,
             selectedClipId = state.selectedClip?.id,
             onClipSelected = vm::selectClip,
-            onClipMoved = { from, to -> vm.moveClip(state.clips[from].id, if (to > from) 1 else -1) },
+            onClipMoved = { from, to ->
+                state.clips.getOrNull(from)?.let { moved ->
+                    vm.moveClip(moved.id, if (to > from) 1 else -1)
+                }
+            },
             onClipRemoved = { clipId -> vm.removeClip(clipId) },
             onClipDuplicated = { clipId -> vm.duplicateClip(clipId) },
+            zoomLevel = state.timelineZoom,
+            onZoomChanged = vm::setTimelineZoom,
             showThumbnails = true
         )
 
@@ -455,6 +477,7 @@ private fun PortraitLayout(
                 clip = activeClip,
                 onUpdate = { updated -> vm.updateSelectedClip { updated } },
                 onOpenInTool = onOpenInTool,
+                currentPlayheadMs = { activePlayheadMs },
                 showAdvancedActions = true
             )
         }
@@ -472,6 +495,10 @@ private fun LandscapeLayout(
     onAddClips: () -> Unit,
     onOpenInTool: (String, Map<String, Any>) -> Unit
 ) {
+    var activePlayheadMs by remember(state.selectedClip?.id) {
+        mutableLongStateOf(state.selectedClip?.trimStartMs ?: 0L)
+    }
+
     Row(
         modifier = modifier.fillMaxSize()
     ) {
@@ -498,6 +525,7 @@ private fun LandscapeLayout(
                         speed = state.selectedClip!!.speed,
                         rotationDeg = state.selectedClip!!.rotationDeg,
                         durationMs = state.selectedClip!!.durationMs,
+                        onPositionChanged = { pos -> activePlayheadMs = pos },
                         showTrimHandles = true
                     )
                 } else {
@@ -572,9 +600,15 @@ private fun LandscapeLayout(
                     clips = state.clips,
                     selectedClipId = state.selectedClip?.id,
                     onClipSelected = vm::selectClip,
-                    onClipMoved = { from, to -> vm.moveClip(state.clips[from].id, if (to > from) 1 else -1) },
+                    onClipMoved = { from, to ->
+                        state.clips.getOrNull(from)?.let { moved ->
+                            vm.moveClip(moved.id, if (to > from) 1 else -1)
+                        }
+                    },
                     onClipRemoved = { clipId -> vm.removeClip(clipId) },
                     onClipDuplicated = { clipId -> vm.duplicateClip(clipId) },
+                    zoomLevel = state.timelineZoom,
+                    onZoomChanged = vm::setTimelineZoom,
                     showThumbnails = true,
                     minClipWidth = 60f,
                     maxClipWidth = 200f
@@ -591,6 +625,7 @@ private fun LandscapeLayout(
                         clip = activeClip,
                         onUpdate = { updated -> vm.updateSelectedClip { updated } },
                         onOpenInTool = onOpenInTool,
+                        currentPlayheadMs = { activePlayheadMs },
                         showAdvancedActions = true
                     )
                 }

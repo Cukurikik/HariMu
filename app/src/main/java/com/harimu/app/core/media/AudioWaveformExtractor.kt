@@ -60,8 +60,11 @@ object AudioWaveformExtractor {
         currentCoroutineContext().ensureActive()
 
         val extracted = runCatching {
-            decodeStreamingPeaks(context, uri, probe, safeBars)
-        }.getOrElse {
+            decodeStreamingPeaks(context, uri, probe, safeBars) {
+                if (Thread.currentThread().isInterrupted) throw InterruptedException("Cancelled")
+            }
+        }.getOrElse { err ->
+            if (err is InterruptedException || err is kotlinx.coroutines.CancellationException) throw err
             // Fallback for plain PCM WAV or unreadable codec formats
             runCatching {
                 context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -84,7 +87,8 @@ object AudioWaveformExtractor {
         context: Context,
         uri: Uri,
         probe: MediaProbeResult,
-        barCount: Int
+        barCount: Int,
+        checkActive: () -> Unit = {}
     ): WaveformData {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
@@ -116,17 +120,26 @@ object AudioWaveformExtractor {
         val windowPeaks = ArrayList<Float>(512)
         val bucketPeaks = FloatArray(barCount)
         val samplesPerWindow = max(512, (sampleRate * channels) / 20)
+        val strideMultiplier = when {
+            totalDurationUs >= 180_000_000L -> 8
+            totalDurationUs >= 60_000_000L -> 4
+            totalDurationUs >= 20_000_000L -> 2
+            else -> 1
+        }
         var sampleCounter = 0
         var currentWindowPeak = 0
         var inputDone = false
         var outputDone = false
         var maxPtsUs = 0L
+        var idleIterations = 0
 
         try {
             while (!outputDone) {
+                checkActive()
                 if (!inputDone) {
                     val inIdx = codec.dequeueInputBuffer(8_000)
                     if (inIdx >= 0) {
+                        idleIterations = 0
                         val buf = codec.getInputBuffer(inIdx)!!
                         val sampleSize = extractor.readSampleData(buf, 0)
                         if (sampleSize < 0) {
@@ -141,6 +154,7 @@ object AudioWaveformExtractor {
                 val outIdx = codec.dequeueOutputBuffer(info, 8_000)
                 when {
                     outIdx >= 0 -> {
+                        idleIterations = 0
                         val outBuf = codec.getOutputBuffer(outIdx)
                         if (outBuf != null && info.size > 0) {
                             maxPtsUs = max(maxPtsUs, info.presentationTimeUs)
@@ -149,8 +163,7 @@ object AudioWaveformExtractor {
                             val shortBuf = outBuf.slice().order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
                             val count = shortBuf.remaining()
                             var bufferPeak = 0
-                            // Stride by 2 or 4 when chunks are dense to stay fast even for long tracks
-                            val stride = max(1, channels)
+                            val stride = max(1, channels * strideMultiplier)
                             var idx = 0
                             while (idx < count) {
                                 val amp = abs(shortBuf.get(idx).toInt())
@@ -178,6 +191,7 @@ object AudioWaveformExtractor {
                         }
                     }
                     outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        idleIterations = 0
                         val newFmt = codec.outputFormat
                         if (newFmt.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
                             sampleRate = newFmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
@@ -185,6 +199,11 @@ object AudioWaveformExtractor {
                         if (newFmt.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
                             channels = newFmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                         }
+                    }
+                    else -> {
+                        idleIterations++
+                        if (inputDone && idleIterations > 400) break
+                        if (idleIterations > 2500) break
                     }
                 }
             }
@@ -214,42 +233,100 @@ object AudioWaveformExtractor {
     }
 
     fun extractPeaksFromWavStream(input: InputStream, barCount: Int = DEFAULT_BAR_COUNT): WaveformData? {
-        val header = ByteArray(44)
-        var readTotal = 0
-        while (readTotal < 44) {
-            val n = input.read(header, readTotal, 44 - readTotal)
-            if (n <= 0) break
-            readTotal += n
+        fun readExact(dst: ByteArray, length: Int): Boolean {
+            var offset = 0
+            while (offset < length) {
+                val n = input.read(dst, offset, length - offset)
+                if (n <= 0) return false
+                offset += n
+            }
+            return true
         }
-        if (readTotal < 44) return null
-        if (String(header, 0, 4, Charsets.US_ASCII) != "RIFF" ||
-            String(header, 8, 4, Charsets.US_ASCII) != "WAVE"
+
+        fun skipExact(count: Long) {
+            var remaining = count
+            val scratch = ByteArray(1024)
+            while (remaining > 0L) {
+                val skipped = input.skip(remaining)
+                if (skipped > 0L) {
+                    remaining -= skipped
+                } else {
+                    val n = input.read(scratch, 0, min(remaining, scratch.size.toLong()).toInt())
+                    if (n <= 0) break
+                    remaining -= n
+                }
+            }
+        }
+
+        val riffHeader = ByteArray(12)
+        if (!readExact(riffHeader, 12)) return null
+        if (String(riffHeader, 0, 4, Charsets.US_ASCII) != "RIFF" ||
+            String(riffHeader, 8, 4, Charsets.US_ASCII) != "WAVE"
         ) {
             return null
         }
-        val bb = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
-        val channels = bb.getShort(22).toInt().coerceIn(1, 2)
-        val sampleRate = bb.getInt(24).coerceAtLeast(8000)
-        val bitsPerSample = bb.getShort(34).toInt().coerceAtLeast(8)
-        val dataBytes = bb.getInt(40).coerceAtLeast(0)
+
+        var channels = 2
+        var sampleRate = 44100
+        var bitsPerSample = 16
+        var foundFmt = false
+        var dataBytes = -1
+
+        val chunkHeader = ByteArray(8)
+        while (readExact(chunkHeader, 8)) {
+            val chunkId = String(chunkHeader, 0, 4, Charsets.US_ASCII)
+            val chunkSize = ByteBuffer.wrap(chunkHeader, 4, 4).order(ByteOrder.LITTLE_ENDIAN).int
+                .toLong() and 0xFFFFFFFFL
+            if (chunkId == "fmt ") {
+                val fmtLen = min(chunkSize, 64L).toInt()
+                val fmtBuf = ByteArray(fmtLen)
+                if (!readExact(fmtBuf, fmtLen)) return null
+                if (chunkSize > fmtLen) skipExact(chunkSize - fmtLen)
+                if (fmtLen >= 16) {
+                    val bb = ByteBuffer.wrap(fmtBuf).order(ByteOrder.LITTLE_ENDIAN)
+                    channels = bb.getShort(2).toInt().coerceIn(1, 2)
+                    sampleRate = bb.getInt(4).coerceAtLeast(8000)
+                    bitsPerSample = bb.getShort(14).toInt().coerceAtLeast(8)
+                    foundFmt = true
+                }
+                if (chunkSize % 2L == 1L) skipExact(1L)
+            } else if (chunkId == "data") {
+                dataBytes = chunkSize.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                break
+            } else {
+                val padded = chunkSize + (chunkSize % 2L)
+                skipExact(padded)
+            }
+        }
+
+        if (!foundFmt || dataBytes <= 0) return null
 
         val safeBars = barCount.coerceIn(16, 180)
-        val bytesPerFrame = max(1, channels * (bitsPerSample / 8))
+        val bytesPerSample = max(1, bitsPerSample / 8)
+        val bytesPerFrame = max(1, channels * bytesPerSample)
         val totalFrames = max(1, dataBytes / bytesPerFrame)
         val durationMs = ((totalFrames.toDouble() / sampleRate.toDouble()) * 1000.0).toLong()
         val framesPerBar = max(1, totalFrames / safeBars)
 
         val peaks = FloatArray(safeBars)
         val buf = ByteArray(8192)
+        var remainingBytes = dataBytes
         var frameIndex = 0
-        while (true) {
-            val n = input.read(buf)
+        while (remainingBytes > 0) {
+            val toRead = min(buf.size, remainingBytes)
+            val n = input.read(buf, 0, toRead)
             if (n <= 0) break
+            remainingBytes -= n
             val aligned = n - (n % bytesPerFrame)
             var i = 0
-            while (i + 1 < aligned) {
-                val sample = ((buf[i + 1].toInt() shl 8) or (buf[i].toInt() and 0xFF)).toShort().toInt()
-                val amp = abs(sample) / 32768f
+            while (i + bytesPerSample - 1 < aligned) {
+                val amp = when (bitsPerSample) {
+                    8 -> abs((buf[i].toInt() and 0xFF) - 128) / 128f
+                    else -> {
+                        val sample = ((buf[i + 1].toInt() shl 8) or (buf[i].toInt() and 0xFF)).toShort().toInt()
+                        abs(sample) / 32768f
+                    }
+                }
                 val barIdx = (frameIndex / framesPerBar).coerceIn(0, safeBars - 1)
                 if (amp > peaks[barIdx]) peaks[barIdx] = amp
                 frameIndex += 1

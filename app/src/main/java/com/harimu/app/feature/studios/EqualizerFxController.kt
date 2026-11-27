@@ -53,22 +53,27 @@ class EqualizerFxController {
         bypassed: Boolean
     ): Result<EqLiveEngineStatus> = runCatching {
         release()
-        val mp = MediaPlayer().apply {
-            setDataSource(context, uri)
-            prepare()
-            isLooping = true
-            start()
-        }
-        player = mp
+        val mp = MediaPlayer()
+        try {
+            mp.setDataSource(context, uri)
+            mp.prepare()
+            mp.isLooping = true
+            mp.start()
+            player = mp
 
-        val status = attachAudioFx(
-            sessionId = mp.audioSessionId,
-            gainsDb = gainsDb,
-            preampDb = preampDb,
-            bypassed = bypassed
-        )
-        currentStatus = status
-        status
+            val status = attachAudioFx(
+                sessionId = mp.audioSessionId,
+                gainsDb = gainsDb,
+                preampDb = preampDb,
+                bypassed = bypassed
+            )
+            currentStatus = status
+            status
+        } catch (t: Throwable) {
+            runCatching { mp.release() }
+            if (player === mp) player = null
+            throw t
+        }
     }
 
     private fun attachAudioFx(
@@ -248,10 +253,8 @@ class EqualizerFxController {
         dynamicsProcessing = null
         runCatching { legacyEq?.release() }
         legacyEq = null
-        runCatching {
-            player?.stop()
-            player?.release()
-        }
+        runCatching { player?.stop() }
+        runCatching { player?.release() }
         player = null
         currentStatus = EqLiveEngineStatus()
     }

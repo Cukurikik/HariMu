@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Transform
+import com.harimu.app.core.media.FfmpegCapabilities
 import com.harimu.app.core.media.MediaJob
 import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.media.MediaUriUtils
@@ -74,10 +75,27 @@ fun videoForgeBatch1ExtraTools(
                 emit(ToolProgress.Failed(validation.errorMessage ?: "Invalid video"))
                 return@flow
             }
+            val probe = validation.probes.first()
             val startSec = input.getFloat("startSec", 0f).coerceAtLeast(0f)
-            val maxSec = input.getFloat("maxSec", 8f).coerceIn(2f, 30f)
+            if (probe.durationMs > 0L && (startSec * 1000f).toLong() >= probe.durationMs) {
+                emit(
+                    ToolProgress.Failed(
+                        if (ctx.isEnglish) "Start time reaches or exceeds video duration."
+                        else "Waktu mulai melebihi durasi video."
+                    )
+                )
+                return@flow
+            }
+            val requestedDurSec = input.getFloat("maxSec", 8f).coerceIn(2f, 30f)
+            val maxSec = if (probe.durationMs > 0L) {
+                minOf(requestedDurSec, ((probe.durationMs / 1000f) - startSec).coerceAtLeast(0.5f))
+            } else {
+                requestedDurSec
+            }
             val fps = input.getFloat("fps", 12f).toInt().coerceIn(5, 24)
             val width = VideoToolMath.makeEven(input.getFloat("width", 480f).toInt().coerceIn(240, 720))
+            FfmpegCapabilities.requireFilter("palettegen", ctx.isEnglish)
+            FfmpegCapabilities.requireFilter("paletteuse", ctx.isEnglish)
 
             val jobDir = ctx.storage.createJobTempDir("gif_${UUID.randomUUID().toString().take(6)}")
             val outGif = ctx.storage.createOutputFile("VID_GIF", "gif")
@@ -180,6 +198,7 @@ fun videoForgeBatch1ExtraTools(
             }
             val probe = validation.probes.first()
             val bitrate = input.getString("bitrate", "192k").ifBlank { "192k" }
+            FfmpegCapabilities.requireEncoder("libmp3lame", ctx.isEnglish)
 
             emitAll(
                 mediaJob.runCommand(
@@ -359,6 +378,17 @@ fun videoForgeBatch1ExtraTools(
             }
             val probe = validation.probes.first()
             val fmt = input.getString("fmt", "MP4").uppercase(Locale.US)
+            when (fmt) {
+                "WEBM" -> {
+                    FfmpegCapabilities.requireEncoder("libvpx", ctx.isEnglish)
+                    if (probe.hasAudio) FfmpegCapabilities.requireEncoder("libvorbis", ctx.isEnglish)
+                }
+                "AVI" -> {
+                    FfmpegCapabilities.requireEncoder("mpeg4", ctx.isEnglish)
+                    if (probe.hasAudio) FfmpegCapabilities.requireEncoder("libmp3lame", ctx.isEnglish)
+                }
+                else -> FfmpegCapabilities.requireEncoder("mpeg4", ctx.isEnglish)
+            }
             val (ext, mime) = when (fmt) {
                 "WEBM" -> "webm" to "video/webm"
                 "AVI" -> "avi" to "video/x-msvideo"
@@ -623,6 +653,15 @@ fun videoForgeBatch1ExtraTools(
             val endMs = if (rawEnd <= 0f) Long.MAX_VALUE else (rawEnd * 1000f).toLong()
 
             val ranges = if (isRangeMode) {
+                if (probe.durationMs > 0L && startMs >= probe.durationMs) {
+                    emit(
+                        ToolProgress.Failed(
+                            if (ctx.isEnglish) "Range start reaches or exceeds video duration."
+                            else "Awal rentang melebihi durasi video."
+                        )
+                    )
+                    return@flow
+                }
                 val safeEnd = if (endMs == Long.MAX_VALUE) totalMs else endMs.coerceAtMost(totalMs)
                 if (safeEnd <= startMs) {
                     emit(
@@ -636,6 +675,15 @@ fun videoForgeBatch1ExtraTools(
                 VideoToolMath.computeSplitterRanges(totalMs, segMs, startMs, safeEnd)
             } else {
                 VideoToolMath.computeSplitterRanges(totalMs, segMs)
+            }
+            if (ranges.size > 100) {
+                emit(
+                    ToolProgress.Failed(
+                        if (ctx.isEnglish) "Split produces ${ranges.size} parts (max 100). Increase segment duration."
+                        else "Pemecahan menghasilkan ${ranges.size} bagian (maks 100). Perbesar durasi per bagian."
+                    )
+                )
+                return@flow
             }
 
             val jobDir = ctx.storage.createJobTempDir("split_${UUID.randomUUID().toString().take(6)}")

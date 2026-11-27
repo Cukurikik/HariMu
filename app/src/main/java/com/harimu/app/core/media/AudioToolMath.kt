@@ -537,4 +537,19 @@ object AudioToolMath {
             else -> SafetyAssessment(allowed = true, useSegmentedMode = false)
         }
     }
+
+    fun assessInMemoryDspSafety(durationMs: Long, isEnglish: Boolean): SafetyAssessment {
+        return if (durationMs > 300_000L) {
+            SafetyAssessment(
+                allowed = false,
+                blockingError = if (isEnglish) {
+                    "Audio exceeds 5 minutes for in-memory PCM DSP. Trim it first with AUD-09 or use FFmpeg fast mode."
+                } else {
+                    "Durasi audio melebihi 5 menit untuk pemrosesan PCM di RAM. Potong dulu dengan AUD-09 atau gunakan mode cepat FFmpeg."
+                }
+            )
+        } else {
+            SafetyAssessment(allowed = true, useSegmentedMode = false)
+        }
+    }
 }

@@ -1117,4 +1117,18 @@
     <string name="converter_honest_cnv20">Supports CBZ (ZIP) and read-only CBR (RAR) with natural page sorting. EPUB output is minimal image-per-page.</string>
     <string name="converter_honest_cnv21">Supports TTF/OTF ⇄ WOFF 1.0 only. WOFF2 (Brotli) and OTF(CFF) ⇄ TTF outline conversions are rejected honestly.</string>
     <string name="converter_honest_cnv22">TrueType glyph subsetting to WOFF 1.0 (drops hinting/GSUB/GPOS/kern). CFF/OTF and WOFF2 fonts are refused.</string>
+
+    <string name="tool_open_cta">Open tool →</string>
+    <string name="tool_tap_to_open">Tap to open</string>
+    <string name="tool_count_badge">%1$d tools</string>
+    <string name="tool_search_placeholder_default">Search tools…</string>
+    <string name="editor_set_start">Set Start</string>
+    <string name="editor_set_end">Set End</string>
+    <string name="editor_reset_trim">Reset</string>
+    <string name="editor_export_badge">Export: %1$d°</string>
+    <string name="editor_last_saved_time">Saved %1$s</string>
+    <string name="video_preview_error">Unable to play video</string>
+    <string name="video_preview_loading">Loading preview…</string>
+    <string name="roi_preview_unavailable">Frame preview unavailable</string>
+    <string name="action_close">Close</string>
 </resources>

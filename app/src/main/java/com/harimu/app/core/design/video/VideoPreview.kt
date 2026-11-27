@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +58,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -85,71 +91,99 @@ fun VideoPreview(
     contentScale: ContentScale = ContentScale.Fit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val clipUri = remember(clipUriString) { clipUriString.toUri() }
 
-    val exoPlayer = remember(clipUriString, clipUri) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(clipUri))
+    val exoPlayer = remember(context) {
+        ExoPlayer.Builder(context.applicationContext).build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
-            prepare()
         }
     }
 
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
-    var currentPosMs by remember(exoPlayer) { mutableLongStateOf(trimStartMs) }
+    var isBuffering by remember(exoPlayer) { mutableStateOf(true) }
+    var playerError by remember(exoPlayer) { mutableStateOf<String?>(null) }
+    var currentPosMs by remember(exoPlayer) { mutableLongStateOf(trimStartMs.coerceAtLeast(0L)) }
     var bufferedPercentage by remember { mutableFloatStateOf(0f) }
     var showControls by remember { mutableStateOf(true) }
 
     val effectiveStartMs = trimStartMs.coerceAtLeast(0L)
-    val effectiveEndMs = trimEndMs.coerceAtLeast(effectiveStartMs + 250L).coerceAtMost(durationMs)
-    val effectiveDurationMs = (effectiveEndMs - effectiveStartMs).coerceAtLeast(250L)
+    val effectiveEndMs = trimEndMs.coerceAtLeast(effectiveStartMs + 200L).coerceAtMost(durationMs.coerceAtLeast(200L))
+    val effectiveDurationMs = (effectiveEndMs - effectiveStartMs).coerceAtLeast(200L)
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, lifecycleOwner) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
                 onPlaybackStateChanged?.invoke(playing)
             }
 
-            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
-                // Speed changed
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isBuffering = playbackState == Player.STATE_BUFFERING
+                if (playbackState == Player.STATE_READY) {
+                    playerError = null
+                }
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                // Error handling via UI state
+                isBuffering = false
+                isPlaying = false
+                playerError = error.localizedMessage ?: "Playback error"
+            }
+        }
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                exoPlayer.pause()
             }
         }
         exoPlayer.addListener(listener)
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
+    }
+
+    LaunchedEffect(exoPlayer, clipUriString) {
+        playerError = null
+        isBuffering = true
+        exoPlayer.pause()
+        exoPlayer.setMediaItem(MediaItem.fromUri(clipUri))
+        exoPlayer.prepare()
+        exoPlayer.seekTo(effectiveStartMs)
+        currentPosMs = effectiveStartMs
+        onPositionChanged?.invoke(effectiveStartMs)
     }
 
     LaunchedEffect(exoPlayer, speed) {
         exoPlayer.playbackParameters = PlaybackParameters(speed.coerceIn(0.25f, 4.0f))
     }
 
+    LaunchedEffect(exoPlayer, effectiveStartMs, effectiveEndMs) {
+        val clamped = exoPlayer.currentPosition.coerceIn(effectiveStartMs, effectiveEndMs)
+        currentPosMs = clamped
+        onPositionChanged?.invoke(clamped)
+    }
+
     LaunchedEffect(exoPlayer, isPlaying, effectiveStartMs, effectiveEndMs) {
-        while (true) {
-            currentPosMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+        while (isPlaying) {
+            val rawPos = exoPlayer.currentPosition.coerceAtLeast(0L)
             if (durationMs > 0) {
                 bufferedPercentage = (exoPlayer.bufferedPosition.toFloat() / durationMs).coerceIn(0f, 1f)
             }
-            val clampedPos = currentPosMs.coerceIn(effectiveStartMs, effectiveEndMs)
-            if (clampedPos != currentPosMs) {
-                currentPosMs = clampedPos
+            if (rawPos >= effectiveEndMs) {
+                exoPlayer.seekTo(effectiveStartMs)
+                currentPosMs = effectiveStartMs
+            } else {
+                currentPosMs = rawPos.coerceIn(effectiveStartMs, effectiveEndMs)
             }
             onPositionChanged?.invoke(currentPosMs)
-
-            if (isPlaying && currentPosMs >= effectiveEndMs) {
-                exoPlayer.seekTo(effectiveStartMs)
-            }
             delay(100L)
         }
     }
 
-    // Auto-hide controls
+    // Auto-hide controls while playing
     LaunchedEffect(isPlaying, showControls) {
         if (isPlaying && showControls) {
             delay(3000L)
@@ -158,14 +192,15 @@ fun VideoPreview(
     }
 
     val maxSec = (durationMs / 1000f).coerceAtLeast(1f)
-    val startSec = (effectiveStartMs / 1000f).coerceIn(0f, (maxSec - 0.3f).coerceAtLeast(0f))
-    val endSec = (effectiveEndMs / 1000f).coerceIn(startSec + 0.3f, maxSec)
+    val startSec = (effectiveStartMs / 1000f).coerceIn(0f, (maxSec - 0.2f).coerceAtLeast(0f))
+    val endSec = (effectiveEndMs / 1000f).coerceIn(startSec + 0.2f, maxSec)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
             .background(Color.Black)
-            .clip(RoundedCornerShape(12.dp)),
+            .clickable { showControls = !showControls },
         contentAlignment = Alignment.Center
     ) {
         ContentFrame(
@@ -173,6 +208,34 @@ fun VideoPreview(
             modifier = Modifier.fillMaxSize(),
             contentScale = contentScale
         )
+
+        if (playerError != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+                Text(
+                    text = stringResource(R.string.video_preview_error),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else if (isBuffering) {
+            CircularProgressIndicator(
+                color = HariMuColors.ElectricOrange,
+                modifier = Modifier.size(36.dp)
+            )
+        }
 
         // Buffered progress indicator
         if (bufferedPercentage > 0f && bufferedPercentage < 1f) {
@@ -192,32 +255,49 @@ fun VideoPreview(
             }
         }
 
+        // Top-right rotation indicator (always visible when clip is rotated)
+        if (rotationDeg != 0) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Black.copy(alpha = 0.72f)
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.editor_export_badge, rotationDeg),
+                    style = MonoTextStyle.copy(fontSize = 11.sp, color = Color.White),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
         // Controls overlay
         if (showControls) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.01f))
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { showControls = !showControls }
+                    .background(Color.Black.copy(alpha = 0.25f))
             ) {
-                // Bottom controls
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Seek bar with trim handles
+                    // Seek bar aligned with 0..maxSec trim handles
                     Box(modifier = Modifier.fillMaxWidth()) {
                         Slider(
-                            value = (currentPosMs / 1000f).coerceIn(startSec, endSec),
+                            value = (currentPosMs / 1000f).coerceIn(0f, maxSec),
                             onValueChange = { newSec ->
-                                val newMs = (newSec * 1000f).roundToLong()
-                                exoPlayer.seekTo(newMs.coerceIn(effectiveStartMs, effectiveEndMs))
+                                val newMs = (newSec * 1000f).roundToLong().coerceIn(effectiveStartMs, effectiveEndMs)
+                                exoPlayer.seekTo(newMs)
+                                currentPosMs = newMs
+                                onPositionChanged?.invoke(newMs)
                             },
-                            valueRange = startSec..endSec,
+                            valueRange = 0f..maxSec,
                             colors = SliderDefaults.colors(
                                 thumbColor = HariMuColors.ElectricOrange,
                                 activeTrackColor = HariMuColors.ElectricOrange,
@@ -227,7 +307,7 @@ fun VideoPreview(
                             enabled = effectiveDurationMs > 0
                         )
 
-                        // Trim handle markers
+                        // Trim handle markers aligned with full 0..maxSec slider track
                         if (showTrimHandles && effectiveDurationMs > 0) {
                             val startX = (startSec / maxSec).coerceIn(0f, 1f)
                             val endX = (endSec / maxSec).coerceIn(0f, 1f)
@@ -238,7 +318,6 @@ fun VideoPreview(
                                     .align(Alignment.TopCenter)
                             ) {
                                 val trackWidth = (maxWidth - 2.dp).coerceAtLeast(0.dp)
-                                // Start trim handle
                                 Box(
                                     modifier = Modifier
                                         .offset(x = trackWidth * startX)
@@ -246,7 +325,6 @@ fun VideoPreview(
                                         .fillMaxHeight()
                                         .background(HariMuColors.ElectricOrange)
                                 )
-                                // End trim handle
                                 Box(
                                     modifier = Modifier
                                         .offset(x = trackWidth * endX)
@@ -261,7 +339,7 @@ fun VideoPreview(
                     // Time display
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
                             text = formatTimeMs(currentPosMs),
@@ -276,11 +354,16 @@ fun VideoPreview(
                     // Playback controls
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(effectiveStartMs)) },
+                            onClick = {
+                                val target = (exoPlayer.currentPosition - 10_000).coerceAtLeast(effectiveStartMs)
+                                exoPlayer.seekTo(target)
+                                currentPosMs = target
+                                onPositionChanged?.invoke(target)
+                            },
                             modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
@@ -290,7 +373,12 @@ fun VideoPreview(
                             Icon(Icons.Filled.Replay10, contentDescription = stringResource(R.string.video_cd_rewind_10), tint = Color.White)
                         }
                         IconButton(
-                            onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 5_000).coerceAtLeast(effectiveStartMs)) },
+                            onClick = {
+                                val target = (exoPlayer.currentPosition - 5_000).coerceAtLeast(effectiveStartMs)
+                                exoPlayer.seekTo(target)
+                                currentPosMs = target
+                                onPositionChanged?.invoke(target)
+                            },
                             modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
@@ -306,6 +394,7 @@ fun VideoPreview(
                                 } else {
                                     if (exoPlayer.currentPosition < effectiveStartMs || exoPlayer.currentPosition >= effectiveEndMs) {
                                         exoPlayer.seekTo(effectiveStartMs)
+                                        currentPosMs = effectiveStartMs
                                     }
                                     exoPlayer.play()
                                 }
@@ -323,7 +412,12 @@ fun VideoPreview(
                             )
                         }
                         IconButton(
-                            onClick = { exoPlayer.seekTo((exoPlayer.currentPosition + 5_000).coerceAtMost(effectiveEndMs)) },
+                            onClick = {
+                                val target = (exoPlayer.currentPosition + 5_000).coerceAtMost(effectiveEndMs)
+                                exoPlayer.seekTo(target)
+                                currentPosMs = target
+                                onPositionChanged?.invoke(target)
+                            },
                             modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
@@ -333,14 +427,19 @@ fun VideoPreview(
                             Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.video_cd_forward_5), tint = Color.White)
                         }
                         IconButton(
-                            onClick = { exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(effectiveEndMs)) },
+                            onClick = {
+                                val target = (exoPlayer.currentPosition + 10_000).coerceAtMost(effectiveEndMs)
+                                exoPlayer.seekTo(target)
+                                currentPosMs = target
+                                onPositionChanged?.invoke(target)
+                            },
                             modifier = Modifier.size(48.dp),
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Color.Black.copy(alpha = 0.6f),
                                 contentColor = Color.White
                             )
                         ) {
-                            Icon(Icons.Filled.Replay10, contentDescription = stringResource(R.string.video_cd_forward_10), tint = Color.White)
+                            Icon(Icons.Filled.Forward10, contentDescription = stringResource(R.string.video_cd_forward_10), tint = Color.White)
                         }
                     }
 
@@ -350,28 +449,6 @@ fun VideoPreview(
                             text = stringResource(R.string.editor_clip_speed_label, String.format(Locale.US, "%.2f", speed)),
                             style = MonoTextStyle.copy(fontSize = 11.sp, color = HariMuColors.ElectricOrange)
                         )
-                    }
-                }
-
-                // Top-right rotation indicator
-                if (rotationDeg != 0) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.Black.copy(alpha = 0.7f)
-                            ),
-                            modifier = Modifier.padding(4.dp)
-                        ) {
-                            Text(
-                                text = "${rotationDeg}°",
-                                style = MonoTextStyle.copy(fontSize = 11.sp, color = Color.White),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
                     }
                 }
             }

@@ -1,6 +1,4 @@
 package com.harimu.app.core.design.video
-
-import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -12,25 +10,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material.icons.filled.CenterFocusStrong
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.FaceRetouchingOff
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.FilterBAndW
+import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.TextFields
@@ -75,12 +76,12 @@ fun ClipInspector(
     clip: EditorClipSpec,
     onUpdate: (EditorClipSpec) -> Unit,
     onOpenInTool: ((String, Map<String, Any>) -> Unit)? = null,
+    currentPlayheadMs: () -> Long = { 0L },
     showAdvancedActions: Boolean = true
 ) {
-    val context = LocalContext.current
     val maxSec = (clip.durationMs / 1000f).coerceAtLeast(1f)
-    val startSec = (clip.trimStartMs / 1000f).coerceIn(0f, (maxSec - 0.3f).coerceAtLeast(0f))
-    val endSec = (clip.trimEndMs / 1000f).coerceIn(startSec + 0.3f, maxSec)
+    val startSec = (clip.trimStartMs / 1000f).coerceIn(0f, (maxSec - 0.2f).coerceAtLeast(0f))
+    val endSec = (clip.trimEndMs / 1000f).coerceIn(startSec + 0.2f, maxSec)
 
     Card(
         modifier = modifier
@@ -126,8 +127,8 @@ fun ClipInspector(
                 RangeSlider(
                     value = startSec..endSec,
                     onValueChange = { range ->
-                        val sMs = (range.start * 1000f).roundToLong().coerceIn(0L, (clip.durationMs - 300L).coerceAtLeast(0L))
-                        val eMs = (range.endInclusive * 1000f).roundToLong().coerceIn(sMs + 300L, clip.durationMs)
+                        val sMs = (range.start * 1000f).roundToLong().coerceIn(0L, (clip.durationMs - 200L).coerceAtLeast(0L))
+                        val eMs = (range.endInclusive * 1000f).roundToLong().coerceIn(sMs + 200L, clip.durationMs)
                         onUpdate(clip.copy(trimStartMs = sMs, trimEndMs = eMs))
                     },
                     valueRange = 0f..maxSec,
@@ -139,23 +140,33 @@ fun ClipInspector(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     QuickActionChip(
-                        label = "Set Start",
-                        onClick = { onUpdate(clip.copy(trimStartMs = 0L)) },
-                        icon = Icons.Filled.ContentCopy
+                        label = stringResource(R.string.editor_set_start),
+                        onClick = {
+                            val maxStart = (clip.trimEndMs - 200L).coerceAtLeast(0L)
+                            val newStart = currentPlayheadMs().coerceIn(0L, maxStart)
+                            onUpdate(clip.copy(trimStartMs = newStart))
+                        },
+                        icon = Icons.Filled.FirstPage
                     )
                     QuickActionChip(
-                        label = "Set End",
-                        onClick = { onUpdate(clip.copy(trimEndMs = clip.durationMs)) },
-                        icon = Icons.Filled.ContentCopy
+                        label = stringResource(R.string.editor_set_end),
+                        onClick = {
+                            val minEnd = (clip.trimStartMs + 200L).coerceAtMost(clip.durationMs)
+                            val newEnd = currentPlayheadMs().coerceIn(minEnd, clip.durationMs)
+                            onUpdate(clip.copy(trimEndMs = newEnd))
+                        },
+                        icon = Icons.AutoMirrored.Filled.LastPage
                     )
                     QuickActionChip(
-                        label = "Reset",
+                        label = stringResource(R.string.editor_reset_trim),
                         onClick = { onUpdate(clip.copy(trimStartMs = 0L, trimEndMs = clip.durationMs)) },
-                        icon = Icons.Filled.ContentCopy
+                        icon = Icons.Filled.RestartAlt
                     )
                 }
             }
@@ -185,7 +196,8 @@ fun ClipInspector(
                         FilterChip(
                             selected = abs(clip.speed - spd) < 0.05f,
                             onClick = { onUpdate(clip.copy(speed = spd)) },
-                            label = { Text("${spd}x") },
+                            label = { Text(String.format(Locale.US, "%.2gx", spd)) },
+                            modifier = Modifier.heightIn(min = 48.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                 selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f)
@@ -198,7 +210,9 @@ fun ClipInspector(
             // Rotation section
             InspectorSection(title = stringResource(R.string.editor_clip_rotation_label)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(0, 90, 180, 270).forEach { deg ->
@@ -207,6 +221,7 @@ fun ClipInspector(
                             selected = normalized == deg,
                             onClick = { onUpdate(clip.copy(rotationDeg = deg)) },
                             label = { Text("${deg}°") },
+                            modifier = Modifier.heightIn(min = 48.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                 selectedContainerColor = HariMuColors.ElectricOrange.copy(alpha = 0.2f)
@@ -272,9 +287,15 @@ fun ClipInspector(
                         ToolActionButton(
                             label = stringResource(R.string.editor_tool_rotate_flip),
                             icon = Icons.AutoMirrored.Filled.RotateRight,
-                            onClick = { onOpenInTool("VID-09", mapOf(
-                                "deg" to clip.rotationDeg.toString()
-                            )) }
+                            onClick = {
+                                val normalized = VideoEditorMath.normalizeRotation(clip.rotationDeg)
+                                val degParams = if (normalized in setOf(90, 180, 270)) {
+                                    mapOf("deg" to normalized.toString())
+                                } else {
+                                    emptyMap()
+                                }
+                                onOpenInTool("VID-09", degParams)
+                            }
                         )
                     }
 
@@ -404,11 +425,12 @@ private fun QuickActionChip(
     AssistChip(
         onClick = onClick,
         leadingIcon = icon?.let {
-            { Icon(imageVector = it, contentDescription = null, modifier = Modifier.size(14.dp)) }
+            { Icon(imageVector = it, contentDescription = null, modifier = Modifier.size(16.dp)) }
         },
         label = {
             Text(text = label, style = MaterialTheme.typography.labelSmall)
         },
+        modifier = Modifier.heightIn(min = 48.dp),
         colors = AssistChipDefaults.assistChipColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
         )
@@ -426,7 +448,7 @@ fun RowScope.ToolActionButton(
     Card(
         modifier = modifier
             .weight(1f)
-            .height(80.dp)
+            .heightIn(min = 80.dp)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest

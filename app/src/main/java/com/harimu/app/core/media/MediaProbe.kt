@@ -28,6 +28,9 @@ data class MediaProbeResult(
 ) {
     val hasVideo: Boolean get() = videoCodec.isNotBlank() || (width > 0 && height > 0)
     val hasAudio: Boolean get() = audioCodec.isNotBlank() || audioChannels > 0
+    val isQuarterTurnRotated: Boolean get() = ((kotlin.math.abs(rotationDegrees) % 360) % 180) != 0
+    val orientedWidth: Int get() = if (isQuarterTurnRotated && height > 0) height else width
+    val orientedHeight: Int get() = if (isQuarterTurnRotated && width > 0) width else height
 
     fun formatSummary(isEnglish: Boolean): String = buildString {
         val dur = FfmpegProgressParser.formatDurationMs(durationMs)

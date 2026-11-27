@@ -61,9 +61,11 @@ class AudioStudioPlaybackController(private val context: Context) {
                     val targetPosInClip = (playheadPositionMs - clip.offsetMs).coerceIn(0L, clipDur)
                     runCatching {
                         entry.player.volume = gain
-                        val current = entry.player.currentPosition.coerceAtLeast(0L)
-                        if (abs(current - targetPosInClip) > 220L) {
-                            entry.player.seekTo(targetPosInClip)
+                        if (entry.player.playbackState == Player.STATE_READY) {
+                            val current = entry.player.currentPosition.coerceAtLeast(0L)
+                            if (abs(current - targetPosInClip) > 250L) {
+                                entry.player.seekTo(targetPosInClip)
+                            }
                         }
                         if (!entry.player.isPlaying && entry.player.playbackState != Player.STATE_ENDED) {
                             entry.player.playWhenReady = true

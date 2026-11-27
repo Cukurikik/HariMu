@@ -10,10 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -97,7 +96,6 @@ fun ToolLauncherCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StandardCard(
     modifier: Modifier,
@@ -109,11 +107,11 @@ private fun StandardCard(
     isEnglish: Boolean
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(120.dp)
-            .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .heightIn(min = 104.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -122,14 +120,13 @@ private fun StandardCard(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Icon
             Box(
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -140,11 +137,8 @@ private fun StandardCard(
                 )
             }
 
-            // Content
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.Start
             ) {
@@ -157,7 +151,8 @@ private fun StandardCard(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                     EngineBadge(engine = engineLabel)
                 }
@@ -177,7 +172,7 @@ private fun StandardCard(
                     horizontalArrangement = Arrangement.End
                 ) {
                     Text(
-                        text = if (isEnglish) "Open tool →" else "Buka alat →",
+                        text = stringResource(R.string.tool_open_cta),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = HariMuColors.ElectricOrange,
                             fontWeight = FontWeight.Medium
@@ -189,7 +184,6 @@ private fun StandardCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactCard(
     modifier: Modifier,
@@ -200,11 +194,11 @@ private fun CompactCard(
     isEnglish: Boolean
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier
             .width(160.dp)
-            .height(140.dp)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
+            .padding(6.dp)
+            .heightIn(min = 132.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -213,7 +207,7 @@ private fun CompactCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -239,7 +233,7 @@ private fun CompactCard(
             )
             EngineBadge(engine = engineLabel)
             Text(
-                text = if (isEnglish) "Tap to open" else "Sentuh untuk buka",
+                text = stringResource(R.string.tool_tap_to_open),
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -248,7 +242,6 @@ private fun CompactCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ListItemCard(
     modifier: Modifier,
@@ -260,11 +253,11 @@ private fun ListItemCard(
     isEnglish: Boolean
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(72.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .heightIn(min = 64.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -273,10 +266,10 @@ private fun ListItemCard(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+                .fillMaxWidth()
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Box(
                 modifier = Modifier.size(40.dp),
@@ -290,9 +283,7 @@ private fun ListItemCard(
                 )
             }
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 horizontalAlignment = Alignment.Start
             ) {
@@ -305,7 +296,8 @@ private fun ListItemCard(
                         text = title,
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                     EngineBadge(engine = engineLabel)
                 }
@@ -390,7 +382,7 @@ fun ToolCategorySection(
                         color = HariMuColors.ElectricOrange.copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = "${tools.size} tools",
+                            text = stringResource(R.string.tool_count_badge, tools.size),
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
@@ -430,13 +422,14 @@ fun ToolSearchBar(
     modifier: Modifier = Modifier,
     query: String,
     onQueryChange: (String) -> Unit,
-    placeholder: String = "Search tools...",
+    placeholder: String? = null,
     onClear: (() -> Unit)? = null
 ) {
+    val resolvedPlaceholder = placeholder ?: stringResource(R.string.tool_search_placeholder_default)
     androidx.compose.material3.TextField(
         value = query,
         onValueChange = onQueryChange,
-        label = { Text(text = placeholder) },
+        label = { Text(text = resolvedPlaceholder) },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Filled.Search,
@@ -448,7 +441,7 @@ fun ToolSearchBar(
             {
                 IconButton(
                     onClick = { (onClear ?: { onQueryChange("") })() },
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    modifier = Modifier.minimumInteractiveComponentSize()
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,

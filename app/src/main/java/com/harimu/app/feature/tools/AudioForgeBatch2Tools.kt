@@ -199,9 +199,9 @@ fun audioForgeBatch2CoreTools(
 
         override fun title(isEnglish: Boolean) = if (isEnglish) "Vocal Remover" else "Penghapus Vokal"
         override fun description(isEnglish: Boolean) = if (isEnglish) {
-            "Remove center-panned vocals cleanly with bass preservation (AI Demucs mode lands in P11)."
+            "Remove or isolate center-panned vocals with bass preservation, or export mid/side WAV stems."
         } else {
-            "Hapus atau isolasi vokal kanal tengah dengan pelindung bass (mode AI Demucs di P11)."
+            "Hapus atau isolasi vokal kanal tengah dengan pelindung bass, atau ekspor stem mid/side WAV."
         }
 
         override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
@@ -213,34 +213,55 @@ fun audioForgeBatch2CoreTools(
             val probe = validation.probes.first()
             val mode = input.getString("mode", "Mode Cepat — Kanselasi Tengah (Instrumental)")
             if (mode.startsWith("Mode DSP")) {
-                emit(ToolProgress.Running(20, "Mendekode PCM untuk pemisahan mid/side…"))
-                val pcm = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                    com.harimu.app.core.engines.AudioEngine.decodeToPcm(ctx.appContext, input.uris.first())
+                val safety = AudioToolMath.assessInMemoryDspSafety(probe.durationMs, ctx.isEnglish)
+                if (!safety.allowed) {
+                    emit(ToolProgress.Failed(safety.blockingError ?: "Audio too long for RAM DSP"))
+                    return@flow
                 }
-                require(pcm.samples.isNotEmpty()) { "Audio tidak dapat didekode" }
-                val dir = java.io.File(ctx.appContext.cacheDir, "aud04_${System.currentTimeMillis()}").apply { mkdirs() }
-                emit(ToolProgress.Running(60, "Memisahkan kanal tengah dan sisi…"))
-                val stems = kotlinx.coroutines.withContext(Dispatchers.Default) {
-                    com.harimu.app.core.ai.AiLocalEngines.splitStems(pcm, dir)
-                }
-                val zipFile = ctx.storage.createOutputFile("AUD_DSP_STEMS", "zip")
-                java.util.zip.ZipOutputStream(java.io.FileOutputStream(zipFile)).use { zip ->
-                    listOf(stems.vocals, stems.instrumental).forEach { file ->
-                        zip.putNextEntry(java.util.zip.ZipEntry(file.name))
-                        file.inputStream().use { it.copyTo(zip) }
-                        zip.closeEntry()
+                emit(ToolProgress.Running(20, if (ctx.isEnglish) "Decoding PCM for mid/side split…" else "Mendekode PCM untuk pemisahan mid/side…"))
+                val dir = ctx.storage.createJobTempDir("aud04_${System.currentTimeMillis()}")
+                var zipFile: java.io.File? = null
+                try {
+                    val pcm = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                        com.harimu.app.core.engines.AudioEngine.decodeToPcm(ctx.appContext, input.uris.first())
                     }
-                }
-                dir.deleteRecursively()
-                emit(
-                    ToolProgress.Done(
-                        ToolResult(
-                            outputs = listOf(ToolOutputFile(zipFile, "application/zip", zipFile.name)),
-                            summary = "2 jalur WAV (vokal + instrumen) • ${ctx.storage.formatBytes(zipFile.length())}\n" +
-                                "Catatan: mid/side DSP lokal, bukan model Demucs; hasil terbaik untuk vokal center-panned."
+                    if (pcm.samples.isEmpty()) {
+                        emit(ToolProgress.Failed(if (ctx.isEnglish) "Audio is empty or could not be decoded." else "Audio kosong atau tidak dapat didekode."))
+                        return@flow
+                    }
+                    emit(ToolProgress.Running(60, if (ctx.isEnglish) "Splitting mid and side channels…" else "Memisahkan kanal tengah dan sisi…"))
+                    val stems = kotlinx.coroutines.withContext(Dispatchers.Default) {
+                        com.harimu.app.core.ai.AiLocalEngines.splitStems(pcm, dir)
+                    }
+                    val createdZip = ctx.storage.createOutputFile("AUD_DSP_STEMS", "zip")
+                    zipFile = createdZip
+                    java.util.zip.ZipOutputStream(java.io.FileOutputStream(createdZip)).use { zip ->
+                        listOf(stems.vocals, stems.instrumental).forEach { file ->
+                            zip.putNextEntry(java.util.zip.ZipEntry(file.name))
+                            file.inputStream().use { it.copyTo(zip) }
+                            zip.closeEntry()
+                        }
+                    }
+                    emit(
+                        ToolProgress.Done(
+                            ToolResult(
+                                outputs = listOf(ToolOutputFile(createdZip, "application/zip", createdZip.name)),
+                                summary = if (ctx.isEnglish) {
+                                    "2 WAV tracks (vocals + instrumental) • ${ctx.storage.formatBytes(createdZip.length())}\n" +
+                                        "Note: local mid/side DSP, not a Demucs model; best for center-panned vocals."
+                                } else {
+                                    "2 jalur WAV (vokal + instrumen) • ${ctx.storage.formatBytes(createdZip.length())}\n" +
+                                        "Catatan: mid/side DSP lokal, bukan model Demucs; hasil terbaik untuk vokal center-panned."
+                                }
+                            )
                         )
                     )
-                )
+                } catch (ce: kotlinx.coroutines.CancellationException) {
+                    zipFile?.delete()
+                    throw ce
+                } finally {
+                    dir.deleteRecursively()
+                }
                 return@flow
             }
             val err = AudioBatch2Math.validateVocalRemoverInput(probe, mode, ctx.isEnglish)

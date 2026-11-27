@@ -21,15 +21,12 @@ object AudioStudioEngine {
         tracks: List<AudioTrackSpec>,
         masterVolume: Float,
         outputFormat: String = "wav", // wav, mp3, flac
-        isEnglish: Boolean = false
+        isEnglish: Boolean = false,
+        mediaJob: MediaJob = MediaJob()
     ): Flow<ToolProgress> {
-        val mediaJob = MediaJob()
         val ext = outputFormat.lowercase(Locale.US).takeIf { it in listOf("wav", "mp3", "flac") } ?: "wav"
-        val mime = when (ext) {
-            "mp3" -> "audio/mpeg"
-            "flac" -> "audio/flac"
-            else -> "audio/wav"
-        }
+        val outSpec = AudioToolMath.resolveFormatSpec(ext.uppercase(Locale.US))
+            ?: AudioToolMath.FORMAT_SPECS.getValue("WAV")
 
         val hasSolo = tracks.any { it.solo && !it.mute }
         val activeTracks = tracks.filter { track ->
@@ -50,17 +47,24 @@ object AudioStudioEngine {
                 emit(ToolProgress.Failed(if (isEnglish) "No active audio clips to export." else "Tidak ada klip audio aktif untuk diekspor."))
             }
         }
+        if (!storage.hasEnoughDiskSpace()) {
+            return kotlinx.coroutines.flow.flow {
+                emit(ToolProgress.Failed(if (isEnglish) "Not enough free disk space." else "Ruang disk tidak cukup untuk ekspor audio."))
+            }
+        }
 
         val inputUris = allClipsWithTrack.map { (_, clip, _) -> Uri.parse(clip.uriString) }
-        val maxDurationMs = allClipsWithTrack.maxOfOrNull { (_, clip, _) -> clip.offsetMs + (clip.trimEndMs - clip.trimStartMs) } ?: 1000L
+        val maxDurationMs = allClipsWithTrack.maxOfOrNull { (_, clip, _) ->
+            clip.offsetMs + max(250L, clip.trimEndMs - clip.trimStartMs)
+        } ?: 1000L
 
         return mediaJob.runCommand(
             context = context,
             storage = storage,
             inputUris = inputUris,
-            toolTag = "DAW_${ext.uppercase(Locale.US)}",
-            outputExt = ext,
-            outputMime = mime,
+            toolTag = "DAW_${outSpec.extension.uppercase(Locale.US)}",
+            outputExt = outSpec.extension,
+            outputMime = outSpec.mimeType,
             expectedDurationMs = maxDurationMs,
             isEnglish = isEnglish
         ) { localFiles, outputFile ->
@@ -88,8 +92,10 @@ object AudioStudioEngine {
                 val filterChain = buildList {
                     add("atrim=start=$startSec:duration=$durSec")
                     add("asetpts=PTS-STARTPTS")
+                    // Normalize to stereo float BEFORE applying L/R pan so mono clips never fail on missing c1
+                    add("aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo")
                     if (abs(finalVol - 1.0f) > 0.01f) {
-                        add("volume=$finalVol")
+                        add(String.format(Locale.US, "volume=%.4f", finalVol))
                     }
                     if (abs(panVal) > 0.05f) {
                         val leftGain = String.format(Locale.US, "%.2f", 1.0f - max(0f, panVal))
@@ -99,7 +105,6 @@ object AudioStudioEngine {
                     if (delayMs > 0L) {
                         add("adelay=$delayMs|$delayMs")
                     }
-                    add("aformat=sample_rates=44100:channel_layouts=stereo")
                 }.joinToString(",")
 
                 filterParts.add("[$index:a]$filterChain[$label]")
@@ -108,20 +113,18 @@ object AudioStudioEngine {
 
             val mixCount = allClipsWithTrack.size
             val filterComplex = if (mixCount == 1) {
-                "${filterParts.first()};[a0]acopy[outa]"
+                "${filterParts.first()};[a0]alimiter=limit=0.95:attack=5:release=50:level=disabled[outa]"
             } else {
-                "${filterParts.joinToString(";")};${mixInputs}amix=inputs=$mixCount:duration=longest:dropout_transition=2[outa]"
+                "${filterParts.joinToString(";")};${mixInputs}amix=inputs=$mixCount:duration=longest:dropout_transition=0:normalize=0,alimiter=limit=0.95:attack=5:release=50:level=disabled[outa]"
             }
 
             args.add("-filter_complex")
             args.add(filterComplex)
             args.add("-map")
             args.add("[outa]")
-
-            if (ext == "mp3") {
-                args.add("-b:a")
-                args.add("192k")
-            } else if (ext == "flac") {
+            args.add("-vn")
+            args.addAll(AudioToolMath.buildCodecOutputArgs(outSpec))
+            if (outSpec.extension == "flac") {
                 args.add("-compression_level")
                 args.add("5")
             }

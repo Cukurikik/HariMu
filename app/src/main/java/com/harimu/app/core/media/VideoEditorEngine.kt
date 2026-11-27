@@ -156,15 +156,26 @@ class VideoEditorEngine(
             }
             val probes = validation.probes
             val firstProbe = probes.first()
-            val landscape = firstProbe.width >= firstProbe.height || firstProbe.width == 0
+            val landscape = firstProbe.orientedWidth >= firstProbe.orientedHeight || firstProbe.orientedWidth == 0
             val dims = VideoEditorMath.targetCanvasDimensions(resolutionPreset, landscape)
             val includeAudio = clips.indices.any { idx -> probes[idx].hasAudio && !clips[idx].muteAudio }
 
             val segmentFiles = mutableListOf<File>()
+            val segmentEngines = mutableListOf<String>()
             for (idx in clips.indices) {
                 currentCoroutineContext().ensureActive()
-                val clip = clips[idx]
+                val rawClip = clips[idx]
                 val probe = probes[idx]
+                val safeEnd = if (probe.durationMs > 0L) {
+                    rawClip.trimEndMs.coerceAtMost(probe.durationMs)
+                } else {
+                    rawClip.trimEndMs
+                }
+                val safeStart = rawClip.trimStartMs.coerceIn(0L, (safeEnd - 250L).coerceAtLeast(0L))
+                val clip = rawClip.copy(
+                    trimStartMs = safeStart,
+                    trimEndMs = safeEnd.coerceAtLeast(safeStart + 250L)
+                )
                 val clipUri = clipUris[idx]
                 val pctStart = 5 + ((idx * 75) / clips.size)
                 emit(
@@ -212,6 +223,7 @@ class VideoEditorEngine(
                             MediaUriUtils.cleanupQuietly(produced)
                         }
                         segmentSuccess = true
+                        segmentEngines.add("M3")
                     }
                 }
 
@@ -244,6 +256,7 @@ class VideoEditorEngine(
                         emit(ToolProgress.Failed(reason))
                         return@flow
                     }
+                    segmentEngines.add("FF")
                 }
 
                 segmentFiles.add(segmentOut)
@@ -284,31 +297,75 @@ class VideoEditorEngine(
                 }
 
                 if (!mergedViaMedia3) {
-                    val concatList = File(jobDir, "concat.txt")
-                    concatList.writeText(
-                        segmentFiles.joinToString("\n") { "file '${it.absolutePath.replace("'", "'\\''")}'" },
-                        Charsets.UTF_8
-                    )
                     val totalDurMs = VideoEditorMath.totalTimelineDurationMs(clips)
-                    val concatResult = mediaJob.runStep(
-                        arguments = listOf(
-                            "-y",
-                            "-f", "concat",
-                            "-safe", "0",
-                            "-i", concatList.absolutePath,
-                            "-c", "copy",
-                            "-movflags", "+faststart",
-                            finalOutput.absolutePath
-                        ),
-                        expectedDurationMs = totalDurMs,
-                        isEnglish = isEnglish
-                    )
-                    if (concatResult.isFailure || !finalOutput.exists() || finalOutput.length() == 0L) {
-                        val reason = concatResult.exceptionOrNull()?.localizedMessage
-                            ?: if (isEnglish) "Failed merging timeline clips" else "Gagal menggabungkan klip timeline"
+                    val mixedCodecs = segmentEngines.distinct().size > 1
+                    val copyConcatSucceeded = if (!mixedCodecs) {
+                        val concatList = File(jobDir, "concat.txt")
+                        concatList.writeText(
+                            segmentFiles.joinToString("\n") { "file '${it.absolutePath.replace("'", "'\\''")}'" },
+                            Charsets.UTF_8
+                        )
+                        val copyResult = mediaJob.runStep(
+                            arguments = listOf(
+                                "-y",
+                                "-f", "concat",
+                                "-safe", "0",
+                                "-i", concatList.absolutePath,
+                                "-c", "copy",
+                                "-movflags", "+faststart",
+                                finalOutput.absolutePath
+                            ),
+                            expectedDurationMs = totalDurMs,
+                            isEnglish = isEnglish
+                        )
+                        copyResult.isSuccess && finalOutput.exists() && finalOutput.length() > 0L
+                    } else {
+                        false
+                    }
+
+                    if (!copyConcatSucceeded) {
                         MediaUriUtils.cleanupQuietly(finalOutput)
-                        emit(ToolProgress.Failed(reason))
-                        return@flow
+                        val reencodeArgs = buildList {
+                            add("-y")
+                            segmentFiles.forEach { seg ->
+                                add("-i"); add(seg.absolutePath)
+                            }
+                            val vChains = segmentFiles.indices.joinToString("") { idx ->
+                                "[$idx:v]scale=${dims.width}:${dims.height}:force_original_aspect_ratio=decrease," +
+                                    "pad=${dims.width}:${dims.height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v$idx];"
+                            }
+                            if (includeAudio) {
+                                val pairs = segmentFiles.indices.joinToString("") { idx ->
+                                    "[v$idx][$idx:a]"
+                                }
+                                add("-filter_complex")
+                                add("${vChains}${pairs}concat=n=${segmentFiles.size}:v=1:a=1[vout][aout]")
+                                add("-map"); add("[vout]")
+                                add("-map"); add("[aout]")
+                                add("-c:a"); add("aac"); add("-b:a"); add("160k")
+                            } else {
+                                val vOnly = segmentFiles.indices.joinToString("") { idx -> "[v$idx]" }
+                                add("-filter_complex")
+                                add("${vChains}${vOnly}concat=n=${segmentFiles.size}:v=1:a=0[vout]")
+                                add("-map"); add("[vout]")
+                                add("-an")
+                            }
+                            add("-c:v"); add("mpeg4"); add("-q:v"); add("3")
+                            add("-movflags"); add("+faststart")
+                            add(finalOutput.absolutePath)
+                        }
+                        val reencodeRes = mediaJob.runStep(
+                            arguments = reencodeArgs,
+                            expectedDurationMs = totalDurMs,
+                            isEnglish = isEnglish
+                        )
+                        if (reencodeRes.isFailure || !finalOutput.exists() || finalOutput.length() == 0L) {
+                            val reason = reencodeRes.exceptionOrNull()?.localizedMessage
+                                ?: if (isEnglish) "Failed merging timeline clips" else "Gagal menggabungkan klip timeline"
+                            MediaUriUtils.cleanupQuietly(finalOutput)
+                            emit(ToolProgress.Failed(reason))
+                            return@flow
+                        }
                     }
                 }
             }

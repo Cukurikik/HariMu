@@ -17,10 +17,12 @@ import com.harimu.app.core.ai.SegmentationMode
 import com.harimu.app.core.engines.AudioEngine
 import com.harimu.app.core.engines.ImageIO
 import com.harimu.app.core.engines.VideoEngine
+import com.harimu.app.core.media.AudioToolMath
 import com.harimu.app.core.media.FfmpegCapabilities
 import com.harimu.app.core.media.Media3Request
 import com.harimu.app.core.media.Media3TransformerEngine
 import com.harimu.app.core.media.MediaJob
+import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.toolapi.InputSpec
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolContext
@@ -30,6 +32,7 @@ import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolProgress
 import com.harimu.app.core.toolapi.ToolResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -316,33 +319,37 @@ private fun videoUpscaleTool(
     }
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-        val uri = input.uris.firstOrNull() ?: error("Pilih 1 video")
-        val durationMs = VideoEngine.getVideoDurationMs(ctx.appContext, uri)
+        val uri = input.uris.firstOrNull() ?: error(if (ctx.isEnglish) "Select 1 video" else "Pilih 1 video")
+        val probe = withContext(Dispatchers.IO) { MediaProbe.probe(ctx.appContext, uri) }
+        val durationMs = probe.durationMs.takeIf { it > 0L } ?: VideoEngine.getVideoDurationMs(ctx.appContext, uri)
         require(durationMs in 1..60_000L) {
-            "Durasi ${durationMs / 1000}s di luar batas 1–60 detik. Potong dulu dengan tool trim video."
-        }
-        val meta = withContext(Dispatchers.IO) {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(ctx.appContext, uri)
-                val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-                val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-                w to h
-            } finally {
-                runCatching { retriever.release() }
+            if (ctx.isEnglish) {
+                "Duration ${durationMs / 1000}s is outside the 1–60s limit. Trim the clip first."
+            } else {
+                "Durasi ${durationMs / 1000}s di luar batas 1–60 detik. Potong dulu dengan tool trim video."
             }
         }
-        require(meta.second in 1..1080) {
-            "Tinggi video ${meta.second}px melebihi 1080p. Turunkan resolusinya dulu."
+        val srcW = probe.orientedWidth
+        val srcH = probe.orientedHeight
+        val shortSide = minOf(srcW, srcH)
+        require(shortSide in 1..1080 && maxOf(srcW, srcH) <= 1920) {
+            if (ctx.isEnglish) {
+                "Video resolution (${srcW}×${srcH}) exceeds 1080p limit. Downscale it first."
+            } else {
+                "Resolusi video (${srcW}×${srcH}) melebihi batas 1080p. Turunkan resolusinya dulu."
+            }
         }
         val factor = input.getString("factor", "1.5x").removeSuffix("x").toFloatOrNull() ?: 1.5f
-        val targetHeight = (meta.second * factor).roundToInt()
-        require(targetHeight <= 2160) { "Hasil ${targetHeight}px melebihi 2160p." }
+        val targetShort = (shortSide * factor).roundToInt()
+        require(targetShort <= 2160) {
+            if (ctx.isEnglish) "Output short side ${targetShort}px exceeds 2160p."
+            else "Hasil sisi pendek ${targetShort}px melebihi 2160p."
+        }
 
         // Encoder H.264 membutuhkan dimensi genap.
         fun even(value: Int): Int = ((value.coerceAtLeast(1) + 1) / 2) * 2
-        val targetWidth = even((meta.first * factor).roundToInt())
-        val targetH = even(targetHeight)
+        val targetWidth = even((srcW * factor).roundToInt())
+        val targetH = even((srcH * factor).roundToInt())
         val sharp = input.getFloat("sharpness", 0f).toInt().coerceIn(0, 100)
         val highQuality = input.getString("quality", "Sedang").startsWith("Tinggi")
 
@@ -351,7 +358,7 @@ private fun videoUpscaleTool(
             emit(
                 ToolProgress.Running(
                     25,
-                    "Media3 H.264: ${meta.first}×${meta.second} → $targetWidth×$targetH (encoder perangkat)…"
+                    "Media3 H.264: ${srcW}×${srcH} → $targetWidth×$targetH (encoder perangkat)…"
                 )
             )
             val request = Media3Request(
@@ -397,7 +404,7 @@ private fun videoUpscaleTool(
             emit(
                 ToolProgress.Running(
                     25,
-                    "FFmpeg: ${meta.first}×${meta.second} → $targetWidth×$targetH (mpeg4 + unsharp, CPU)…"
+                    "FFmpeg: ${srcW}×${srcH} → $targetWidth×$targetH (mpeg4 + unsharp, CPU)…"
                 )
             )
             ffmpegJob.runCommand(
@@ -410,15 +417,19 @@ private fun videoUpscaleTool(
                 expectedDurationMs = durationMs,
                 isEnglish = ctx.isEnglish
             ) { inputs, output ->
-                listOf(
-                    "-y",
-                    "-i", inputs.first().absolutePath,
-                    "-vf", filter,
-                    "-c:v", "mpeg4", "-q:v", if (highQuality) "2" else "4",
-                    "-c:a", "copy",
-                    "-movflags", "+faststart",
-                    output.absolutePath
-                )
+                buildList {
+                    add("-y")
+                    add("-i"); add(inputs.first().absolutePath)
+                    add("-vf"); add(filter)
+                    add("-c:v"); add("mpeg4"); add("-q:v"); add(if (highQuality) "2" else "4")
+                    if (probe.hasAudio) {
+                        add("-c:a"); add("copy")
+                    } else {
+                        add("-an")
+                    }
+                    add("-movflags"); add("+faststart")
+                    add(output.absolutePath)
+                }
             }.collect { progress ->
                 if (progress is ToolProgress.Done) {
                     val size = progress.result.outputs.firstOrNull()?.file?.length() ?: 0L
@@ -465,61 +476,81 @@ private fun stemSplitterTool(): Tool = object : Tool {
     }
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
-        val uri = input.uris.firstOrNull() ?: error("Pilih 1 file audio")
-        emit(ToolProgress.Running(15, "Mendekode audio ke PCM…"))
-        val pcm = withContext(Dispatchers.IO) { AudioEngine.decodeToPcm(ctx.appContext, uri) }
-        require(pcm.samples.isNotEmpty()) { "Audio kosong atau tidak dapat didekode" }
-        emit(ToolProgress.Running(45, "Memisahkan kanal tengah/sisi…"))
-        val mode = input.getString("output", "Vokal + Instrumen")
-        val tempDir = ctx.storage.createTempFile("stems", "dir").let { probe ->
-            val dir = File(probe.parentFile, "stems_${System.currentTimeMillis()}")
-            probe.delete()
-            dir.mkdirs()
-            dir
+        val validation = AudioToolMath.validateAudioInputs(ctx.appContext, ctx.storage, input.uris, 1, ctx.isEnglish)
+        if (!validation.valid) {
+            emit(ToolProgress.Failed(validation.errorMessage ?: "Invalid audio"))
+            return@flow
         }
-        val stems = withContext(Dispatchers.Default) {
-            AiLocalEngines.splitStems(pcm, tempDir, instrumentalOnly = mode == "Instrumen saja")
+        val probe = validation.probes.first()
+        val safety = AudioToolMath.assessInMemoryDspSafety(probe.durationMs, ctx.isEnglish)
+        if (!safety.allowed) {
+            emit(ToolProgress.Failed(safety.blockingError ?: "Audio too long for RAM DSP"))
+            return@flow
         }
-        val files = buildList {
-            if (mode != "Instrumen saja") add(stems.vocals)
-            if (mode != "Vokal saja") add(stems.instrumental)
-        }
-        emit(ToolProgress.Running(80, "Menulis hasil…"))
+        val uri = input.uris.first()
+        emit(ToolProgress.Running(15, if (ctx.isEnglish) "Decoding audio to PCM…" else "Mendekode audio ke PCM…"))
+        val tempDir = ctx.storage.createJobTempDir("stems_${System.currentTimeMillis()}")
         val outputs = mutableListOf<ToolOutputFile>()
-        if (input.getBoolean("zip", true) && files.size > 1) {
-            val zipFile = ctx.storage.createOutputFile("AUD_STEMS", "zip")
-            ZipOutputStream(FileOutputStream(zipFile)).use { zip ->
-                files.forEach { file ->
-                    zip.putNextEntry(ZipEntry(file.name))
-                    file.inputStream().use { it.copyTo(zip) }
+        try {
+            val pcm = withContext(Dispatchers.IO) { AudioEngine.decodeToPcm(ctx.appContext, uri) }
+            if (pcm.samples.isEmpty()) {
+                emit(ToolProgress.Failed(if (ctx.isEnglish) "Audio is empty or could not be decoded." else "Audio kosong atau tidak dapat didekode."))
+                return@flow
+            }
+            emit(ToolProgress.Running(45, if (ctx.isEnglish) "Splitting mid/side channels…" else "Memisahkan kanal tengah/sisi…"))
+            val mode = input.getString("output", "Vokal + Instrumen")
+            val stems = withContext(Dispatchers.Default) {
+                AiLocalEngines.splitStems(pcm, tempDir, instrumentalOnly = mode == "Instrumen saja")
+            }
+            val files = buildList {
+                if (mode != "Instrumen saja") add(stems.vocals)
+                if (mode != "Vokal saja") add(stems.instrumental)
+            }
+            emit(ToolProgress.Running(80, if (ctx.isEnglish) "Writing outputs…" else "Menulis hasil…"))
+            if (input.getBoolean("zip", true) && files.size > 1) {
+                val zipFile = ctx.storage.createOutputFile("AUD_STEMS", "zip")
+                ZipOutputStream(FileOutputStream(zipFile)).use { zip ->
+                    files.forEach { file ->
+                        zip.putNextEntry(ZipEntry(file.name))
+                        file.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                    zip.putNextEntry(ZipEntry("catatan.txt"))
+                    zip.write(
+                        ("Dihasilkan HariMu AUD-20 dengan mid/side DSP.\n" +
+                            "Vokal = (L+R)/2, Instrumen = (L-R)/2. Ini bukan Demucs; hasil terbaik untuk\n" +
+                            "rekaman dengan vokal center-panned.\n").toByteArray()
+                    )
                     zip.closeEntry()
                 }
-                zip.putNextEntry(ZipEntry("catatan.txt"))
-                zip.write(
-                    ("Dihasilkan HariMu AUD-20 dengan mid/side DSP.\n" +
-                        "Vokal = (L+R)/2, Instrumen = (L-R)/2. Ini bukan Demucs; hasil terbaik untuk\n" +
-                        "rekaman dengan vokal center-panned.\n").toByteArray()
-                )
-                zip.closeEntry()
+                outputs += ToolOutputFile(zipFile, "application/zip", zipFile.name)
+            } else {
+                files.forEach { file ->
+                    val dest = ctx.storage.createOutputFile("AUD_STEM_${file.nameWithoutExtension.uppercase()}", "wav")
+                    file.copyTo(dest, overwrite = true)
+                    outputs += ToolOutputFile(dest, "audio/wav", dest.name)
+                }
             }
-            outputs += ToolOutputFile(zipFile, "application/zip", zipFile.name)
-        } else {
-            files.forEach { file ->
-                val dest = ctx.storage.createOutputFile("AUD_STEM_${file.nameWithoutExtension.uppercase()}", "wav")
-                file.copyTo(dest, overwrite = true)
-                outputs += ToolOutputFile(dest, "audio/wav", dest.name)
-            }
-        }
-        tempDir.deleteRecursively()
-        emit(
-            ToolProgress.Done(
-                ToolResult(
-                    outputs = outputs,
-                    summary = "${files.size} jalur • ${ctx.storage.formatBytes(outputs.sumOf { it.file.length() })} • " +
-                        "mid/side DSP (bukan model). Kualitas bergantung pada posisi vokal di mix."
+            emit(
+                ToolProgress.Done(
+                    ToolResult(
+                        outputs = outputs,
+                        summary = if (ctx.isEnglish) {
+                            "${files.size} tracks • ${ctx.storage.formatBytes(outputs.sumOf { it.file.length() })} • " +
+                                "mid/side DSP (not a neural model). Quality depends on center-panned vocal placement."
+                        } else {
+                            "${files.size} jalur • ${ctx.storage.formatBytes(outputs.sumOf { it.file.length() })} • " +
+                                "mid/side DSP (bukan model). Kualitas bergantung pada posisi vokal di mix."
+                        }
+                    )
                 )
             )
-        )
+        } catch (ce: CancellationException) {
+            outputs.forEach { it.file.delete() }
+            throw ce
+        } finally {
+            tempDir.deleteRecursively()
+        }
     }.flowOn(Dispatchers.IO)
 }
 

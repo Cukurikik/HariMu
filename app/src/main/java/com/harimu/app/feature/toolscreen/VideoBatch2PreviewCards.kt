@@ -75,8 +75,10 @@ fun RoiLogoPreviewCard(
 ) {
     val context = LocalContext.current
     var frameBitmap by remember(videoUri) { mutableStateOf<Bitmap?>(null) }
+    var isLoadingFrame by remember(videoUri) { mutableStateOf(true) }
 
     LaunchedEffect(videoUri) {
+        isLoadingFrame = true
         val loaded = withContext(Dispatchers.IO) {
             val mmr = MediaMetadataRetriever()
             try {
@@ -95,6 +97,7 @@ fun RoiLogoPreviewCard(
             }
         }
         frameBitmap = loaded
+        isLoadingFrame = false
     }
 
     DisposableEffect(frameBitmap) {
@@ -134,7 +137,8 @@ fun RoiLogoPreviewCard(
                     .fillMaxWidth()
                     .aspectRatio(aspect)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color.Black)
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
             ) {
                 if (bmp != null) {
                     Image(
@@ -142,6 +146,14 @@ fun RoiLogoPreviewCard(
                         contentDescription = stringResource(R.string.cd_roi_preview_frame),
                         contentScale = ContentScale.FillBounds,
                         modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = stringResource(
+                            if (isLoadingFrame) R.string.video_preview_loading else R.string.roi_preview_unavailable
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.75f)
                     )
                 }
                 Canvas(modifier = Modifier.fillMaxSize()) {

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.net.Uri
 import androidx.compose.material.icons.Icons
@@ -13,8 +14,10 @@ import androidx.compose.material.icons.filled.FaceRetouchingOff
 import androidx.compose.material.icons.filled.FilterBAndW
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Speed
+import androidx.exifinterface.media.ExifInterface
 import androidx.media3.common.util.UnstableApi
 import com.harimu.app.core.media.FaceBlurDetector
+import com.harimu.app.core.media.FfmpegCapabilities
 import com.harimu.app.core.media.Media3Request
 import com.harimu.app.core.media.Media3TransformerEngine
 import com.harimu.app.core.media.MediaJob
@@ -102,8 +105,8 @@ fun videoForgeBatch2ExtraTools(
                 return@flow
             }
 
-            val srcW = probe.width.takeIf { it > 0 } ?: 1280
-            val srcH = probe.height.takeIf { it > 0 } ?: 720
+            val srcW = probe.orientedWidth.takeIf { it > 0 } ?: 1280
+            val srcH = probe.orientedHeight.takeIf { it > 0 } ?: 720
             val windows = VideoBatch2Math.smoothAndGroupFaceTracks(
                 samples = samplingResult.samples,
                 srcWidth = srcW,
@@ -112,6 +115,7 @@ fun videoForgeBatch2ExtraTools(
                 detectHeight = samplingResult.detectHeight,
                 totalDurationMs = probe.durationMs
             )
+            FfmpegCapabilities.requireFilter(if (pixelate) "scale" else "gblur", ctx.isEnglish)
             val filterGraph = VideoBatch2Math.buildFaceBlurFilterGraph(windows, pixelate, blurStrength)
             emit(
                 ToolProgress.Running(
@@ -132,17 +136,21 @@ fun videoForgeBatch2ExtraTools(
                     expectedDurationMs = probe.durationMs,
                     isEnglish = ctx.isEnglish
                 ) { inputs, output ->
-                    listOf(
-                        "-y",
-                        "-i", inputs.first().absolutePath,
-                        "-filter_complex", filterGraph,
-                        "-map", "[vout]",
-                        "-map", "0:a?",
-                        "-c:v", "mpeg4", "-q:v", "3",
-                        "-c:a", "copy",
-                        "-movflags", "+faststart",
-                        output.absolutePath
-                    )
+                    buildList {
+                        add("-y")
+                        add("-i"); add(inputs.first().absolutePath)
+                        add("-filter_complex"); add(filterGraph)
+                        add("-map"); add("[vout]")
+                        add("-c:v"); add("mpeg4"); add("-q:v"); add("3")
+                        if (probe.hasAudio) {
+                            add("-map"); add("0:a?")
+                            add("-c:a"); add("copy")
+                        } else {
+                            add("-an")
+                        }
+                        add("-movflags"); add("+faststart")
+                        add(output.absolutePath)
+                    }
                 }
             )
         }.flowOn(Dispatchers.IO)
@@ -218,7 +226,8 @@ fun videoForgeBatch2ExtraTools(
                             "-y", "-i", inputs.first().absolutePath,
                             "-vf", vf,
                             "-c:v", "mpeg4", "-q:v", "3",
-                            "-c:a", "copy",
+                            if (probe.hasAudio) "-c:a" else "-an",
+                            *(if (probe.hasAudio) arrayOf("copy") else emptyArray()),
                             "-movflags", "+faststart",
                             output.absolutePath
                         )
@@ -271,8 +280,8 @@ fun videoForgeBatch2ExtraTools(
             val firstProbe = probes.first()
             val resPreset = input.getString("resolution", "720p")
             val dims = VideoToolMath.calculateTargetDimensions(
-                srcWidth = firstProbe.width.takeIf { it > 0 } ?: 1280,
-                srcHeight = firstProbe.height.takeIf { it > 0 } ?: 720,
+                srcWidth = firstProbe.orientedWidth.takeIf { it > 0 } ?: 1280,
+                srcHeight = firstProbe.orientedHeight.takeIf { it > 0 } ?: 720,
                 preset = resPreset
             )
             val transition = input.getString("transition", "fade")
@@ -358,12 +367,13 @@ fun videoForgeBatch2ExtraTools(
                 mime.startsWith("video/") || MediaProbe.probe(ctx.appContext, bgUri).hasVideo
             } else false
 
+            FfmpegCapabilities.requireFilter("chromakey", ctx.isEnglish)
             val keyHex = VideoBatch2Math.mapChromaKeyHex(input.getString("keyColor", "Hijau (#00FF00)"))
             val fallbackHex = VideoBatch2Math.mapFallbackBgColorHex(input.getString("fallbackBg", "Gelap Studio"))
             val sim = input.getFloat("similarity", 0.22f)
             val blend = input.getFloat("blend", 0.08f)
-            val targetW = probe.width.takeIf { it > 0 } ?: 1280
-            val targetH = probe.height.takeIf { it > 0 } ?: 720
+            val targetW = probe.orientedWidth.takeIf { it > 0 } ?: 1280
+            val targetH = probe.orientedHeight.takeIf { it > 0 } ?: 720
             val fc = VideoBatch2Math.buildChromaKeyFilter(
                 hasBackgroundMedia = hasBg,
                 backgroundIsVideo = bgIsVideo,
@@ -398,9 +408,13 @@ fun videoForgeBatch2ExtraTools(
                         }
                         add("-filter_complex"); add(fc)
                         add("-map"); add("[vout]")
-                        add("-map"); add("0:a?")
                         add("-c:v"); add("mpeg4"); add("-q:v"); add("3")
-                        add("-c:a"); add("copy")
+                        if (probe.hasAudio) {
+                            add("-map"); add("0:a?")
+                            add("-c:a"); add("copy")
+                        } else {
+                            add("-an")
+                        }
                         add("-shortest")
                         add("-movflags"); add("+faststart")
                         add(output.absolutePath)
@@ -440,8 +454,10 @@ fun videoForgeBatch2ExtraTools(
             }
             val fps = input.getFloat("fps", 6f).roundToInt().coerceIn(1, 24)
             val shortSide = VideoToolMath.parseResolutionShortSide(input.getString("resolution", "720p"))
-            val outW = VideoToolMath.makeEven((shortSide * 16f / 9f).roundToInt())
-            val outH = VideoToolMath.makeEven(shortSide)
+            val firstBounds = inspectImageOrientedSize(ctx.appContext, input.uris.first())
+            val isLandscape = firstBounds == null || firstBounds.first >= firstBounds.second
+            val outW = VideoToolMath.makeEven(if (isLandscape) (shortSide * 16f / 9f).roundToInt() else shortSide)
+            val outH = VideoToolMath.makeEven(if (isLandscape) shortSide else (shortSide * 16f / 9f).roundToInt())
             val coverCrop = input.getString("fitMode", "Contain (Pad)").contains("Cover", ignoreCase = true)
 
             val jobDir = ctx.storage.createJobTempDir("stopmotion_${UUID.randomUUID().toString().take(6)}")
@@ -563,6 +579,47 @@ fun videoForgeBatch2ExtraTools(
     }
 )
 
+private fun readExifOrientation(context: android.content.Context, uri: Uri): Int = runCatching {
+    context.contentResolver.openInputStream(uri)?.use { stream ->
+        ExifInterface(stream).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+    } ?: ExifInterface.ORIENTATION_NORMAL
+}.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+private fun inspectImageOrientedSize(context: android.content.Context, uri: Uri): Pair<Int, Int>? = runCatching {
+    val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+    if (opts.outWidth <= 0 || opts.outHeight <= 0) return@runCatching null
+    val orientation = readExifOrientation(context, uri)
+    val rotated = orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+        orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+        orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+        orientation == ExifInterface.ORIENTATION_TRANSVERSE
+    if (rotated) opts.outHeight to opts.outWidth else opts.outWidth to opts.outHeight
+}.getOrNull()
+
+private fun applyExifOrientation(bitmap: Bitmap, orientation: Int): Bitmap {
+    val matrix = Matrix()
+    when (orientation) {
+        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+        ExifInterface.ORIENTATION_TRANSPOSE -> {
+            matrix.postRotate(90f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_TRANSVERSE -> {
+            matrix.postRotate(270f)
+            matrix.postScale(-1f, 1f)
+        }
+        else -> return bitmap
+    }
+    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    if (rotated !== bitmap) bitmap.recycle()
+    return rotated
+}
+
 private fun normalizeImageToFrame(
     context: android.content.Context,
     uri: Uri,
@@ -580,8 +637,9 @@ private fun normalizeImageToFrame(
         sample *= 2
     }
     val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
-    val src = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, decodeOpts) }
+    val rawSrc = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, decodeOpts) }
         ?: return@runCatching false
+    val src = applyExifOrientation(rawSrc, readExifOrientation(context, uri))
 
     val canvasBmp = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(canvasBmp)

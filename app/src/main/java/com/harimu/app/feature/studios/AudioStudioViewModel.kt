@@ -15,6 +15,7 @@ import com.harimu.app.core.media.MediaProbe
 import com.harimu.app.core.toolapi.ToolProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Collections
 import java.util.UUID
 
 data class AudioStudioUiState(
@@ -47,10 +49,18 @@ data class AudioStudioUiState(
     val lastSavedAt: Long? = null,
     val clipWaveforms: Map<String, List<Float>> = emptyMap()
 ) {
-    val totalDurationMs: Long
+    val hasAnyClips: Boolean
+        get() = tracks.any { it.clips.isNotEmpty() }
+
+    val actualDurationMs: Long
         get() = tracks.maxOfOrNull { tr ->
-            tr.clips.maxOfOrNull { clip -> clip.offsetMs + (clip.trimEndMs - clip.trimStartMs) } ?: 0L
-        } ?: 5_000L
+            tr.clips.maxOfOrNull { clip ->
+                clip.offsetMs + (clip.trimEndMs - clip.trimStartMs).coerceAtLeast(0L)
+            } ?: 0L
+        } ?: 0L
+
+    val totalDurationMs: Long
+        get() = actualDurationMs.coerceAtLeast(5_000L)
 }
 
 class AudioStudioViewModel(
@@ -64,6 +74,8 @@ class AudioStudioViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private var exportJob: Job? = null
+    private var autoSaveJob: Job? = null
+    private val inFlightWaveformClipIds = Collections.synchronizedSet(HashSet<String>())
 
     fun initializeDefaultTitle(defaultTitle: String) {
         _state.update { current ->
@@ -77,6 +89,8 @@ class AudioStudioViewModel(
 
     fun newProject(defaultTitle: String) {
         exportJob?.cancel()
+        autoSaveJob?.cancel()
+        inFlightWaveformClipIds.clear()
         _state.value = AudioStudioUiState(
             projectId = UUID.randomUUID().toString(),
             title = defaultTitle
@@ -85,6 +99,8 @@ class AudioStudioViewModel(
 
     fun loadProject(entity: AudioProjectEntity) {
         exportJob?.cancel()
+        autoSaveJob?.cancel()
+        inFlightWaveformClipIds.clear()
         val loadedTracks = container.workspace.decodeAudioTracks(entity.tracksJson)
         _state.value = AudioStudioUiState(
             projectId = entity.id,
@@ -104,12 +120,12 @@ class AudioStudioViewModel(
 
     fun setTitle(title: String) {
         _state.update { it.copy(title = title) }
-        persistQuietly()
+        persistImmediate()
     }
 
     fun setMasterVolume(vol: Float) {
         _state.update { it.copy(masterVolume = vol.coerceIn(0f, 2f)) }
-        persistQuietly()
+        persistDebounced()
     }
 
     fun selectTrack(trackId: String) {
@@ -125,15 +141,24 @@ class AudioStudioViewModel(
     }
 
     fun seekPlayhead(posMs: Long) {
-        _state.update { it.copy(playheadPositionMs = posMs.coerceAtLeast(0L)) }
+        _state.update { st ->
+            val maxMs = st.actualDurationMs.coerceAtLeast(0L)
+            st.copy(playheadPositionMs = posMs.coerceIn(0L, maxMs))
+        }
     }
 
     fun togglePlay() {
-        _state.update { it.copy(isPlaying = !it.isPlaying) }
+        _state.update { st ->
+            if (!st.hasAnyClips) st.copy(isPlaying = false, playheadPositionMs = 0L)
+            else st.copy(isPlaying = !st.isPlaying)
+        }
     }
 
     fun setPlaying(playing: Boolean) {
-        _state.update { it.copy(isPlaying = playing) }
+        _state.update { st ->
+            val nextPlaying = playing && st.hasAnyClips
+            st.copy(isPlaying = nextPlaying)
+        }
     }
 
     fun addTrack(name: String) {
@@ -143,7 +168,7 @@ class AudioStudioViewModel(
             val newTrack = AudioTrackSpec(trackId = newId, name = name.ifBlank { "Track ${st.tracks.size + 1}" })
             st.copy(tracks = st.tracks + newTrack, selectedTrackId = newId)
         }
-        persistQuietly()
+        persistImmediate()
     }
 
     fun renameTrack(trackId: String, name: String) {
@@ -156,19 +181,25 @@ class AudioStudioViewModel(
                 }
             )
         }
-        persistQuietly()
+        persistImmediate()
     }
 
     fun deleteTrack(trackId: String) {
         _state.update { st ->
             if (st.tracks.size <= 1) return@update st
+            val removedClipIds = st.tracks.firstOrNull { it.trackId == trackId }?.clips?.map { it.id }?.toSet().orEmpty()
             val updated = st.tracks.filter { it.trackId != trackId }
+            val anyLeft = updated.any { it.clips.isNotEmpty() }
             st.copy(
                 tracks = updated,
-                selectedTrackId = if (st.selectedTrackId == trackId) updated.firstOrNull()?.trackId else st.selectedTrackId
+                selectedTrackId = if (st.selectedTrackId == trackId) updated.firstOrNull()?.trackId else st.selectedTrackId,
+                selectedClipId = if (st.selectedClipId in removedClipIds) null else st.selectedClipId,
+                clipWaveforms = st.clipWaveforms - removedClipIds,
+                isPlaying = if (anyLeft) st.isPlaying else false,
+                playheadPositionMs = if (anyLeft) st.playheadPositionMs else 0L
             )
         }
-        persistQuietly()
+        persistImmediate()
     }
 
     fun updateTrackSettings(trackId: String, volume: Float, pan: Float, mute: Boolean, solo: Boolean) {
@@ -185,7 +216,7 @@ class AudioStudioViewModel(
             }
             st.copy(tracks = updated)
         }
-        persistQuietly()
+        persistDebounced()
     }
 
     fun addClipsToTrack(context: Context, trackId: String, uris: List<Uri>) {
@@ -233,30 +264,39 @@ class AudioStudioViewModel(
                     clipWaveforms = st.clipWaveforms + extractedWaves
                 )
             }
-            persistQuietly()
+            persistImmediate()
         }
     }
 
     fun ensureClipWaveforms(context: Context) {
         val appCtx = context.applicationContext
         val current = _state.value
-        val missing = current.tracks.flatMap { it.clips }.filter { it.id !in current.clipWaveforms }
+        val missing = current.tracks.flatMap { it.clips }.filter { clip ->
+            clip.id !in current.clipWaveforms && inFlightWaveformClipIds.add(clip.id)
+        }
         if (missing.isEmpty()) return
         viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) {
-                buildMap<String, List<Float>> {
-                    missing.forEach { clip ->
-                        val wave = runCatching {
-                            AudioWaveformExtractor.extractPeaks(appCtx, Uri.parse(clip.uriString), barCount = 72)
-                        }.getOrNull()
-                        if (wave != null && wave.peaks.isNotEmpty()) {
-                            put(clip.id, wave.peaks)
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    buildMap<String, List<Float>> {
+                        missing.forEach { clip ->
+                            val wave = runCatching {
+                                AudioWaveformExtractor.extractPeaks(appCtx, Uri.parse(clip.uriString), barCount = 72)
+                            }.getOrNull()
+                            if (wave != null && wave.peaks.isNotEmpty()) {
+                                put(clip.id, wave.peaks)
+                            }
                         }
                     }
                 }
-            }
-            if (loaded.isNotEmpty()) {
-                _state.update { st -> st.copy(clipWaveforms = st.clipWaveforms + loaded) }
+                if (loaded.isNotEmpty()) {
+                    _state.update { st ->
+                        val activeIds = st.tracks.flatMap { it.clips }.map { it.id }.toSet()
+                        st.copy(clipWaveforms = st.clipWaveforms + loaded.filterKeys { it in activeIds })
+                    }
+                }
+            } finally {
+                missing.forEach { inFlightWaveformClipIds.remove(it.id) }
             }
         }
     }
@@ -268,9 +308,16 @@ class AudioStudioViewModel(
                     tr.copy(clips = tr.clips.filter { it.id != clipId })
                 } else tr
             }
-            st.copy(tracks = updatedTracks, selectedClipId = if (st.selectedClipId == clipId) null else st.selectedClipId)
+            val anyLeft = updatedTracks.any { it.clips.isNotEmpty() }
+            st.copy(
+                tracks = updatedTracks,
+                selectedClipId = if (st.selectedClipId == clipId) null else st.selectedClipId,
+                clipWaveforms = st.clipWaveforms - clipId,
+                isPlaying = if (anyLeft) st.isPlaying else false,
+                playheadPositionMs = if (anyLeft) st.playheadPositionMs else 0L
+            )
         }
-        persistQuietly()
+        persistImmediate()
     }
 
     fun updateClipTrim(trackId: String, clipId: String, startMs: Long, endMs: Long) {
@@ -289,7 +336,7 @@ class AudioStudioViewModel(
             }
             st.copy(tracks = updatedTracks)
         }
-        persistQuietly()
+        persistDebounced()
     }
 
     fun updateClipOffset(trackId: String, clipId: String, offsetMs: Long) {
@@ -304,7 +351,7 @@ class AudioStudioViewModel(
             }
             st.copy(tracks = updatedTracks)
         }
-        persistQuietly()
+        persistDebounced()
     }
 
     fun updateClipGain(trackId: String, clipId: String, gainDb: Float) {
@@ -319,14 +366,31 @@ class AudioStudioViewModel(
             }
             st.copy(tracks = updatedTracks)
         }
-        persistQuietly()
+        persistDebounced()
     }
 
-    private fun persistQuietly() {
+    private fun persistImmediate() {
+        autoSaveJob?.cancel()
         val st = _state.value
         val now = System.currentTimeMillis()
         _state.update { it.copy(lastSavedAt = now) }
-        viewModelScope.launch(Dispatchers.IO) {
+        autoSaveJob = viewModelScope.launch(Dispatchers.IO) {
+            container.workspace.saveAudioProject(
+                id = st.projectId,
+                title = st.title,
+                tracks = st.tracks,
+                masterVolume = st.masterVolume
+            )
+        }
+    }
+
+    private fun persistDebounced() {
+        val now = System.currentTimeMillis()
+        _state.update { it.copy(lastSavedAt = now) }
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(350L)
+            val st = _state.value
             container.workspace.saveAudioProject(
                 id = st.projectId,
                 title = st.title,
@@ -350,8 +414,8 @@ class AudioStudioViewModel(
 
     fun exportProject(context: Context, format: String = "wav", isEnglish: Boolean = false) {
         exportJob?.cancel()
+        persistImmediate()
         val st = _state.value
-        persistQuietly()
 
         exportJob = viewModelScope.launch {
             _state.update { it.copy(isExporting = true, progress = ToolProgress.Queued) }
@@ -387,6 +451,12 @@ class AudioStudioViewModel(
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        exportJob?.cancel()
+        super.onCleared()
     }
 
     class Factory(private val container: AppContainer) : ViewModelProvider.Factory {

@@ -249,6 +249,28 @@ object VideoToolMath {
         }
     }
 
+    fun validateTrimRange(
+        startMs: Long,
+        endMs: Long,
+        durationMs: Long,
+        isEnglish: Boolean
+    ): String? {
+        if (startMs < 0L) {
+            return if (isEnglish) "Start time cannot be negative." else "Waktu mulai tidak boleh negatif."
+        }
+        if (durationMs > 0L && startMs >= durationMs) {
+            return if (isEnglish) {
+                "Start time (${startMs / 1000}s) reaches or exceeds video duration (${durationMs / 1000}s)."
+            } else {
+                "Waktu mulai (${startMs / 1000} dtk) melebihi durasi video (${durationMs / 1000} dtk)."
+            }
+        }
+        if (endMs in 0L until Long.MAX_VALUE && endMs <= startMs) {
+            return if (isEnglish) "End time must be greater than start time." else "Waktu selesai harus lebih besar dari waktu mulai."
+        }
+        return null
+    }
+
     fun isSupportedVideoExtension(ext: String): Boolean {
         val clean = ext.trim().lowercase(Locale.US).trimStart('.')
         return clean.isBlank() || clean in SUPPORTED_VIDEO_EXTENSIONS

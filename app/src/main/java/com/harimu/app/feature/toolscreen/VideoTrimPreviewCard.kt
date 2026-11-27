@@ -53,7 +53,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -81,12 +85,13 @@ fun VideoTrimPreviewCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var probe by remember(videoUri) { mutableStateOf<MediaProbeResult?>(null) }
     var thumbnails by remember(videoUri) { mutableStateOf<List<Bitmap>>(emptyList()) }
     var loadingThumbs by remember(videoUri) { mutableStateOf(showTrimStrip) }
 
     val exoPlayer = remember(videoUri) {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context.applicationContext).build().apply {
             setMediaItem(MediaItem.fromUri(videoUri))
             repeatMode = Player.REPEAT_MODE_ONE
             prepare()
@@ -94,10 +99,11 @@ fun VideoTrimPreviewCard(
     }
 
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
+    var playerError by remember(exoPlayer) { mutableStateOf<String?>(null) }
     var currentPosMs by remember(exoPlayer) { mutableLongStateOf(0L) }
     var playerDurationMs by remember(exoPlayer) { mutableLongStateOf(0L) }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, lifecycleOwner) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
@@ -106,10 +112,25 @@ fun VideoTrimPreviewCard(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 val dur = exoPlayer.duration
                 if (dur > 0L) playerDurationMs = dur
+                if (playbackState == Player.STATE_READY) {
+                    playerError = null
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                isPlaying = false
+                playerError = error.localizedMessage ?: "Playback error"
+            }
+        }
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                exoPlayer.pause()
             }
         }
         exoPlayer.addListener(listener)
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
@@ -143,13 +164,14 @@ fun VideoTrimPreviewCard(
     val effectiveEnd = if (endSec <= 0f || endSec > totalSec) totalSec else endSec.coerceIn(clampedStart + 0.5f, totalSec)
 
     LaunchedEffect(exoPlayer, isPlaying, showTrimStrip, clampedStart, effectiveEnd) {
-        while (true) {
+        while (isPlaying) {
             currentPosMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-            if (showTrimStrip && isPlaying) {
+            if (showTrimStrip) {
                 val endMs = (effectiveEnd * 1000f).toLong()
                 val startMs = (clampedStart * 1000f).toLong()
                 if (currentPosMs >= endMs && endMs > startMs) {
                     exoPlayer.seekTo(startMs)
+                    currentPosMs = startMs
                 }
             }
             delay(150L)
@@ -180,7 +202,7 @@ fun VideoTrimPreviewCard(
             }
 
             probe?.let { p ->
-                val res = if (p.width > 0 && p.height > 0) "${p.width}×${p.height}" else "-"
+                val res = if (p.orientedWidth > 0 && p.orientedHeight > 0) "${p.orientedWidth}×${p.orientedHeight}" else "-"
                 val fpsTxt = if (p.fps > 0f) String.format(Locale.US, "%.1f fps", p.fps) else ""
                 val durTxt = FfmpegProgressParser.formatDurationMs(p.durationMs)
                 Text(
@@ -202,6 +224,18 @@ fun VideoTrimPreviewCard(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
+                if (playerError != null) {
+                    Text(
+                        text = stringResource(R.string.video_preview_error),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.72f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
                 FilledIconButton(
                     onClick = {
                         if (exoPlayer.isPlaying) {

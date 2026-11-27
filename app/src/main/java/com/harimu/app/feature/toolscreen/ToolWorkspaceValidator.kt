@@ -41,7 +41,7 @@ object ToolWorkspaceValidator {
         "PDF-01", "PDF-20", "VID-29", "IMG-09", "IMG-32", "IMG-44", "IMG-45"
     )
 
-    private val TRIM_RANGE_TOOLS = setOf("VID-01", "VID-21", "AUD-09")
+    private val TRIM_RANGE_TOOLS = setOf("VID-01", "VID-15", "VID-17", "VID-21", "AUD-09")
 
     fun requiresSecondaryUri(tool: Tool, paramValues: Map<String, Any>): Boolean = when (tool.inputSpec) {
         InputSpec.VideoAndAudio,

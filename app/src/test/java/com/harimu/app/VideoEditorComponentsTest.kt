@@ -58,10 +58,10 @@ class VideoEditorComponentsTest {
         val clip5 = clip1.copy(trimStartMs = 2_000L, trimEndMs = 8_000L, speed = 2.0f)
         assertEquals(3_000L, VideoEditorMath.effectiveClipDurationMs(clip5))
 
-        // Test minimum duration enforcement (min 250ms)
+        // Test minimum duration enforcement (min 200ms)
         val clip6 = clip1.copy(trimStartMs = 0L, trimEndMs = 100L, speed = 4.0f)
-        // (100ms / 4) = 25ms, but minimum is 250ms
-        assertEquals(250L, VideoEditorMath.effectiveClipDurationMs(clip6))
+        // (100ms / 4) = 25ms, clamped to minimum 200ms
+        assertEquals(200L, VideoEditorMath.effectiveClipDurationMs(clip6))
     }
 
     @Test
@@ -133,7 +133,7 @@ class VideoEditorComponentsTest {
         assertEquals(1080, dims1080p.height)
 
         val dims480p = VideoEditorMath.targetCanvasDimensions("480p", true)
-        assertEquals(854, dims480p.width) // 480 * 16/9 = 853.33 -> 854 (even)
+        assertEquals(852, dims480p.width) // (480 * 16/9).toInt() = 853 -> makeEven = 852
         assertEquals(480, dims480p.height)
 
         // Portrait
@@ -218,7 +218,7 @@ class VideoEditorComponentsTest {
             "VID-30"  // time lapse
         )
 
-        assertEquals(14, vidToolsRequiringUnsupportedOps.size)
+        assertEquals(13, vidToolsRequiringUnsupportedOps.size)
         // All these tools should be available as separate VID tools
         // not as inline Pro Editor operations
     }

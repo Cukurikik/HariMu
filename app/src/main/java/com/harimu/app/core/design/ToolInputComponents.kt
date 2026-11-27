@@ -54,6 +54,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import com.harimu.app.R
 import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
@@ -424,21 +427,42 @@ private fun VideoPreviewCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var probe by remember(uri) { mutableStateOf<com.harimu.app.core.media.MediaProbeResult?>(null) }
     val exoPlayer = remember(uri) {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context.applicationContext).build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
             prepare()
         }
     }
     var isPlaying by remember(exoPlayer) { mutableStateOf(false) }
+    var playerError by remember(exoPlayer) { mutableStateOf<String?>(null) }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, lifecycleOwner) {
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == androidx.media3.common.Player.STATE_READY) {
+                    playerError = null
+                }
+            }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                isPlaying = false
+                playerError = error.localizedMessage ?: "Playback error"
+            }
+        }
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                exoPlayer.pause()
+            }
         }
         exoPlayer.addListener(listener)
-        onDispose { exoPlayer.removeListener(listener); exoPlayer.release() }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
     }
 
     LaunchedEffect(uri) {
@@ -455,7 +479,7 @@ private fun VideoPreviewCard(
             Text(text = stringResource(R.string.preview_video_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             probe?.let { p ->
                 Text(
-                    text = "${p.width}×${p.height} • ${com.harimu.app.core.media.FfmpegProgressParser.formatDurationMs(p.durationMs)}",
+                    text = "${p.orientedWidth}×${p.orientedHeight} • ${com.harimu.app.core.media.FfmpegProgressParser.formatDurationMs(p.durationMs)}",
                     style = MonoTextStyle,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -472,6 +496,18 @@ private fun VideoPreviewCard(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
+                if (playerError != null) {
+                    Text(
+                        text = stringResource(R.string.video_preview_error),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.72f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
                 androidx.compose.material3.FilledIconButton(
                     onClick = { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },
                     colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
@@ -499,10 +535,11 @@ private fun AudioPreviewCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var probe by remember(uri) { mutableStateOf<com.harimu.app.core.media.MediaProbeResult?>(null) }
     var peaks by remember(uri) { mutableStateOf<List<Float>>(emptyList()) }
     val exoPlayer = remember(uri) {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context.applicationContext).build().apply {
             setMediaItem(androidx.media3.common.MediaItem.fromUri(uri))
             prepare()
         }
@@ -511,7 +548,7 @@ private fun AudioPreviewCard(
     var currentPosMs by remember(exoPlayer) { mutableStateOf(0L) }
     var playerDurationMs by remember(exoPlayer) { mutableStateOf(0L) }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, lifecycleOwner) {
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -519,8 +556,18 @@ private fun AudioPreviewCard(
                 if (dur > 0L) playerDurationMs = dur
             }
         }
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                exoPlayer.pause()
+            }
+        }
         exoPlayer.addListener(listener)
-        onDispose { exoPlayer.removeListener(listener); exoPlayer.release() }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
     }
 
     LaunchedEffect(uri) {
@@ -577,7 +624,7 @@ private fun AudioPreviewCard(
                 )
             }
             LaunchedEffect(exoPlayer, isPlaying) {
-                while (true) {
+                while (isPlaying) {
                     currentPosMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                     kotlinx.coroutines.delay(120L)
                 }

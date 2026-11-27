@@ -77,6 +77,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
 import com.harimu.app.R
@@ -109,6 +112,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,6 +136,7 @@ fun EqualizerScreen(
     val fxController = remember { EqualizerFxController() }
     var fxStatus by remember { mutableStateOf(EqLiveEngineStatus()) }
     var waveformPeaks by remember { mutableStateOf<List<Float>>(emptyList()) }
+    var isExtractingWave by remember { mutableStateOf(false) }
     var waveDurationMs by remember { mutableLongStateOf(0L) }
     var currentPosMs by remember { mutableLongStateOf(0L) }
 
@@ -143,6 +148,7 @@ fun EqualizerScreen(
 
     val savedToast = stringResource(R.string.toast_saved)
     val saveFailedToast = stringResource(R.string.toast_save_failed)
+    val shareNoAppToast = stringResource(R.string.workspace_share_no_app)
 
     LaunchedEffect(selectedUri) {
         val uri = selectedUri
@@ -150,10 +156,13 @@ fun EqualizerScreen(
             waveformPeaks = emptyList()
             waveDurationMs = 0L
             currentPosMs = 0L
+            isExtractingWave = false
         } else {
-            val wave = AudioWaveformExtractor.extractPeaks(context, uri, barCount = 96)
-            waveformPeaks = wave.peaks
-            waveDurationMs = wave.durationMs
+            isExtractingWave = true
+            val wave = runCatching { AudioWaveformExtractor.extractPeaks(context, uri, barCount = 96) }.getOrNull()
+            waveformPeaks = wave?.peaks.orEmpty()
+            waveDurationMs = wave?.durationMs ?: 0L
+            isExtractingWave = false
         }
     }
 
@@ -163,15 +172,24 @@ fun EqualizerScreen(
             if (fxController.durationMs > 0L) {
                 waveDurationMs = fxController.durationMs
             }
+            if (!fxController.isPlaying && currentPosMs >= waveDurationMs && waveDurationMs > 0L) {
+                isPlaying = false
+                currentPosMs = 0L
+            }
             delay(120L)
         }
     }
 
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            exportJob?.cancel()
+            isExporting = false
+            exportProgress = null
+            currentPosMs = 0L
+            waveDurationMs = 0L
+            waveformPeaks = emptyList()
             selectedUri = uri
             selectedName = container.storage.getDisplayName(uri) ?: "audio"
-            exportProgress = null
             val res = fxController.prepareAndPlay(
                 context = context,
                 uri = uri,
@@ -202,8 +220,17 @@ fun EqualizerScreen(
         }
     }
 
-    DisposableEffect(Unit) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                fxController.pause()
+                isPlaying = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
             exportJob?.cancel()
             fxController.release()
         }
@@ -390,6 +417,9 @@ fun EqualizerScreen(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (isExtractingWave) {
+                                androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            }
                             WaveformView(
                                 peaks = waveformPeaks,
                                 playheadFraction = (currentPosMs.toFloat() / totalDurMs.toFloat()).coerceIn(0f, 1f),
@@ -535,7 +565,7 @@ fun EqualizerScreen(
                                 value = db,
                                 onValueChange = { v ->
                                     activePresetId = "custom"
-                                    bandGains[idx] = (v * 2f).toInt() / 2f
+                                    bandGains[idx] = ((v * 2f).roundToInt() / 2f).coerceIn(-12f, 12f)
                                     pushLiveParameters()
                                 },
                                 valueRange = -12f..12f
@@ -642,14 +672,20 @@ fun EqualizerScreen(
                                         context.startActivity(
                                             Intent.createChooser(container.storage.buildOpenIntent(out.file, out.mimeType), out.displayName)
                                         )
+                                    }.onFailure {
+                                        Toast.makeText(context, shareNoAppToast, Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
                             onShare = outFile?.let { out ->
                                 {
-                                    context.startActivity(
-                                        Intent.createChooser(container.storage.buildShareIntent(out.file, out.mimeType), out.displayName)
-                                    )
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent.createChooser(container.storage.buildShareIntent(out.file, out.mimeType), out.displayName)
+                                        )
+                                    }.onFailure {
+                                        Toast.makeText(context, shareNoAppToast, Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             },
                             onSave = outFile?.let { out ->
