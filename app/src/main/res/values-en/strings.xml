@@ -985,4 +985,48 @@
     <string name="pesantren_copy_nspp">Copy NSPP</string>
     <string name="backup_saved_toast">.omni backup saved</string>
     <string name="key_vault_delete_cd">Delete key</string>
+
+    <!-- P13/P14 Accessibility & Studio Localization -->
+    <string name="voice_recorder_title">Voice Recorder Studio</string>
+    <string name="voice_recorder_grant_mic">Grant Microphone Permission</string>
+    <string name="voice_recorder_cd_record">Record audio</string>
+    <string name="voice_recorder_cd_stop">Stop recording</string>
+    <string name="voice_recorder_play">Play</string>
+    <string name="voice_recorder_pause_status">Paused — audio focus lost or manual pause</string>
+    <string name="voice_recorder_active_status">Recording… foreground service active</string>
+
+    <string name="screen_recorder_title">Screen Recorder Studio</string>
+    <string name="screen_recorder_intro">MediaProjection records the whole screen. Android 14+ asks for consent every session.</string>
+    <string name="screen_recorder_perm_denied">Screen capture permission denied</string>
+    <string name="screen_recorder_mic_required">Microphone permission is required for audio</string>
+    <string name="screen_recorder_resolution">Resolution</string>
+    <string name="screen_recorder_fps">Frame rate</string>
+    <string name="screen_recorder_bitrate">Bitrate</string>
+    <string name="screen_recorder_audio_source">Audio source</string>
+    <string name="screen_recorder_audio_none">None</string>
+    <string name="screen_recorder_audio_mic">Microphone</string>
+    <string name="screen_recorder_audio_internal">Internal (API 29+)</string>
+    <string name="screen_recorder_audio_mic_internal">Mic + internal</string>
+    <string name="screen_recorder_container">Container</string>
+    <string name="screen_recorder_floating_title">Floating controls</string>
+    <string name="screen_recorder_floating_desc">Needs “display over other apps” permission.</string>
+    <string name="screen_recorder_paused_status">Paused — recording continues after resume</string>
+    <string name="screen_recorder_active_status">Recording in background…</string>
+    <string name="screen_recorder_start">Start recording</string>
+    <string name="screen_recorder_cd_pause">Pause screen recording</string>
+    <string name="screen_recorder_cd_resume">Resume screen recording</string>
+
+    <string name="video_forge_search_hint">Search video tools…</string>
+    <string name="video_forge_empty_title">No tools found</string>
+    <string name="video_forge_empty_desc">Try a different search term</string>
+
+    <string name="pdf_studio_compare_prev">Prev</string>
+    <string name="pdf_studio_compare_next">Next</string>
+    <string name="pdf_studio_compare_diff_yes">Visual difference detected</string>
+    <string name="pdf_studio_compare_diff_no">Visually identical</string>
+    <string name="pdf_studio_compare_page_status">Page %1$d (%2$d vs %3$d) • %4$s</string>
+    <string name="pdf_studio_compare_cd_doc_a">Document A page %1$d</string>
+    <string name="pdf_studio_compare_cd_doc_b">Document B page %1$d</string>
+    <string name="pdf_studio_compare_cd_diff">Visual diff page %1$d</string>
+    <string name="pdf_studio_compare_diff_overlay">Visual Diff Overlay (Red = changed)</string>
 </resources>

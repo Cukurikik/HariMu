@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -43,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +72,7 @@ import com.harimu.app.R
 import com.harimu.app.core.data.AppSettings
 import com.harimu.app.core.data.EditorClipSpec
 import com.harimu.app.core.data.VideoProjectEntity
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.video.ClipInspector
 import com.harimu.app.core.design.video.ExportDialog
@@ -125,8 +129,12 @@ fun VideoEditorScreen(
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { destUri ->
         val src = pendingExportFile
         if (destUri != null && src != null) {
-            val ok = container.storage.copyFileToUri(src.file, destUri)
-            Toast.makeText(context, if (ok) fileSavedToast else fileSaveFailedToast, Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    container.storage.copyFileToUri(src.file, destUri)
+                }
+                Toast.makeText(context, if (ok) fileSavedToast else fileSaveFailedToast, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -150,7 +158,12 @@ fun VideoEditorScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("editor_back_button")) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .testTag("editor_back_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
@@ -170,7 +183,9 @@ fun VideoEditorScreen(
                     }
                     TextButton(
                         onClick = { showProjectsDialog = true },
-                        modifier = Modifier.testTag("editor_projects_button")
+                        modifier = Modifier
+                            .testTag("editor_projects_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
                         androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
@@ -182,7 +197,9 @@ fun VideoEditorScreen(
                                 Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
                             }
                         },
-                        modifier = Modifier.testTag("editor_save_button")
+                        modifier = Modifier
+                            .testTag("editor_save_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                         androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
@@ -197,6 +214,7 @@ fun VideoEditorScreen(
                         enabled = state.clips.isNotEmpty() && !state.isExporting,
                         modifier = Modifier
                             .testTag("editor_export_button")
+                            .heightIn(min = 48.dp)
                             .padding(end = 8.dp)
                     ) {
                         Icon(Icons.Filled.MovieCreation, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -331,14 +349,15 @@ private fun PortraitLayout(
     onAddClips: () -> Unit,
     onOpenInTool: (String, Map<String, Any>) -> Unit
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .widthIn(max = 760.dp)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Box(modifier = modifier, contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = HariMuThemeTokens.layout.catalogMaxWidth)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // Project title
         OutlinedTextField(
             value = state.title,
@@ -378,7 +397,9 @@ private fun PortraitLayout(
                         selected = state.outputResolution == res,
                         onClick = { vm.setResolution(res) },
                         label = { Text(res) },
-                        modifier = Modifier.testTag("editor_res_$res")
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("editor_res_$res")
                     )
                 }
             }
@@ -437,6 +458,7 @@ private fun PortraitLayout(
                 showAdvancedActions = true
             )
         }
+    }
     }
 }
 
@@ -515,11 +537,14 @@ private fun LandscapeLayout(
                 // Add clips
                 Button(
                     onClick = onAddClips,
-                    modifier = Modifier.fillMaxWidth().height(40.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("editor_add_clips_landscape_button")
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.editor_add_clips), style = MaterialTheme.typography.labelMedium)
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    androidx.compose.foundation.layout.Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.editor_add_clips), style = MaterialTheme.typography.labelLarge)
                 }
 
                 // Resolution (compact)
@@ -532,7 +557,9 @@ private fun LandscapeLayout(
                             selected = state.outputResolution == res,
                             onClick = { vm.setResolution(res) },
                             label = { Text(res, style = MaterialTheme.typography.labelSmall) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
                         )
                     }
                 }
@@ -633,10 +660,16 @@ private fun SavedProjectsDialog(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                TextButton(onClick = { onLoadProject(proj) }) {
+                                TextButton(
+                                    onClick = { onLoadProject(proj) },
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) {
                                     Text(stringResource(R.string.editor_load_project))
                                 }
-                                IconButton(onClick = { onDeleteProject(proj) }, modifier = Modifier.size(48.dp)) {
+                                IconButton(
+                                    onClick = { onDeleteProject(proj) },
+                                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                ) {
                                     Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -646,7 +679,10 @@ private fun SavedProjectsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) {
                 Text(stringResource(R.string.action_cancel))
             }
         }

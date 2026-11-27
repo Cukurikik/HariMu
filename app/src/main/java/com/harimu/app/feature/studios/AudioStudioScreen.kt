@@ -78,7 +78,6 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -132,8 +131,8 @@ fun AudioStudioScreen(
     val spacing = HariMuThemeTokens.spacing
     val scope = rememberCoroutineScope()
     val vm: AudioStudioViewModel = viewModel(factory = AudioStudioViewModel.Factory(container))
-    val state by vm.state.collectAsState()
-    val savedProjects by vm.savedProjects.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val savedProjects by vm.savedProjects.collectAsStateWithLifecycle()
     val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
 
     val playbackController = remember(context) { AudioStudioPlaybackController(context.applicationContext) }
@@ -173,8 +172,12 @@ fun AudioStudioScreen(
     ) { destUri ->
         val src = pendingSaveFile
         if (destUri != null && src != null) {
-            val ok = container.storage.copyFileToUri(src.file, destUri)
-            Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    container.storage.copyFileToUri(src.file, destUri)
+                }
+                Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuThemeTokens
@@ -209,7 +210,10 @@ fun RegionsScreen(
                     is LoadState.NotLoading -> Unit
                 }
 
-                items(count = villages.itemCount) { index ->
+                items(
+                    count = villages.itemCount,
+                    key = villages.itemKey { it.id }
+                ) { index ->
                     villages[index]?.let { region ->
                         RegionRow(
                             region = region,

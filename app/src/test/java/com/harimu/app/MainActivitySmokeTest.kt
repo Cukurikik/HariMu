@@ -22,6 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], application = HariMuApp::class)
@@ -30,50 +31,56 @@ class MainActivitySmokeTest {
     @Test
     fun mainActivityProvidesActivityResultRegistryOwnerAndComposesSettingsWithoutCrash() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
-        val activity = controller.get()
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+        try {
+            val activity = controller.get()
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
-        var resolvedOwner: Any? = null
-        var resolvedBackOwner: Any? = null
+            var resolvedOwner: Any? = null
+            var resolvedBackOwner: Any? = null
 
-        activity.setContent {
-            val baseContext = LocalContext.current
-            val baseConfig = LocalConfiguration.current
-            val localizedConfig = remember(baseConfig) {
-                Configuration(baseConfig).apply { setLocale(Locale.ENGLISH) }
-            }
-            val localizedResources = remember(baseContext, localizedConfig) {
-                baseContext.createConfigurationContext(localizedConfig).resources
-            }
-            val localizedContext = remember(baseContext, localizedResources) {
-                object : ContextWrapper(baseContext) {
-                    override fun getResources(): Resources = localizedResources
+            activity.setContent {
+                val baseContext = LocalContext.current
+                val baseConfig = LocalConfiguration.current
+                val localizedConfig = remember(baseConfig) {
+                    Configuration(baseConfig).apply { setLocale(Locale.ENGLISH) }
+                }
+                val localizedResources = remember(baseContext, localizedConfig) {
+                    baseContext.createConfigurationContext(localizedConfig).resources
+                }
+                val localizedContext = remember(baseContext, localizedResources) {
+                    object : ContextWrapper(baseContext) {
+                        override fun getResources(): Resources = localizedResources
+                    }
+                }
+                CompositionLocalProvider(
+                    LocalConfiguration provides localizedConfig,
+                    LocalContext provides localizedContext,
+                    LocalResources provides localizedResources,
+                    LocalActivityResultRegistryOwner provides activity,
+                    LocalOnBackPressedDispatcherOwner provides activity
+                ) {
+                    resolvedOwner = LocalActivityResultRegistryOwner.current
+                    resolvedBackOwner = LocalOnBackPressedDispatcherOwner.current
+                    val container = (activity.application as HariMuApp).container
+                    SettingsScreen(
+                        container = container,
+                        settings = AppSettings(isEnglish = true),
+                        onOpenStudio = {},
+                        onOpenInternalTool = {}
+                    )
                 }
             }
-            CompositionLocalProvider(
-                LocalConfiguration provides localizedConfig,
-                LocalContext provides localizedContext,
-                LocalResources provides localizedResources,
-                LocalActivityResultRegistryOwner provides activity,
-                LocalOnBackPressedDispatcherOwner provides activity
-            ) {
-                resolvedOwner = LocalActivityResultRegistryOwner.current
-                resolvedBackOwner = LocalOnBackPressedDispatcherOwner.current
-                val container = (activity.application as HariMuApp).container
-                SettingsScreen(
-                    container = container,
-                    settings = AppSettings(isEnglish = true),
-                    onOpenStudio = {},
-                    onOpenInternalTool = {}
-                )
-            }
-        }
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+            ShadowLooper.idleMainLooper(16, TimeUnit.MILLISECONDS)
 
-        assertNotNull(resolvedOwner)
-        assertSame(activity, resolvedOwner)
-        assertNotNull(resolvedBackOwner)
-        assertSame(activity, resolvedBackOwner)
-        controller.pause().stop().destroy()
+            assertNotNull(resolvedOwner)
+            assertSame(activity, resolvedOwner)
+            assertNotNull(resolvedBackOwner)
+            assertSame(activity, resolvedBackOwner)
+        } finally {
+            runCatching { controller.pause().stop().destroy() }
+            ShadowLooper.idleMainLooper(16, TimeUnit.MILLISECONDS)
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+        }
     }
 }

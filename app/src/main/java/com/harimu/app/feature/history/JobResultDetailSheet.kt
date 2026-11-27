@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,9 +14,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,6 +48,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,8 +81,16 @@ import com.harimu.app.core.design.jobs.formatElapsedDuration
 import com.harimu.app.core.jobs.ToolJobWorker
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolOutputFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
+
+private data class ResolvedDetailContent(
+    val existingOutputs: List<ToolOutputFile> = emptyList(),
+    val previewFileText: String? = null,
+    val resolved: Boolean = false
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -110,22 +124,44 @@ fun JobResultDetailSheet(
     val group = ToolGroup.entries.firstOrNull { it.name == groupName } ?: ToolGroup.CORE
     val accent = group.accentColor()
 
-    val outputs = when {
-        job != null -> decodeJobOutputs(job)
-        history != null -> decodeHistoryOutputs(history)
-        else -> emptyList()
+    val outputs = remember(job?.jobId, job?.outputsJson, history?.id, history?.outputsJson) {
+        when {
+            job != null -> decodeJobOutputs(job)
+            history != null -> decodeHistoryOutputs(history)
+            else -> emptyList()
+        }
     }
-    val existingOutputs = outputs.filter { it.file.exists() }
+    val resolvedContent by produceState(
+        initialValue = ResolvedDetailContent(),
+        key1 = outputs,
+        key2 = job?.textOutput ?: history?.textOutput
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val existing = outputs.filter { it.file.exists() }
+            val primary = existing.firstOrNull()
+            val hasStoredText = !job?.textOutput.isNullOrBlank() || !history?.textOutput.isNullOrBlank()
+            val preview = if (!hasStoredText && primary != null &&
+                primary.mimeType.startsWith("text/") &&
+                primary.file.length() < 16_384L
+            ) {
+                primary.file.runCatching { readText() }.getOrNull()
+            } else null
+            ResolvedDetailContent(existingOutputs = existing, previewFileText = preview, resolved = true)
+        }
+    }
+    val existingOutputs = resolvedContent.existingOutputs
     val primaryExisting = existingOutputs.firstOrNull()
     val textOutput = job?.textOutput?.takeIf { it.isNotBlank() }
         ?: history?.textOutput?.takeIf { it.isNotBlank() }
-        ?: primaryExisting?.takeIf { it.mimeType.startsWith("text/") && it.file.length() < 16_384L }
-            ?.file?.runCatching { readText() }?.getOrNull()
+        ?: resolvedContent.previewFileText
     val errorMsg = job?.errorMessage?.takeIf { it.isNotBlank() }
         ?: history?.errorMessage?.takeIf { it.isNotBlank() }.orEmpty()
     val summary = job?.summary?.takeIf { it.isNotBlank() }
         ?: history?.summary?.takeIf { it.isNotBlank() }.orEmpty()
-    val missingFiles = outputs.isNotEmpty() && existingOutputs.isEmpty() && textOutput.isNullOrBlank()
+    val missingFiles = resolvedContent.resolved &&
+        outputs.isNotEmpty() &&
+        existingOutputs.isEmpty() &&
+        textOutput.isNullOrBlank()
     val matchedUpload = (primaryExisting?.file?.absolutePath ?: outputs.firstOrNull()?.file?.absolutePath)
         ?.let { UploadQueue.findLatestForFile(it, uploadTasks) }
 
@@ -134,14 +170,17 @@ fun JobResultDetailSheet(
         sheetState = sheetState,
         modifier = Modifier.testTag("job_detail_sheet")
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = spacing.md, vertical = spacing.xs)
-                .padding(bottom = spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = HariMuThemeTokens.layout.catalogMaxWidth)
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(horizontal = spacing.md, vertical = spacing.xs)
+                    .padding(bottom = spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm)
+            ) {
             Text(
                 text = stringResource(R.string.job_detail_title),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
@@ -439,6 +478,7 @@ fun JobResultDetailSheet(
                 }
             }
             Spacer(Modifier.height(spacing.xs))
+        }
         }
     }
 }

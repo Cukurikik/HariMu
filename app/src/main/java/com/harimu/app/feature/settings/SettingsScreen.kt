@@ -6,7 +6,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,12 +16,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CleaningServices
@@ -43,7 +43,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.harimu.app.AppContainer
 import com.harimu.app.R
@@ -65,6 +68,7 @@ import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamSlider
 import com.harimu.app.core.design.ParamToggle
 import com.harimu.app.core.design.ThemeMode
+import com.harimu.app.core.files.LocalModelStatus
 import com.harimu.app.core.toolapi.DedicatedScreenRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -84,10 +88,30 @@ fun SettingsScreen(
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
 
-    var tempBytes by remember { mutableLongStateOf(container.storage.tempCacheSizeBytes()) }
-    var freeBytes by remember { mutableLongStateOf(container.storage.availableDiskSpaceBytes()) }
-    var modelStatuses by remember { mutableStateOf(container.modelManager.listStatuses()) }
-    var modelTotalBytes by remember { mutableLongStateOf(container.modelManager.totalDownloadedBytes()) }
+    var tempBytes by remember { mutableLongStateOf(0L) }
+    var freeBytes by remember { mutableLongStateOf(0L) }
+    var modelStatuses by remember { mutableStateOf<List<LocalModelStatus>>(emptyList()) }
+    var modelTotalBytes by remember { mutableLongStateOf(0L) }
+
+    suspend fun refreshStorageAndModels() {
+        val (tBytes, fBytes, mStatuses, mTotal) = withContext(Dispatchers.IO) {
+            listOf(
+                container.storage.tempCacheSizeBytes(),
+                container.storage.availableDiskSpaceBytes(),
+                container.modelManager.listStatuses(),
+                container.modelManager.totalDownloadedBytes()
+            )
+        }
+        tempBytes = tBytes as Long
+        freeBytes = fBytes as Long
+        @Suppress("UNCHECKED_CAST")
+        modelStatuses = mStatuses as List<LocalModelStatus>
+        modelTotalBytes = mTotal as Long
+    }
+
+    LaunchedEffect(Unit) {
+        refreshStorageAndModels()
+    }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -122,16 +146,18 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(stringResource(R.string.settings_appearance), style = MaterialTheme.typography.titleMedium)
 
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             ThemeMode.entries.forEach { mode ->
                                 FilterChip(
                                     selected = settings.resolvedThemeMode() == mode,
                                     onClick = { scope.launch { container.settings.setThemeMode(mode) } },
                                     label = { Text(stringResource(mode.labelRes)) },
-                                    modifier = Modifier.testTag("theme_chip_${mode.name}")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("theme_chip_${mode.name}")
                                 )
                             }
                         }
@@ -191,6 +217,7 @@ fun SettingsScreen(
                                     onClick = { folderPicker.launch(null) },
                                     modifier = Modifier
                                         .weight(1f)
+                                        .heightIn(min = 48.dp)
                                         .testTag("pick_output_folder_button")
                                 ) {
                                     Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -198,7 +225,10 @@ fun SettingsScreen(
                                     Text(stringResource(R.string.settings_output_folder_pick))
                                 }
                                 if (settings.outputFolderUri.isNotBlank()) {
-                                    TextButton(onClick = { scope.launch { container.settings.setOutputFolder("", "") } }) {
+                                    TextButton(
+                                        onClick = { scope.launch { container.settings.setOutputFolder("", "") } },
+                                        modifier = Modifier.heightIn(min = 48.dp)
+                                    ) {
                                         Text(stringResource(R.string.settings_output_folder_reset))
                                     }
                                 }
@@ -219,18 +249,18 @@ fun SettingsScreen(
 
                         OutlinedButton(
                             onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    val freed = container.storage.clearTempCache()
-                                    val msg = resources.getString(R.string.toast_temp_cleared, container.storage.formatBytes(freed))
-                                    withContext(Dispatchers.Main) {
-                                        tempBytes = container.storage.tempCacheSizeBytes()
-                                        freeBytes = container.storage.availableDiskSpaceBytes()
-                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                scope.launch {
+                                    val msg = withContext(Dispatchers.IO) {
+                                        val freed = container.storage.clearTempCache()
+                                        resources.getString(R.string.toast_temp_cleared, container.storage.formatBytes(freed))
                                     }
+                                    refreshStorageAndModels()
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .testTag("clear_temp_button")
                         ) {
                             Icon(Icons.Filled.CleaningServices, contentDescription = null)
@@ -242,6 +272,7 @@ fun SettingsScreen(
                             onClick = { onOpenInternalTool(com.harimu.app.feature.tools.InternalMediaTestTool.ID) },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .testTag("test_media_engine_button")
                         ) {
                             Text(stringResource(R.string.settings_test_media_engine))
@@ -287,11 +318,17 @@ fun SettingsScreen(
                                     )
                                 }
                                 if (status.isDownloaded) {
-                                    IconButton(onClick = {
-                                        container.modelManager.deleteModel(status.spec.id)
-                                        modelStatuses = container.modelManager.listStatuses()
-                                        modelTotalBytes = container.modelManager.totalDownloadedBytes()
-                                    }) {
+                                    IconButton(
+                                        onClick = {
+                                            scope.launch {
+                                                withContext(Dispatchers.IO) {
+                                                    container.modelManager.deleteModel(status.spec.id)
+                                                }
+                                                refreshStorageAndModels()
+                                            }
+                                        },
+                                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                    ) {
                                         Icon(
                                             Icons.Filled.Delete,
                                             contentDescription = stringResource(R.string.action_delete)
@@ -332,50 +369,62 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
                             verticalArrangement = Arrangement.spacedBy(spacing.xxs)
                         ) {
-                            TextButton(onClick = {
-                                scope.launch {
-                                    container.settings.setAiGatewayUrl(gatewayUrl)
-                                    aiStatus = resources.getString(R.string.settings_ai_gateway_saved)
-                                }
-                            }) { Text(stringResource(R.string.settings_ai_gateway_save)) }
-                            TextButton(onClick = {
-                                scope.launch {
-                                    container.settings.setAiGatewayUrl(gatewayUrl)
-                                    aiStatus = resources.getString(R.string.settings_ai_gateway_connecting)
-                                    runCatching {
-                                        container.aiClient.ensureToken(forceRefresh = true)
-                                        val quota = container.aiClient.quota()
-                                        aiStatus = resources.getString(
-                                            R.string.settings_ai_gateway_connected,
-                                            quota.used,
-                                            quota.limit
-                                        )
-                                    }.onFailure { error ->
-                                        aiStatus = error.localizedMessage
-                                            ?: resources.getString(R.string.settings_ai_gateway_connect_failed)
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        container.settings.setAiGatewayUrl(gatewayUrl)
+                                        aiStatus = resources.getString(R.string.settings_ai_gateway_saved)
                                     }
-                                }
-                            }) { Text(stringResource(R.string.settings_ai_gateway_test)) }
-                            TextButton(onClick = {
-                                scope.launch {
-                                    container.aiClient.forgetToken()
-                                    aiStatus = resources.getString(R.string.settings_ai_gateway_forgotten)
-                                }
-                            }) { Text(stringResource(R.string.settings_ai_gateway_forget)) }
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp)
+                            ) { Text(stringResource(R.string.settings_ai_gateway_save)) }
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        container.settings.setAiGatewayUrl(gatewayUrl)
+                                        aiStatus = resources.getString(R.string.settings_ai_gateway_connecting)
+                                        runCatching {
+                                            container.aiClient.ensureToken(forceRefresh = true)
+                                            val quota = container.aiClient.quota()
+                                            aiStatus = resources.getString(
+                                                R.string.settings_ai_gateway_connected,
+                                                quota.used,
+                                                quota.limit
+                                            )
+                                        }.onFailure { error ->
+                                            aiStatus = error.localizedMessage
+                                                ?: resources.getString(R.string.settings_ai_gateway_connect_failed)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp)
+                            ) { Text(stringResource(R.string.settings_ai_gateway_test)) }
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        container.aiClient.forgetToken()
+                                        aiStatus = resources.getString(R.string.settings_ai_gateway_forgotten)
+                                    }
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp)
+                            ) { Text(stringResource(R.string.settings_ai_gateway_forget)) }
                         }
-                        TextButton(onClick = {
-                            scope.launch {
-                                val granted = container.settings.aiUploadConsent()
-                                container.settings.setAiUploadConsent(!granted)
-                                aiStatus = resources.getString(
-                                    if (!granted) {
-                                        R.string.settings_ai_gateway_upload_allowed
-                                    } else {
-                                        R.string.settings_ai_gateway_upload_revoked
-                                    }
-                                )
-                            }
-                        }) {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    val granted = container.settings.aiUploadConsent()
+                                    container.settings.setAiUploadConsent(!granted)
+                                    aiStatus = resources.getString(
+                                        if (!granted) {
+                                            R.string.settings_ai_gateway_upload_allowed
+                                        } else {
+                                            R.string.settings_ai_gateway_upload_revoked
+                                        }
+                                    )
+                                }
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
                             Text(
                                 stringResource(
                                     if (settings.aiUploadConsent) {
@@ -400,22 +449,40 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(stringResource(R.string.settings_security_workspace), style = MaterialTheme.typography.titleMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             OutlinedButton(
                                 onClick = { onOpenStudio(DedicatedScreenRoute.KEY_VAULT) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .widthIn(min = 140.dp)
+                                    .heightIn(min = 48.dp)
                             ) {
                                 Icon(Icons.Filled.Key, contentDescription = null)
                                 Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.settings_key_vault_btn))
+                                Text(
+                                    stringResource(R.string.settings_key_vault_btn),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                             Button(
                                 onClick = { onOpenStudio(DedicatedScreenRoute.WORKSPACE_BACKUP) },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .widthIn(min = 140.dp)
+                                    .heightIn(min = 48.dp)
                             ) {
                                 Icon(Icons.Filled.Backup, contentDescription = null)
                                 Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.settings_backup_btn))
+                                Text(
+                                    stringResource(R.string.settings_backup_btn),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -442,6 +509,7 @@ fun SettingsScreen(
                             onClick = onOpenLicenses,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .testTag("open_source_licenses_button")
                         ) {
                             Icon(Icons.Filled.Gavel, contentDescription = null)

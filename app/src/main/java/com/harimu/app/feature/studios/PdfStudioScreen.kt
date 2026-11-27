@@ -1458,7 +1458,7 @@ private fun CompareAbWorkspace(
                         enabled = state.comparePageIndex > 0 && !state.isLoadingComparePreview,
                         modifier = Modifier.minimumInteractiveComponentSize()
                     ) {
-                        Text(if (isEnglish) "Prev" else "Sblm")
+                        Text(stringResource(R.string.pdf_studio_compare_prev))
                     }
                     Button(
                         onClick = { vm.refreshComparePagePreview(state.comparePageIndex) },
@@ -1477,18 +1477,23 @@ private fun CompareAbWorkspace(
                         enabled = !state.isLoadingComparePreview,
                         modifier = Modifier.minimumInteractiveComponentSize()
                     ) {
-                        Text(if (isEnglish) "Next" else "Bkt")
+                        Text(stringResource(R.string.pdf_studio_compare_next))
                     }
                 }
 
                 state.comparePreview?.let { preview ->
-                    val statusLabel = if (preview.changed) {
-                        if (isEnglish) "Visual difference detected" else "Perbedaan visual terdeteksi"
-                    } else {
-                        if (isEnglish) "Visually identical" else "Secara visual identik"
-                    }
+                    val statusLabel = stringResource(
+                        if (preview.changed) R.string.pdf_studio_compare_diff_yes
+                        else R.string.pdf_studio_compare_diff_no
+                    )
                     Text(
-                        text = "Hal ${state.comparePageIndex + 1} (${preview.pagesA} vs ${preview.pagesB}) • $statusLabel",
+                        text = stringResource(
+                            R.string.pdf_studio_compare_page_status,
+                            state.comparePageIndex + 1,
+                            preview.pagesA,
+                            preview.pagesB,
+                            statusLabel
+                        ),
                         style = MonoTextStyle,
                         color = if (preview.changed) HariMuColors.GroupPdf else HariMuThemeTokens.semantic.success
                     )
@@ -1498,7 +1503,10 @@ private fun CompareAbWorkspace(
                                 Text("Doc A", style = MaterialTheme.typography.labelSmall)
                                 Image(
                                     bitmap = bmpA.asImageBitmap(),
-                                    contentDescription = "Document A page ${state.comparePageIndex + 1}",
+                                    contentDescription = stringResource(
+                                        R.string.pdf_studio_compare_cd_doc_a,
+                                        state.comparePageIndex + 1
+                                    ),
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1512,7 +1520,10 @@ private fun CompareAbWorkspace(
                                 Text("Doc B", style = MaterialTheme.typography.labelSmall)
                                 Image(
                                     bitmap = bmpB.asImageBitmap(),
-                                    contentDescription = "Document B page ${state.comparePageIndex + 1}",
+                                    contentDescription = stringResource(
+                                        R.string.pdf_studio_compare_cd_doc_b,
+                                        state.comparePageIndex + 1
+                                    ),
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1523,10 +1534,16 @@ private fun CompareAbWorkspace(
                         }
                     }
                     preview.diffBitmap?.takeIf { !it.isRecycled }?.let { diffBmp ->
-                        Text(if (isEnglish) "Visual Diff Overlay (Red = changed)" else "Overlay Diff Visual (Merah = berubah)", style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            stringResource(R.string.pdf_studio_compare_diff_overlay),
+                            style = MaterialTheme.typography.labelSmall
+                        )
                         Image(
                             bitmap = diffBmp.asImageBitmap(),
-                            contentDescription = "Diff page ${state.comparePageIndex + 1}",
+                            contentDescription = stringResource(
+                                R.string.pdf_studio_compare_cd_diff,
+                                state.comparePageIndex + 1
+                            ),
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
                                 .fillMaxWidth()

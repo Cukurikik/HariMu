@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,8 +93,11 @@ fun ImageForgeScreen(
     onOpenImageMatrix: (() -> Unit)? = null,
     onBack: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf<ImageForgeCategory?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedCategoryName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedCategory = remember(selectedCategoryName) {
+        selectedCategoryName?.let { name -> ImageForgeCategory.entries.firstOrNull { it.name == name } }
+    }
     var fallbackScreen by remember { mutableStateOf<String?>(null) }
 
     val allImageTools = remember { ToolRegistry.byGroup(ToolGroup.IMAGE) }
@@ -217,7 +221,7 @@ fun ImageForgeScreen(
                     selectedCategory = selectedCategory,
                     labelProvider = { cat -> stringResource(cat.titleRes) },
                     keyProvider = { cat -> cat.name },
-                    onSelectCategory = { selectedCategory = it }
+                    onSelectCategory = { selectedCategoryName = it?.name }
                 )
 
                 if (searchQuery.isNotBlank() || selectedCategory != null) {

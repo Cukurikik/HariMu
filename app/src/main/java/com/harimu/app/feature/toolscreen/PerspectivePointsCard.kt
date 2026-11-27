@@ -143,12 +143,14 @@ fun PerspectivePointsCard(
                         lineTo(offsets[3].x, offsets[3].y)
                         close()
                     }
-                    drawPath(path, HariMuColors.TealEmerald, style = Stroke(width = 3f))
+                    drawPath(path, HariMuColors.TealEmerald, style = Stroke(width = 1.5.dp.toPx()))
+                    val outerRadius = 6.dp.toPx()
+                    val innerRadius = 3.5.dp.toPx()
                     offsets.forEachIndexed { index, offset ->
-                        drawCircle(HariMuColors.TealEmerald, radius = 10f, center = offset)
+                        drawCircle(HariMuColors.TealEmerald, radius = outerRadius, center = offset)
                         drawCircle(
                             if (index == activeHandle) HariMuColors.CrispWhite else HariMuColors.CanvasHandleDark,
-                            radius = 6f,
+                            radius = innerRadius,
                             center = offset
                         )
                     }

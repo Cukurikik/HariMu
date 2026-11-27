@@ -12,16 +12,25 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ScreenShare
@@ -42,23 +51,31 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.harimu.app.AppContainer
 import com.harimu.app.R
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
 import com.harimu.app.core.design.ParamSlider
 import com.harimu.app.core.recording.ScreenRecorderEngine
@@ -73,7 +90,7 @@ import kotlinx.coroutines.withContext
  * lalu diteruskan ke [ScreenRecorderService] (foreground `mediaProjection`) yang memegang engine.
  * Kontrol tersedia di notifikasi (jeda/lanjut/stop) dan opsional sebagai overlay.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ScreenRecorderScreen(
     container: AppContainer,
@@ -81,15 +98,24 @@ fun ScreenRecorderScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val state by ScreenRecordingController.state.collectAsStateWithLifecycle()
 
-    var resolution by remember { mutableStateOf("720p") }
-    var fps by remember { mutableStateOf(30) }
-    var bitrateMbps by remember { mutableStateOf(6f) }
-    var audioMode by remember { mutableStateOf(ScreenRecorderEngine.AudioMode.MIC) }
-    var containerFormat by remember { mutableStateOf(ScreenRecorderEngine.Container.MP4) }
-    var overlayEnabled by remember { mutableStateOf(false) }
+    var resolution by rememberSaveable { mutableStateOf("720p") }
+    var fps by rememberSaveable { mutableIntStateOf(30) }
+    var bitrateMbps by rememberSaveable { mutableFloatStateOf(6f) }
+    var audioModeName by rememberSaveable { mutableStateOf(ScreenRecorderEngine.AudioMode.MIC.name) }
+    val audioMode = remember(audioModeName) {
+        ScreenRecorderEngine.AudioMode.entries.firstOrNull { it.name == audioModeName }
+            ?: ScreenRecorderEngine.AudioMode.MIC
+    }
+    var containerFormatName by rememberSaveable { mutableStateOf(ScreenRecorderEngine.Container.MP4.name) }
+    val containerFormat = remember(containerFormatName) {
+        ScreenRecorderEngine.Container.entries.firstOrNull { it.name == containerFormatName }
+            ?: ScreenRecorderEngine.Container.MP4
+    }
+    var overlayEnabled by rememberSaveable { mutableStateOf(false) }
     var recordedOnce by remember { mutableStateOf(false) }
 
     val projectionManager = remember {
@@ -124,7 +150,7 @@ fun ScreenRecorderScreen(
         } else {
             Toast.makeText(
                 context,
-                if (isEnglish) "Screen capture permission denied" else "Izin rekam layar ditolak",
+                resources.getString(R.string.screen_recorder_perm_denied),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -156,7 +182,7 @@ fun ScreenRecorderScreen(
         ) {
             Toast.makeText(
                 context,
-                if (isEnglish) "Microphone permission is required for audio" else "Izin mikrofon diperlukan untuk audio",
+                resources.getString(R.string.screen_recorder_mic_required),
                 Toast.LENGTH_SHORT
             ).show()
             return
@@ -164,230 +190,289 @@ fun ScreenRecorderScreen(
         captureLauncher.launch(projectionManager.createScreenCaptureIntent())
     }
 
+    val toggleFloatingControls: (Boolean) -> Unit = { checked ->
+        if (checked && !Settings.canDrawOverlays(context)) {
+            overlayLauncher.launch(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}")
+                )
+            )
+        }
+        overlayEnabled = checked
+    }
+
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
-                title = { Text(if (isEnglish) "Screen Recorder Studio" else "Studio Perekam Layar") },
+                title = {
+                    Text(
+                        stringResource(R.string.screen_recorder_title),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .testTag("screen_recorder_back_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = HariMuThemeTokens.layout.formMaxWidth)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = if (isEnglish) {
-                            "MediaProjection records the whole screen. Android 14+ asks for consent every session."
-                        } else {
-                            "MediaProjection merekam seluruh layar. Android 14+ meminta persetujuan setiap sesi."
-                        },
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = stringResource(R.string.screen_recorder_intro),
+                            style = MaterialTheme.typography.bodySmall
+                        )
 
-                    Text(if (isEnglish) "Resolution" else "Resolusi", style = MaterialTheme.typography.labelLarge)
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("480p", "720p", "1080p", "1440p").forEach { option ->
-                            FilterChip(
-                                selected = resolution == option,
-                                enabled = !state.running,
-                                onClick = { resolution = option },
-                                label = { Text(option) }
-                            )
-                        }
-                    }
-
-                    Text(if (isEnglish) "Frame rate" else "Frame rate", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(24, 30, 60).forEach { option ->
-                            FilterChip(
-                                selected = fps == option,
-                                enabled = !state.running,
-                                onClick = { fps = option },
-                                label = { Text("$option fps") }
-                            )
-                        }
-                    }
-
-                    ParamSlider(
-                        label = if (isEnglish) "Bitrate" else "Bitrate",
-                        value = bitrateMbps,
-                        min = 1f,
-                        max = 20f,
-                        step = 1f,
-                        unit = " Mbps",
-                        onValueChange = { bitrateMbps = it }
-                    )
-
-                    Text(if (isEnglish) "Audio source" else "Sumber audio", style = MaterialTheme.typography.labelLarge)
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ScreenRecorderEngine.AudioMode.entries.forEach { mode ->
-                            if (mode == ScreenRecorderEngine.AudioMode.MIC_AND_INTERNAL && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                                return@forEach
+                        Text(stringResource(R.string.screen_recorder_resolution), style = MaterialTheme.typography.labelLarge)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("480p", "720p", "1080p", "1440p").forEach { option ->
+                                FilterChip(
+                                    selected = resolution == option,
+                                    enabled = !state.running,
+                                    onClick = { resolution = option },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    label = { Text(option) }
+                                )
                             }
-                            FilterChip(
-                                selected = audioMode == mode,
-                                enabled = !state.running,
-                                onClick = { audioMode = mode },
-                                label = {
-                                    Text(
-                                        when (mode) {
-                                            ScreenRecorderEngine.AudioMode.NONE -> if (isEnglish) "None" else "Tanpa audio"
-                                            ScreenRecorderEngine.AudioMode.MIC -> "Mikrofon"
-                                            ScreenRecorderEngine.AudioMode.INTERNAL -> if (isEnglish) "Internal (API 29+)" else "Internal (API 29+)"
-                                            ScreenRecorderEngine.AudioMode.MIC_AND_INTERNAL -> if (isEnglish) "Mic + internal" else "Mic + internal"
-                                        }
-                                    )
-                                }
-                            )
                         }
-                    }
 
-                    Text(if (isEnglish) "Container" else "Kontainer", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ScreenRecorderEngine.Container.entries.forEach { option ->
-                            val supported = option == ScreenRecorderEngine.Container.MP4 || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                            FilterChip(
-                                selected = containerFormat == option,
-                                enabled = !state.running && supported,
-                                onClick = { containerFormat = option },
-                                label = {
-                                    Text(
-                                        when (option) {
-                                            ScreenRecorderEngine.Container.MP4 -> "MP4 (H.264/AAC)"
-                                            ScreenRecorderEngine.Container.WEBM -> "WebM (VP8/Opus)"
-                                        }
-                                    )
-                                }
-                            )
+                        Text(stringResource(R.string.screen_recorder_fps), style = MaterialTheme.typography.labelLarge)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf(24, 30, 60).forEach { option ->
+                                FilterChip(
+                                    selected = fps == option,
+                                    enabled = !state.running,
+                                    onClick = { fps = option },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    label = { Text("$option fps") }
+                                )
+                            }
                         }
-                    }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(if (isEnglish) "Floating controls" else "Tombol mengambang", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                if (isEnglish) "Needs “display over other apps” permission."
-                                else "Butuh izin “tampil di atas aplikasi lain”.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ParamSlider(
+                            label = stringResource(R.string.screen_recorder_bitrate),
+                            value = bitrateMbps,
+                            min = 1f,
+                            max = 20f,
+                            step = 1f,
+                            unit = " Mbps",
+                            onValueChange = { bitrateMbps = it }
+                        )
+
+                        Text(stringResource(R.string.screen_recorder_audio_source), style = MaterialTheme.typography.labelLarge)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            ScreenRecorderEngine.AudioMode.entries.forEach { mode ->
+                                if (mode == ScreenRecorderEngine.AudioMode.MIC_AND_INTERNAL && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                                    return@forEach
+                                }
+                                FilterChip(
+                                    selected = audioMode == mode,
+                                    enabled = !state.running,
+                                    onClick = { audioModeName = mode.name },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    label = {
+                                        Text(
+                                            when (mode) {
+                                                ScreenRecorderEngine.AudioMode.NONE -> stringResource(R.string.screen_recorder_audio_none)
+                                                ScreenRecorderEngine.AudioMode.MIC -> stringResource(R.string.screen_recorder_audio_mic)
+                                                ScreenRecorderEngine.AudioMode.INTERNAL -> stringResource(R.string.screen_recorder_audio_internal)
+                                                ScreenRecorderEngine.AudioMode.MIC_AND_INTERNAL -> stringResource(R.string.screen_recorder_audio_mic_internal)
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        Text(stringResource(R.string.screen_recorder_container), style = MaterialTheme.typography.labelLarge)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            ScreenRecorderEngine.Container.entries.forEach { option ->
+                                val supported = option == ScreenRecorderEngine.Container.MP4 || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                                FilterChip(
+                                    selected = containerFormat == option,
+                                    enabled = !state.running && supported,
+                                    onClick = { containerFormatName = option.name },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    label = {
+                                        Text(
+                                            when (option) {
+                                                ScreenRecorderEngine.Container.MP4 -> "MP4 (H.264/AAC)"
+                                                ScreenRecorderEngine.Container.WEBM -> "WebM (VP8/Opus)"
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .minimumInteractiveComponentSize()
+                                .toggleable(
+                                    value = overlayEnabled,
+                                    enabled = !state.running,
+                                    role = Role.Switch,
+                                    onValueChange = toggleFloatingControls
+                                )
+                                .testTag("screen_floating_controls_row"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    stringResource(R.string.screen_recorder_floating_title),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    stringResource(R.string.screen_recorder_floating_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = overlayEnabled,
+                                onCheckedChange = null,
+                                enabled = !state.running
                             )
                         }
-                        Switch(
-                            checked = overlayEnabled,
-                            onCheckedChange = { checked ->
-                                if (checked && !Settings.canDrawOverlays(context)) {
-                                    overlayLauncher.launch(
-                                        Intent(
-                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            Uri.parse("package:${context.packageName}")
+
+                        when {
+                            state.error != null -> Text(
+                                text = state.error ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            state.running -> Text(
+                                text = stringResource(
+                                    if (state.paused) R.string.screen_recorder_paused_status
+                                    else R.string.screen_recorder_active_status
+                                ),
+                                style = MonoTextStyle,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            state.output != null -> Text(
+                                text = "${state.output?.name} (${container.storage.formatBytes(state.output?.length() ?: 0)})",
+                                style = MonoTextStyle,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = { if (state.running) ScreenRecordingController.stop() else startCapture() },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("screen_record_toggle")
+                            ) {
+                                Icon(
+                                    if (state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.ScreenShare,
+                                    contentDescription = null
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    stringResource(
+                                        if (state.running) R.string.action_stop else R.string.screen_recorder_start
+                                    )
+                                )
+                            }
+                            if (state.running) {
+                                OutlinedButton(
+                                    onClick = {
+                                        if (state.paused) ScreenRecordingController.resume() else ScreenRecordingController.pause()
+                                    },
+                                    modifier = Modifier
+                                        .testTag("screen_record_pause_button")
+                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                ) {
+                                    Icon(
+                                        if (state.paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                                        contentDescription = stringResource(
+                                            if (state.paused) R.string.screen_recorder_cd_resume
+                                            else R.string.screen_recorder_cd_pause
                                         )
                                     )
                                 }
-                                overlayEnabled = checked
-                            },
-                            enabled = !state.running
-                        )
-                    }
-
-                    when {
-                        state.error != null -> Text(
-                            text = state.error ?: "",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        state.running -> Text(
-                            text = if (state.paused) {
-                                if (isEnglish) "Paused — recording continues after resume" else "Dijeda — rekaman lanjut setelah resume"
-                            } else {
-                                if (isEnglish) "Recording in background…" else "Merekam di latar belakang…"
-                            },
-                            style = MonoTextStyle,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                        state.output != null -> Text(
-                            text = "${state.output?.name} (${container.storage.formatBytes(state.output?.length() ?: 0)})",
-                            style = MonoTextStyle,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = { if (state.running) ScreenRecordingController.stop() else startCapture() },
-                            modifier = Modifier.weight(1f).testTag("screen_record_toggle")
-                        ) {
-                            Icon(if (state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.ScreenShare, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (state.running) "Stop" else if (isEnglish) "Start recording" else "Mulai rekam"
-                            )
-                        }
-                        if (state.running) {
-                            OutlinedButton(
-                                onClick = {
-                                    if (state.paused) ScreenRecordingController.resume() else ScreenRecordingController.pause()
-                                }
-                            ) {
-                                Icon(if (state.paused) Icons.Filled.PlayArrow else Icons.Filled.Pause, contentDescription = null)
                             }
                         }
                     }
                 }
-            }
 
-            state.output?.let { file ->
-                val mime = if (file.extension == "webm") "video/webm" else "video/mp4"
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent.createChooser(container.storage.buildOpenIntent(file, mime), file.name)
-                                )
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (isEnglish) "Open" else "Buka")
-                    }
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                context.startActivity(
-                                    Intent.createChooser(container.storage.buildShareIntent(file, mime), file.name)
-                                )
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.Share, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (isEnglish) "Share" else "Bagikan")
+                state.output?.let { file ->
+                    val mime = if (file.extension == "webm") "video/webm" else "video/mp4"
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent.createChooser(container.storage.buildOpenIntent(file, mime), file.name)
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.action_open))
+                        }
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    context.startActivity(
+                                        Intent.createChooser(container.storage.buildShareIntent(file, mime), file.name)
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.action_share))
+                        }
                     }
                 }
             }

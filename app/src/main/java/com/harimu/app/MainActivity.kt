@@ -236,7 +236,7 @@ private fun HariMuRoot(
             DedicatedScreenRoute.QURAN -> navController.navigate(QuranRoute)
             DedicatedScreenRoute.FOOTBALL -> navController.navigate(FootballRoute)
             DedicatedScreenRoute.PESANTREN -> navController.navigate(PesantrenRoute)
-            DedicatedScreenRoute.SETTINGS -> navController.navigate(SettingsRoute)
+            DedicatedScreenRoute.SETTINGS -> navController.navigateToTopLevel(TopLevelDestination.SETTINGS)
         }
     }
 
@@ -355,7 +355,8 @@ private fun HariMuRoot(
                         onOpenImageMatrix = { navController.navigate(ImageMatrixRoute) },
                         onOpenPdfVault = { navController.navigate(PdfVaultRoute) },
                         onOpenPdfStudio = { navController.navigate(PdfStudioRoute()) },
-                        onOpenUniversalConverter = { navController.navigate(UniversalConverterRoute()) }
+                        onOpenUniversalConverter = { navController.navigate(UniversalConverterRoute()) },
+                        onOpenVideoForge = { navController.navigate(VideoForgeRoute) }
                     )
                 }
                 composable<ToolRoute> { entry ->
@@ -394,7 +395,12 @@ private fun HariMuRoot(
                     )
                 }
                 composable<VideoForgeRoute> {
-                    VideoForgeScreen(container, settings.isEnglish) { navController.popBackStack() }
+                    VideoForgeScreen(
+                        container = container,
+                        isEnglish = settings.isEnglish,
+                        onOpenTool = ::openTool,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable<ImageForgeRoute> {
                     ImageForgeScreen(

@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,7 +87,7 @@ fun HomeScreen(
 ) {
     val spacing = HariMuThemeTokens.spacing
     val fontScale = LocalDensity.current.fontScale
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     val searchResults = remember(searchQuery, isEnglish) {
         if (searchQuery.isBlank()) emptyList() else ToolRegistry.search(searchQuery, isEnglish)
@@ -134,7 +135,10 @@ fun HomeScreen(
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
                                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cd_clear))
                             }
                         }
@@ -258,7 +262,7 @@ fun HomeScreen(
                 }
 
                 val rows = ToolGroup.entries.chunked(columns)
-                items(rows) { rowGroups ->
+                items(rows, key = { row -> row.joinToString("_") { it.name } }) { rowGroups ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(spacing.sm)

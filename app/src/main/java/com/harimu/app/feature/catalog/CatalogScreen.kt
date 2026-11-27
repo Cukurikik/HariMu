@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
@@ -43,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,12 +79,16 @@ fun CatalogScreen(
     onOpenImageMatrix: (() -> Unit)? = null,
     onOpenPdfVault: (() -> Unit)? = null,
     onOpenPdfStudio: (() -> Unit)? = null,
-    onOpenUniversalConverter: (() -> Unit)? = null
+    onOpenUniversalConverter: (() -> Unit)? = null,
+    onOpenVideoForge: (() -> Unit)? = null
 ) {
     val spacing = HariMuThemeTokens.spacing
     val layout = HariMuThemeTokens.layout
-    var selectedGroup by remember(initialGroup) { mutableStateOf(initialGroup) }
-    var query by remember { mutableStateOf("") }
+    var selectedGroupName by rememberSaveable(initialGroup?.name) { mutableStateOf(initialGroup?.name) }
+    val selectedGroup = remember(selectedGroupName) {
+        selectedGroupName?.let { name -> ToolGroup.entries.firstOrNull { it.name == name } }
+    }
+    var query by rememberSaveable { mutableStateOf("") }
 
     val filtered = remember(selectedGroup, query, isEnglish) {
         ToolRegistry.search(query, isEnglish, selectedGroup)
@@ -101,7 +109,9 @@ fun CatalogScreen(
                     if (onBack != null) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.testTag("catalog_back_button")
+                            modifier = Modifier
+                                .testTag("catalog_back_button")
+                                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                         }
@@ -140,7 +150,10 @@ fun CatalogScreen(
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
+                        IconButton(
+                            onClick = { query = "" },
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        ) {
                             Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cd_clear))
                         }
                     }
@@ -158,10 +171,10 @@ fun CatalogScreen(
                 item {
                     FilterChip(
                         selected = selectedGroup == null,
-                        onClick = { selectedGroup = null },
+                        onClick = { selectedGroupName = null },
                         label = { Text(stringResource(R.string.catalog_all_count, ToolRegistry.allTools.size)) },
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
+                            .heightIn(min = 48.dp)
                             .testTag("filter_all")
                     )
                 }
@@ -169,14 +182,14 @@ fun CatalogScreen(
                     val accent = group.accentColor()
                     FilterChip(
                         selected = selectedGroup == group,
-                        onClick = { selectedGroup = group },
+                        onClick = { selectedGroupName = group.name },
                         label = { Text(stringResource(group.titleRes)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = accent.copy(alpha = 0.18f),
                             selectedLabelColor = accent
                         ),
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
+                            .heightIn(min = 48.dp)
                             .testTag("filter_${group.name}")
                     )
                 }
@@ -197,12 +210,25 @@ fun CatalogScreen(
                                 icon = group.icon(),
                                 accent = group.accentColor()
                             )
+                            if (group == ToolGroup.VIDEO && onOpenVideoForge != null) {
+                                OutlinedButton(
+                                    onClick = onOpenVideoForge,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("catalog_open_video_forge_btn")
+                                ) {
+                                    Icon(Icons.Filled.MovieCreation, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.video_forge_title))
+                                }
+                            }
                             if (group == ToolGroup.AUDIO && onOpenAudioForge != null) {
                                 OutlinedButton(
                                     onClick = onOpenAudioForge,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .minimumInteractiveComponentSize()
+                                        .heightIn(min = 48.dp)
                                         .testTag("catalog_open_audio_forge_btn")
                                 ) {
                                     Icon(Icons.Filled.GraphicEq, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -220,7 +246,7 @@ fun CatalogScreen(
                                             onClick = onOpenImageForge,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .minimumInteractiveComponentSize()
+                                                .heightIn(min = 48.dp)
                                                 .testTag("catalog_open_image_forge_btn")
                                         ) {
                                             Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -237,7 +263,7 @@ fun CatalogScreen(
                                             onClick = onOpenImageMatrix,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .minimumInteractiveComponentSize()
+                                                .heightIn(min = 48.dp)
                                                 .testTag("catalog_open_image_matrix_btn")
                                         ) {
                                             Icon(Icons.Filled.Layers, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -261,7 +287,7 @@ fun CatalogScreen(
                                             onClick = onOpenPdfVault,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .minimumInteractiveComponentSize()
+                                                .heightIn(min = 48.dp)
                                                 .testTag("catalog_open_pdf_vault_btn")
                                         ) {
                                             Icon(Icons.Filled.ViewAgenda, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -278,7 +304,7 @@ fun CatalogScreen(
                                             onClick = onOpenPdfStudio,
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .minimumInteractiveComponentSize()
+                                                .heightIn(min = 48.dp)
                                                 .testTag("catalog_open_pdf_studio_btn")
                                         ) {
                                             Icon(Icons.Filled.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -297,7 +323,7 @@ fun CatalogScreen(
                                     onClick = onOpenUniversalConverter,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .minimumInteractiveComponentSize()
+                                        .heightIn(min = 48.dp)
                                         .testTag("catalog_open_converter_btn")
                                 ) {
                                     Icon(Icons.Filled.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))

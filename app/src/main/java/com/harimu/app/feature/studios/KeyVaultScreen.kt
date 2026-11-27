@@ -11,21 +11,23 @@ import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -85,7 +87,7 @@ private enum class PendingVaultAction { EXPORT_PEM, ENCRYPT_FILE, DECRYPT_FILE, 
  *   (biometrik/PIN lewat KeyguardManager) + peringatan.
  * - Tanda tangan/verifikasi: `SHA256withRSA` / `SHA256withECDSA`.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun KeyVaultScreen(
     container: AppContainer,
@@ -217,78 +219,84 @@ fun KeyVaultScreen(
         val entity = pendingKey ?: return@rememberLauncherForActivityResult
         val action = pendingAction
         val name = uri.lastPathSegment?.substringAfterLast('/') ?: "input.bin"
-        val local = copyUriToCache(uri, name)
-        if (local == null) {
-            status = if (isEnglish) "File could not be read" else "Berkas tidak bisa dibaca"
-            return@rememberLauncherForActivityResult
-        }
-        when (action) {
-            PendingVaultAction.ENCRYPT_FILE -> {
-                pendingInput = entity to local
-                saveDocument.launch("${local.name}.hmvlt")
+        scope.launch {
+            val local = withContext(Dispatchers.IO) { copyUriToCache(uri, name) }
+            if (local == null) {
+                status = if (isEnglish) "File could not be read" else "Berkas tidak bisa dibaca"
+                return@launch
             }
-            PendingVaultAction.DECRYPT_FILE -> {
-                pendingInput = entity to local
-                saveDocument.launch(local.name.removeSuffix(".hmvlt"))
-            }
-            PendingVaultAction.SIGN_FILE -> {
-                scope.launch(Dispatchers.IO) {
-                    runCatching {
-                        val signature = VaultCryptoEngine.signBytes(entity, local.readBytes())
-                        val target = container.storage.createOutputFile("SIG", "sig")
-                        target.writeText(
-                            "HARIMU-SIG v1\nsha256=${entity.fingerprintSha256}\nfile=${local.name}\n" +
-                                Base64.encodeToString(signature, Base64.NO_WRAP),
-                            Charsets.UTF_8
-                        )
-                        target
-                    }.onSuccess { target ->
-                        withContext(Dispatchers.Main) {
-                            status = if (isEnglish) {
-                                "Signature saved: ${target.name}. Verify by picking the original file, then this .sig"
-                            } else {
-                                "Tanda tangan disimpan: ${target.name}. Verifikasi dengan memilih berkas asli, lalu .sig ini"
-                            }
+            when (action) {
+                PendingVaultAction.ENCRYPT_FILE -> {
+                    pendingInput = entity to local
+                    saveDocument.launch("${local.name}.hmvlt")
+                }
+                PendingVaultAction.DECRYPT_FILE -> {
+                    pendingInput = entity to local
+                    saveDocument.launch(local.name.removeSuffix(".hmvlt"))
+                }
+                PendingVaultAction.SIGN_FILE -> {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val signature = VaultCryptoEngine.signBytes(entity, local.readBytes())
+                            val target = container.storage.createOutputFile("SIG", "sig")
+                            target.writeText(
+                                "HARIMU-SIG v1\nsha256=${entity.fingerprintSha256}\nfile=${local.name}\n" +
+                                    Base64.encodeToString(signature, Base64.NO_WRAP),
+                                Charsets.UTF_8
+                            )
+                            target
+                        }
+                    }
+                    result.onSuccess { target ->
+                        status = if (isEnglish) {
+                            "Signature saved: ${target.name}. Verify by picking the original file, then this .sig"
+                        } else {
+                            "Tanda tangan disimpan: ${target.name}. Verifikasi dengan memilih berkas asli, lalu .sig ini"
                         }
                     }.onFailure { error ->
-                        withContext(Dispatchers.Main) { status = error.localizedMessage ?: "Gagal menandatangani" }
+                        status = error.localizedMessage ?: "Gagal menandatangani"
                     }
                 }
-            }
-            PendingVaultAction.VERIFY_FILE -> {
-                val original = pendingOriginal
-                if (original == null) {
-                    pendingOriginal = local.readBytes()
-                    pendingVerifyName = local.name
-                    status = if (isEnglish) {
-                        "Now pick the .sig file created when signing ${local.name}"
-                    } else {
-                        "Sekarang pilih berkas .sig yang dibuat saat menandatangani ${local.name}"
-                    }
-                    openDocumentHolder[0]?.launch(arrayOf("*/*"))
-                } else {
-                    scope.launch(Dispatchers.IO) {
-                        val ok = runCatching {
-                            val text = local.readText(Charsets.UTF_8)
-                            val encoded = text.lineSequence()
-                                .firstOrNull { it.isNotBlank() && !it.startsWith("HARIMU-SIG") && !it.contains("=") }
-                                ?: text.substringAfterLast('\n').trim()
-                            val signature = Base64.decode(encoded, Base64.DEFAULT)
-                            VaultCryptoEngine.verifyBytes(entity, original, signature)
-                        }.getOrDefault(false)
-                        withContext(Dispatchers.Main) {
-                            status = if (ok) {
-                                if (isEnglish) "Signature valid for $pendingVerifyName" else "Tanda tangan sah untuk $pendingVerifyName"
-                            } else {
-                                if (isEnglish) "Signature invalid or file changed" else "Tanda tangan tidak sah atau berkas berubah"
-                            }
-                            pendingOriginal = null
-                            pendingVerifyName = ""
+                PendingVaultAction.VERIFY_FILE -> {
+                    val original = pendingOriginal
+                    if (original == null) {
+                        val readOrig = withContext(Dispatchers.IO) {
+                            runCatching { local.readBytes() }.getOrNull()
                         }
+                        if (readOrig == null) {
+                            status = if (isEnglish) "File could not be read" else "Berkas tidak bisa dibaca"
+                            return@launch
+                        }
+                        pendingOriginal = readOrig
+                        pendingVerifyName = local.name
+                        status = if (isEnglish) {
+                            "Now pick the .sig file created when signing ${local.name}"
+                        } else {
+                            "Sekarang pilih berkas .sig yang dibuat saat menandatangani ${local.name}"
+                        }
+                        openDocumentHolder[0]?.launch(arrayOf("*/*"))
+                    } else {
+                        val ok = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val text = local.readText(Charsets.UTF_8)
+                                val encoded = text.lineSequence()
+                                    .firstOrNull { it.isNotBlank() && !it.startsWith("HARIMU-SIG") && !it.contains("=") }
+                                    ?: text.substringAfterLast('\n').trim()
+                                val signature = Base64.decode(encoded, Base64.DEFAULT)
+                                VaultCryptoEngine.verifyBytes(entity, original, signature)
+                            }.getOrDefault(false)
+                        }
+                        status = if (ok) {
+                            if (isEnglish) "Signature valid for $pendingVerifyName" else "Tanda tangan sah untuk $pendingVerifyName"
+                        } else {
+                            if (isEnglish) "Signature invalid or file changed" else "Tanda tangan tidak sah atau berkas berubah"
+                        }
+                        pendingOriginal = null
+                        pendingVerifyName = ""
                     }
                 }
+                else -> Unit
             }
-            else -> Unit
         }
     }
     openDocumentHolder[0] = openDocument
@@ -302,8 +310,8 @@ fun KeyVaultScreen(
                     IconButton(
                         onClick = onBack,
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
                             .testTag("key_vault_back_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -344,9 +352,9 @@ fun KeyVaultScreen(
                             singleLine = true,
                             label = { Text(if (isEnglish) "Key Alias" else "Nama Alias Kunci") }
                         )
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             algorithms.forEach { alg ->
                                 FilterChip(
@@ -355,7 +363,8 @@ fun KeyVaultScreen(
                                         algorithm = alg
                                         if (!alg.startsWith("AES")) keepInKeystore = false
                                     },
-                                    label = { Text(alg) }
+                                    label = { Text(alg) },
+                                    modifier = Modifier.heightIn(min = 48.dp)
                                 )
                             }
                         }
@@ -367,7 +376,8 @@ fun KeyVaultScreen(
                                 FilterChip(
                                     selected = keepInKeystore,
                                     onClick = { keepInKeystore = true },
-                                    label = { Text(if (isEnglish) "Keystore (non-exportable)" else "Keystore (non-ekspor)") }
+                                    label = { Text(if (isEnglish) "Keystore (non-exportable)" else "Keystore (non-ekspor)") },
+                                    modifier = Modifier.heightIn(min = 48.dp)
                                 )
                             }
                         }
@@ -409,6 +419,7 @@ fun KeyVaultScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .testTag("generate_key_button")
                         ) {
                             Icon(Icons.Filled.Add, contentDescription = null)
@@ -470,7 +481,9 @@ fun KeyVaultScreen(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp)
                                 ) {
                                     Icon(Icons.Filled.ContentCopy, contentDescription = null)
                                     Spacer(Modifier.width(6.dp))
@@ -488,13 +501,15 @@ fun KeyVaultScreen(
                                             requireAuthentication(PendingVaultAction.EXPORT_PEM, item)
                                         }
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp)
                                 ) {
                                     Text(if (isEnglish) "Export PEM" else "Ekspor PEM")
                                 }
                                 IconButton(
                                     onClick = { scope.launch(Dispatchers.IO) { container.workspace.deleteVaultKey(item.id) } },
-                                    modifier = Modifier.minimumInteractiveComponentSize()
+                                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Delete,
@@ -511,7 +526,9 @@ fun KeyVaultScreen(
                                             pendingAction = PendingVaultAction.ENCRYPT_FILE
                                             openDocument.launch(arrayOf("*/*"))
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
                                     ) { Text(if (isEnglish) "Encrypt file" else "Enkripsi berkas") }
                                     OutlinedButton(
                                         onClick = {
@@ -519,7 +536,9 @@ fun KeyVaultScreen(
                                             pendingAction = PendingVaultAction.DECRYPT_FILE
                                             openDocument.launch(arrayOf("*/*"))
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
                                     ) { Text(if (isEnglish) "Decrypt file" else "Dekripsi berkas") }
                                 }
                             } else {
@@ -530,7 +549,9 @@ fun KeyVaultScreen(
                                             pendingAction = PendingVaultAction.SIGN_FILE
                                             openDocument.launch(arrayOf("*/*"))
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
                                     ) { Text(if (isEnglish) "Sign file" else "Tanda tangan") }
                                     OutlinedButton(
                                         onClick = {
@@ -544,7 +565,9 @@ fun KeyVaultScreen(
                                             }
                                             openDocument.launch(arrayOf("*/*"))
                                         },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
                                     ) { Text(if (isEnglish) "Verify" else "Verifikasi") }
                                 }
                             }

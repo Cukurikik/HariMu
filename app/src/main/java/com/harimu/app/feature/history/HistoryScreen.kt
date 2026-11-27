@@ -57,8 +57,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,6 +118,11 @@ private data class DetailTarget(
     val history: HistoryEntity? = null
 )
 
+private data class ResolvedHistoryFiles(
+    val existing: List<ToolOutputFile> = emptyList(),
+    val resolved: Boolean = false
+)
+
 @Composable
 fun HistoryScreen(
     container: AppContainer,
@@ -133,8 +140,11 @@ fun HistoryScreen(
     val jobs by container.jobManager.observeAllJobs().collectAsStateWithLifecycle(initialValue = emptyList())
     val uploadTasks by container.uploadQueue.tasksFlow.collectAsStateWithLifecycle()
 
-    var selectedFilter by remember(initialFilter) { mutableStateOf(initialFilter) }
-    var searchQuery by remember { mutableStateOf("") }
+    var selectedFilterName by rememberSaveable(initialFilter.name) { mutableStateOf(initialFilter.name) }
+    val selectedFilter = remember(selectedFilterName) {
+        JobCenterFilter.entries.firstOrNull { it.name == selectedFilterName } ?: initialFilter
+    }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     var detailTarget by remember { mutableStateOf<DetailTarget?>(null) }
     var pendingSave by remember { mutableStateOf<ToolOutputFile?>(null) }
 
@@ -218,7 +228,7 @@ fun HistoryScreen(
                     attentionCount = attentionJobs.size,
                     historyCount = items.size,
                     uploadCount = uploadTasks.size,
-                    onSelectFilter = { selectedFilter = it }
+                    onSelectFilter = { selectedFilterName = it.name }
                 )
             }
 
@@ -241,7 +251,10 @@ fun HistoryScreen(
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
                                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cd_clear))
                             }
                         }
@@ -262,33 +275,43 @@ fun HistoryScreen(
                 ) {
                     FilterChip(
                         selected = selectedFilter == JobCenterFilter.ALL,
-                        onClick = { selectedFilter = JobCenterFilter.ALL },
+                        onClick = { selectedFilterName = JobCenterFilter.ALL.name },
                         label = { Text(stringResource(R.string.job_filter_all)) },
-                        modifier = Modifier.testTag("job_filter_all")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("job_filter_all")
                     )
                     FilterChip(
                         selected = selectedFilter == JobCenterFilter.ACTIVE,
-                        onClick = { selectedFilter = JobCenterFilter.ACTIVE },
+                        onClick = { selectedFilterName = JobCenterFilter.ACTIVE.name },
                         label = { Text(stringResource(R.string.job_filter_active, activeJobs.size)) },
-                        modifier = Modifier.testTag("job_filter_active")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("job_filter_active")
                     )
                     FilterChip(
                         selected = selectedFilter == JobCenterFilter.ATTENTION,
-                        onClick = { selectedFilter = JobCenterFilter.ATTENTION },
+                        onClick = { selectedFilterName = JobCenterFilter.ATTENTION.name },
                         label = { Text(stringResource(R.string.job_filter_attention, attentionJobs.size)) },
-                        modifier = Modifier.testTag("job_filter_attention")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("job_filter_attention")
                     )
                     FilterChip(
                         selected = selectedFilter == JobCenterFilter.HISTORY,
-                        onClick = { selectedFilter = JobCenterFilter.HISTORY },
+                        onClick = { selectedFilterName = JobCenterFilter.HISTORY.name },
                         label = { Text(stringResource(R.string.job_filter_history, items.size)) },
-                        modifier = Modifier.testTag("job_filter_history")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("job_filter_history")
                     )
                     FilterChip(
                         selected = selectedFilter == JobCenterFilter.UPLOADS,
-                        onClick = { selectedFilter = JobCenterFilter.UPLOADS },
+                        onClick = { selectedFilterName = JobCenterFilter.UPLOADS.name },
                         label = { Text(stringResource(R.string.job_filter_uploads, uploadTasks.size)) },
-                        modifier = Modifier.testTag("job_filter_uploads")
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("job_filter_uploads")
                     )
                 }
             }
@@ -419,15 +442,28 @@ fun HistoryScreen(
                     }
 
                     items(filteredHistory, key = { "hist_${it.id}" }) { item ->
-                        val outputs = decodeHistoryOutputs(item)
-                        val existingOutputs = outputs.filter { it.file.exists() }
-                        val primaryOut = existingOutputs.firstOrNull()
+                        val outputs = remember(item.id, item.outputsJson, item.outputPath, item.outputName, item.mimeType) {
+                            decodeHistoryOutputs(item)
+                        }
+                        val resolvedFiles by produceState(
+                            initialValue = ResolvedHistoryFiles(),
+                            key1 = item.id,
+                            key2 = outputs
+                        ) {
+                            value = withContext(Dispatchers.IO) {
+                                ResolvedHistoryFiles(
+                                    existing = outputs.filter { it.file.exists() },
+                                    resolved = true
+                                )
+                            }
+                        }
+                        val primaryOut = resolvedFiles.existing.firstOrNull()
                         val matchedUpload = (primaryOut?.file?.absolutePath ?: item.outputPath)
                             .let { UploadQueue.findLatestForFile(it, uploadTasks) }
                         HistoryItemCard(
                             item = item,
                             primaryOut = primaryOut,
-                            hasMissingFile = outputs.isNotEmpty() && existingOutputs.isEmpty() && item.textOutput.isBlank(),
+                            hasMissingFile = resolvedFiles.resolved && outputs.isNotEmpty() && resolvedFiles.existing.isEmpty() && item.textOutput.isBlank(),
                             uploadTask = matchedUpload,
                             dateFormatter = dateFormatter,
                             storageFormat = { container.storage.formatBytes(it) },

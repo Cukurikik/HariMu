@@ -47,7 +47,7 @@ class VideoForgeScreenTest {
         // Verify tools are categorized correctly for VideoForgeScreen
         val coreEditingIds = setOf("VID-01", "VID-02", "VID-03", "VID-04", "VID-05", "VID-09", "VID-10")
         val audioIds = setOf("VID-08", "VID-12", "VID-13", "VID-16", "VID-24")
-        val transformConvertIds = setOf("VID-18", "VID-19", "VID-20", "VID-21", "VID-22")
+        val transformConvertIds = setOf("VID-07", "VID-18", "VID-19", "VID-20", "VID-21", "VID-22")
         val overlaysEffectsIds = setOf("VID-11", "VID-14", "VID-15", "VID-17", "VID-23", "VID-25", "VID-26")
         val creativeIds = setOf("VID-06", "VID-27", "VID-28", "VID-29", "VID-30")
 

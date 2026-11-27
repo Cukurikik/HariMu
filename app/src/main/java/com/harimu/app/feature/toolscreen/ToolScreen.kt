@@ -26,8 +26,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +68,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,7 +144,7 @@ fun ToolScreen(
     val spacing = HariMuThemeTokens.spacing
     val layout = HariMuThemeTokens.layout
     val scope = rememberCoroutineScope()
-    var showUploadConsent by remember { mutableStateOf(false) }
+    var showUploadConsent by rememberSaveable { mutableStateOf(false) }
     val vm: ToolViewModel = viewModel(
         key = "tool_${toolId}_${initialJobId ?: "latest"}",
         factory = ToolViewModel.Factory(toolId, container, initialJobId)
@@ -300,7 +303,12 @@ fun ToolScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("tool_back_button")) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .testTag("tool_back_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
@@ -308,8 +316,8 @@ fun ToolScreen(
                     IconButton(
                         onClick = onToggleFavorite,
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
                             .testTag("fav_button_${tool.id}")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
@@ -783,10 +791,16 @@ fun UploadConsentDialog(
             })
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(if (isEnglish) "Allow upload" else "Izinkan unggah") }
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) { Text(if (isEnglish) "Allow upload" else "Izinkan unggah") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(if (isEnglish) "Cancel" else "Batal") }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.heightIn(min = 48.dp)
+            ) { Text(if (isEnglish) "Cancel" else "Batal") }
         }
     )
 }
@@ -848,8 +862,13 @@ fun DetailedResultView(
                     ResultAction.Share -> shareFile(out, container.storage, context)
                     ResultAction.Save -> saveFile(out, container.storage, settings, scope, context, savedToast, saveFailedToast, pendingExportFile, safSaveLauncher)
                     ResultAction.Delete -> {
-                        if (out.file.delete() || !out.file.exists()) {
-                            deletedPaths = deletedPaths + out.file.absolutePath
+                        scope.launch {
+                            val deleted = withContext(Dispatchers.IO) {
+                                out.file.delete() || !out.file.exists()
+                            }
+                            if (deleted) {
+                                deletedPaths = deletedPaths + out.file.absolutePath
+                            }
                         }
                     }
                 }
@@ -900,7 +919,10 @@ fun DetailedResultView(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.label_output), style = MaterialTheme.typography.labelMedium)
-                    IconButton(onClick = { copyText(txt, context, copiedToast) }) {
+                    IconButton(
+                        onClick = { copyText(txt, context, copiedToast) },
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.action_copy), modifier = Modifier.size(18.dp))
                     }
                 }

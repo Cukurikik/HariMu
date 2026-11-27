@@ -985,4 +985,48 @@
     <string name="pesantren_copy_nspp">Salin NSPP</string>
     <string name="backup_saved_toast">Backup .omni tersimpan</string>
     <string name="key_vault_delete_cd">Hapus kunci</string>
+
+    <!-- P13/P14 Accessibility & Studio Localization -->
+    <string name="voice_recorder_title">Studio Perekam Suara</string>
+    <string name="voice_recorder_grant_mic">Izinkan Mikrofon</string>
+    <string name="voice_recorder_cd_record">Rekam suara</string>
+    <string name="voice_recorder_cd_stop">Hentikan perekaman</string>
+    <string name="voice_recorder_play">Putar</string>
+    <string name="voice_recorder_pause_status">Dijeda — fokus audio hilang atau jeda manual</string>
+    <string name="voice_recorder_active_status">Merekam… foreground service aktif</string>
+
+    <string name="screen_recorder_title">Studio Perekam Layar</string>
+    <string name="screen_recorder_intro">MediaProjection merekam seluruh layar. Android 14+ meminta persetujuan setiap sesi.</string>
+    <string name="screen_recorder_perm_denied">Izin rekam layar ditolak</string>
+    <string name="screen_recorder_mic_required">Izin mikrofon diperlukan untuk audio</string>
+    <string name="screen_recorder_resolution">Resolusi</string>
+    <string name="screen_recorder_fps">Frame rate</string>
+    <string name="screen_recorder_bitrate">Bitrate</string>
+    <string name="screen_recorder_audio_source">Sumber audio</string>
+    <string name="screen_recorder_audio_none">Tanpa audio</string>
+    <string name="screen_recorder_audio_mic">Mikrofon</string>
+    <string name="screen_recorder_audio_internal">Internal (API 29+)</string>
+    <string name="screen_recorder_audio_mic_internal">Mic + internal</string>
+    <string name="screen_recorder_container">Kontainer</string>
+    <string name="screen_recorder_floating_title">Tombol mengambang</string>
+    <string name="screen_recorder_floating_desc">Butuh izin “tampil di atas aplikasi lain”.</string>
+    <string name="screen_recorder_paused_status">Dijeda — rekaman lanjut setelah resume</string>
+    <string name="screen_recorder_active_status">Merekam di latar belakang…</string>
+    <string name="screen_recorder_start">Mulai rekam</string>
+    <string name="screen_recorder_cd_pause">Jeda perekaman layar</string>
+    <string name="screen_recorder_cd_resume">Lanjutkan perekaman layar</string>
+
+    <string name="video_forge_search_hint">Cari alat video…</string>
+    <string name="video_forge_empty_title">Tidak ada alat ditemukan</string>
+    <string name="video_forge_empty_desc">Coba kata kunci lain</string>
+
+    <string name="pdf_studio_compare_prev">Sblm</string>
+    <string name="pdf_studio_compare_next">Bkt</string>
+    <string name="pdf_studio_compare_diff_yes">Perbedaan visual terdeteksi</string>
+    <string name="pdf_studio_compare_diff_no">Secara visual identik</string>
+    <string name="pdf_studio_compare_page_status">Hal %1$d (%2$d vs %3$d) • %4$s</string>
+    <string name="pdf_studio_compare_cd_doc_a">Dokumen A halaman %1$d</string>
+    <string name="pdf_studio_compare_cd_doc_b">Dokumen B halaman %1$d</string>
+    <string name="pdf_studio_compare_cd_diff">Diff visual halaman %1$d</string>
+    <string name="pdf_studio_compare_diff_overlay">Overlay Diff Visual (Merah = berubah)</string>
 </resources>

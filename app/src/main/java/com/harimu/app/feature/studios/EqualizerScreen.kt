@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -191,8 +193,12 @@ fun EqualizerScreen(
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { destUri ->
         val src = pendingSaveFile
         if (destUri != null && src != null) {
-            val ok = container.storage.copyFileToUri(src.file, destUri)
-            Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    container.storage.copyFileToUri(src.file, destUri)
+                }
+                Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -328,7 +334,12 @@ fun EqualizerScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.eq_title), maxLines = 1) },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("eq_back_button")) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .testTag("eq_back_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
@@ -340,7 +351,9 @@ fun EqualizerScreen(
                             for (i in 0 until 10) bandGains[i] = 0f
                             pushLiveParameters()
                         },
-                        modifier = Modifier.testTag("eq_reset_button")
+                        modifier = Modifier
+                            .testTag("eq_reset_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     ) {
                         Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.eq_reset_flat))
                     }
@@ -468,7 +481,7 @@ fun EqualizerScreen(
                                     pushLiveParameters()
                                 },
                                 label = { Text(if (isEnglish) preset.labelEn else preset.labelId) },
-                                modifier = Modifier.minimumInteractiveComponentSize()
+                                modifier = Modifier.heightIn(min = 48.dp)
                             )
                         }
                     }
@@ -765,9 +778,11 @@ fun EqResponseCurveCard(
                 val stepX = size.width / (safe.size - 1).coerceAtLeast(1)
 
                 // Horizontal grid lines (+6, 0, -6 dB)
-                drawLine(gridColor, Offset(0f, size.height * 0.25f), Offset(size.width, size.height * 0.25f), 1.5f)
-                drawLine(zeroColor, Offset(0f, midY), Offset(size.width, midY), 2f)
-                drawLine(gridColor, Offset(0f, size.height * 0.75f), Offset(size.width, size.height * 0.75f), 1.5f)
+                val gridStrokePx = 1.dp.toPx()
+                val zeroStrokePx = 1.5.dp.toPx()
+                drawLine(gridColor, Offset(0f, size.height * 0.25f), Offset(size.width, size.height * 0.25f), gridStrokePx)
+                drawLine(zeroColor, Offset(0f, midY), Offset(size.width, midY), zeroStrokePx)
+                drawLine(gridColor, Offset(0f, size.height * 0.75f), Offset(size.width, size.height * 0.75f), gridStrokePx)
 
                 val pts = safe.mapIndexed { idx, g ->
                     val effective = if (bypassed) 0f else g
@@ -799,10 +814,11 @@ fun EqResponseCurveCard(
                 drawPath(
                     path = curvePath,
                     color = lineColor,
-                    style = Stroke(width = 4f, cap = StrokeCap.Round)
+                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
                 )
+                val nodeRadiusPx = 3.dp.toPx()
                 pts.forEach { p ->
-                    drawCircle(color = lineColor, radius = 6f, center = p)
+                    drawCircle(color = lineColor, radius = nodeRadiusPx, center = p)
                 }
             }
         }

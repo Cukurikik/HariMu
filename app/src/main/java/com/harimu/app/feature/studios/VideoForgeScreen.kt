@@ -1,9 +1,6 @@
 package com.harimu.app.feature.studios
 
-import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,14 +10,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.MovieCreation
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
@@ -32,45 +30,44 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
 import com.harimu.app.R
-import com.harimu.app.core.design.HariMuColors
+import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.video.ToolCategorySection
-import com.harimu.app.core.design.video.ToolLauncherCard
 import com.harimu.app.core.design.video.ToolLauncherVariant
 import com.harimu.app.core.design.video.ToolSearchBar
-import com.harimu.app.feature.tools.videoTools
+import com.harimu.app.core.toolapi.Tool
+import com.harimu.app.core.toolapi.ToolGroup
+import com.harimu.app.core.toolapi.ToolRegistry
 import com.harimu.app.feature.toolscreen.ToolScreen
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoForgeScreen(
     container: AppContainer,
     isEnglish: Boolean,
+    onOpenTool: ((Tool) -> Unit)? = null,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    val scope = remember { kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedToolId by remember { mutableStateOf<String?>(null) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedToolId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val allVideoTools = remember { videoTools() }
-    val filteredTools = remember(searchQuery, allVideoTools) {
+    val allVideoTools = remember { ToolRegistry.byGroup(ToolGroup.VIDEO) }
+    val filteredTools = remember(searchQuery, allVideoTools, isEnglish) {
         if (searchQuery.isBlank()) allVideoTools else allVideoTools.filter { tool ->
             tool.title(isEnglish).lowercase().contains(searchQuery.lowercase()) ||
                 tool.description(isEnglish).lowercase().contains(searchQuery.lowercase()) ||
@@ -80,7 +77,7 @@ fun VideoForgeScreen(
 
     // Group tools by category
     val categorizedTools = remember(filteredTools) {
-        val categories = mutableMapOf<String, MutableList<com.harimu.app.core.toolapi.Tool>>()
+        val categories = mutableMapOf<String, MutableList<Tool>>()
         filteredTools.forEach { tool ->
             val category = getToolCategory(tool.id)
             categories.getOrPut(category) { mutableListOf() }.add(tool)
@@ -88,8 +85,9 @@ fun VideoForgeScreen(
         categories.toMap()
     }
 
-    // Navigation to ToolScreen
+    // Standalone fallback when launched outside NavHost
     if (selectedToolId != null) {
+        BackHandler { selectedToolId = null }
         val tool = allVideoTools.find { it.id == selectedToolId }
         tool?.let {
             ToolScreen(
@@ -116,7 +114,12 @@ fun VideoForgeScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .testTag("video_forge_back_button")
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
@@ -135,7 +138,7 @@ fun VideoForgeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 760.dp)
+                    .widthIn(max = HariMuThemeTokens.layout.catalogMaxWidth)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -144,7 +147,7 @@ fun VideoForgeScreen(
                 ToolSearchBar(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
-                    placeholder = if (isEnglish) "Search video tools..." else "Cari alat video..."
+                    placeholder = stringResource(R.string.video_forge_search_hint)
                 )
 
                 // Tool count indicator
@@ -165,8 +168,8 @@ fun VideoForgeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f))
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)),
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.3f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -180,13 +183,13 @@ fun VideoForgeScreen(
                                 modifier = Modifier.size(48.dp)
                             )
                             Text(
-                                text = if (isEnglish) "No tools found" else "Tidak ada alat ditemukan",
+                                text = stringResource(R.string.video_forge_empty_title),
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
                             Text(
-                                text = if (isEnglish) "Try a different search term" else "Coba kata kunci lain",
+                                text = stringResource(R.string.video_forge_empty_desc),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
@@ -200,7 +203,8 @@ fun VideoForgeScreen(
                         "Audio" to Icons.Filled.MusicNote,
                         "Transform & Convert" to Icons.Filled.Transform,
                         "Overlays & Effects" to Icons.Filled.AutoFixHigh,
-                        "Creative" to Icons.Filled.Palette
+                        "Creative" to Icons.Filled.Palette,
+                        "Other" to Icons.Filled.AutoAwesome
                     )
 
                     categoryOrder.forEach { (categoryName, categoryIcon) ->
@@ -211,7 +215,7 @@ fun VideoForgeScreen(
                                 tools = tools,
                                 isEnglish = isEnglish,
                                 onToolClick = { tool ->
-                                    selectedToolId = tool.id
+                                    if (onOpenTool != null) onOpenTool(tool) else selectedToolId = tool.id
                                 },
                                 variant = ToolLauncherVariant.Standard,
                                 initiallyExpanded = true
@@ -227,7 +231,7 @@ fun VideoForgeScreen(
 private fun getToolCategory(toolId: String): String = when (toolId) {
     "VID-01", "VID-02", "VID-03", "VID-04", "VID-05", "VID-09", "VID-10" -> "Core Editing"
     "VID-08", "VID-12", "VID-13", "VID-16", "VID-24" -> "Audio"
-    "VID-18", "VID-19", "VID-20", "VID-21", "VID-22" -> "Transform & Convert"
+    "VID-07", "VID-18", "VID-19", "VID-20", "VID-21", "VID-22" -> "Transform & Convert"
     "VID-11", "VID-14", "VID-15", "VID-17", "VID-23", "VID-25", "VID-26" -> "Overlays & Effects"
     "VID-06", "VID-27", "VID-28", "VID-29", "VID-30" -> "Creative"
     else -> "Other"

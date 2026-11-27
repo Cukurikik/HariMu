@@ -83,6 +83,9 @@ import com.harimu.app.feature.toolscreen.openFile
 import com.harimu.app.feature.toolscreen.saveFile
 import com.harimu.app.feature.toolscreen.shareFile
 import com.harimu.app.feature.toolscreen.uploadToCloud
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 private enum class MatrixInspectorTab {
@@ -133,8 +136,12 @@ fun ImageMatrixScreen(
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { destUri ->
         val src = pendingSaveFile
         if (destUri != null && src != null) {
-            val ok = container.storage.copyFileToUri(src.file, destUri)
-            Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    container.storage.copyFileToUri(src.file, destUri)
+                }
+                Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
