@@ -126,7 +126,14 @@ fun NusantaraHubScreen(
                 UtilityHubCategory.LIVE -> tool.id in setOf("NUS-01", "NUS-02", "CORE-12")
                 UtilityHubCategory.WORSHIP -> tool.id in setOf("CORE-15", "NUS-06", "NUS-08", "NUS-10")
                 UtilityHubCategory.DIRECTORY -> tool.id in setOf("CORE-16", "NUS-03", "NUS-07", "NUS-12")
-                UtilityHubCategory.REFERENCE -> tool.id in setOf("NUS-04", "NUS-05", "NUS-09", "NUS-11", "CORE-13", "CORE-14")
+                UtilityHubCategory.REFERENCE -> tool.id in setOf(
+                    "NUS-04",
+                    "NUS-05",
+                    "NUS-09",
+                    "NUS-11",
+                    "CORE-13",
+                    "CORE-14"
+                )
             }
             val queryMatch = query.isEmpty() ||
                 tool.id.lowercase().contains(query) ||

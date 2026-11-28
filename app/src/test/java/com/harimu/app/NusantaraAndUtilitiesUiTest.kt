@@ -149,7 +149,10 @@ class NusantaraAndUtilitiesUiTest {
     fun nusantaraDestinationProvidesOwnTopBarWithoutEnteringBottomNav() {
         assertTrue(TopLevelDestination.NUSANTARA.providesOwnTopBar)
         assertFalse(TopLevelDestination.NUSANTARA.showInNavigationBar)
-        assertEquals(listOf(TopLevelDestination.CATALOG), TopLevelDestination.navigationItems.filter { it.providesOwnTopBar })
+        assertEquals(
+            listOf(TopLevelDestination.CATALOG),
+            TopLevelDestination.navigationItems.filter { it.providesOwnTopBar }
+        )
     }
 
     @Test
@@ -175,7 +178,10 @@ class NusantaraAndUtilitiesUiTest {
             }
             val tags = initial.mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
             val texts = initial.flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty().map { t -> t.text } }
-            assertNotNull("Missing nusantara_back_button; tags=$tags; texts=${texts.take(15)}", findByTag(initial, "nusantara_back_button"))
+            assertNotNull(
+                "Missing nusantara_back_button; tags=$tags; texts=${texts.take(15)}",
+                findByTag(initial, "nusantara_back_button")
+            )
             assertNotNull("Missing nusantara_quick_CORE-15; tags=$tags", findByTag(initial, "nusantara_quick_CORE-15"))
             assertNotNull("Missing nusantara_quick_CORE-16; tags=$tags", findByTag(initial, "nusantara_quick_CORE-16"))
             assertTrue(hasTextContaining(initial, "Kendari"))
@@ -428,8 +434,14 @@ class NusantaraAndUtilitiesUiTest {
             }
             val quakeNodes = waitUntilNodes(activity) { findByTag(it, "earthquake_latest_card") != null }
             val qTags = quakeNodes.mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
-            assertNotNull("Missing earthquake_copy_coords; tags=$qTags", findByTag(quakeNodes, "earthquake_copy_coords"))
-            assertNotNull("Missing earthquake_shakemap_image; tags=$qTags", findByTag(quakeNodes, "earthquake_shakemap_image"))
+            assertNotNull(
+                "Missing earthquake_copy_coords; tags=$qTags",
+                findByTag(quakeNodes, "earthquake_copy_coords")
+            )
+            assertNotNull(
+                "Missing earthquake_shakemap_image; tags=$qTags",
+                findByTag(quakeNodes, "earthquake_shakemap_image")
+            )
 
             // Quran Screen BackHandler
             val quranOwner = FakeVmOwner()
@@ -869,7 +881,18 @@ class NusantaraAndUtilitiesUiTest {
     private class FakeSchoolApi : SchoolApi {
         override suspend fun search(query: String, page: Int) = SchoolPage(
             schools = listOf(
-                School("20104775", "SMAN 1 Jakarta", "SMA", "N", "Jl. Budi Utomo", "DKI Jakarta", "Jakarta Pusat", "Sawah Besar", "-6.16", "106.83")
+                School(
+                    "20104775",
+                    "SMAN 1 Jakarta",
+                    "SMA",
+                    "N",
+                    "Jl. Budi Utomo",
+                    "DKI Jakarta",
+                    "Jakarta Pusat",
+                    "Sawah Besar",
+                    "-6.16",
+                    "106.83"
+                )
             ),
             page = 1,
             perPage = 5,
