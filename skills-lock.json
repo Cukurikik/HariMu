@@ -43,6 +43,20 @@
       "skillPath": "skills/android-benchmark-comparison/SKILL.md",
       "computedHash": "6b9fd4c90515c09b59bedf1fafd30c7cd369ad5779c3ae1af8bb9aae9a91a34a"
     },
+    "android-cli": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "devtools/android-cli/SKILL.md",
+      "computedHash": "8a982e9380aaa40ae06c955308c156942f4937071cd1e12c3d1cf2310d7c00c2"
+    },
+    "android-coil-compose": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-coil-compose/SKILL.md",
+      "computedHash": "5aa4f62dd6cb41c178ff897adb8c0e24cfa9de96b5ef7527db225974734c35a0"
+    },
     "android-data-persistence": {
       "source": "guillemroca/agent-skills-android",
       "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
@@ -64,6 +78,13 @@
       "skillPath": "skills/android-e2e-verification/SKILL.md",
       "computedHash": "a09385df33123a338c6b8c71bf518f46d96bc92b8b36942b1d0c57ddd20c5917"
     },
+    "android-intent-security": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "security/android-intent-security/SKILL.md",
+      "computedHash": "41a3b30d26f74c13b6b0471eb750b7a866244a6bd2774e2af5ccbe1ae5cf385f"
+    },
     "android-kotlin-coroutines": {
       "source": "thebushidocollective/han",
       "commit": "162b86b81857c0acca9fdccfcf499120e9c6d85c",
@@ -77,6 +98,20 @@
       "sourceType": "github",
       "skillPath": "skills/android-media-files-sharing/SKILL.md",
       "computedHash": "e99a760a4546d18c3a4ad7cde4cf1f4c790167219f90fc1a81f498c3050bf05d"
+    },
+    "android-navigation-deeplinks": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-navigation-deeplinks/SKILL.md",
+      "computedHash": "a46e32a10e0d17b96f7c5d2b558633d8c986d814eb7887eff9215c4829e2d964"
+    },
+    "android-permissions-security": {
+      "source": "android/skills",
+      "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
+      "sourceType": "github",
+      "skillPath": "security/android-permissions-security/SKILL.md",
+      "computedHash": "eb407bbe35d8afe518f7d20d396f097f483657be22f836618169e24edd0712ed"
     },
     "android-profiler": {
       "source": "android/skills",
@@ -98,6 +133,13 @@
       "sourceType": "github",
       "skillPath": "plugins/android-skills/skills/android-testing/SKILL.md",
       "computedHash": "9d23488eb172c5fef5fdfaf3a4121e8f2cc1d72d9439e4cf711a721448659094"
+    },
+    "android-ui-states-validation": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-ui-states-validation/SKILL.md",
+      "computedHash": "7e6becfc2be120df9bdcb071db944b0ad5e25a4d3eb20558a98f8da7a0e2211c"
     },
     "anr-audit-and-fix": {
       "source": "android/skills",
@@ -1023,6 +1065,34 @@
       "skillPath": "plugins/integrations/skills/mcp-builder/SKILL.md",
       "computedHash": "b8b9ef3756bf4a254605311773374d97db0b7e8273e29a0fa6150d9ee628748e"
     },
+    "media3-inspector-metadata-thumbnails": {
+      "source": "sunnat629/android-media-pack",
+      "commit": "1d74b4953d21ee31a3acf61eff68972e100c2ac3",
+      "sourceType": "github",
+      "skillPath": ".skills/media/inspector/media3-inspector-metadata-thumbnails/SKILL.md",
+      "computedHash": "f2ccacb375e06c0c95e3c6f39a8a8982b52386c395378237024913fac700812a"
+    },
+    "media3-test-utils-robolectric": {
+      "source": "sunnat629/android-media-pack",
+      "commit": "1d74b4953d21ee31a3acf61eff68972e100c2ac3",
+      "sourceType": "github",
+      "skillPath": ".skills/media/testing/media3-test-utils-robolectric/SKILL.md",
+      "computedHash": "845e31e0f171f504959c4ea2e8522b2e384f5a48674e9689107ccd24c69e341c"
+    },
+    "media3-transformer-editing": {
+      "source": "sunnat629/android-media-pack",
+      "commit": "1d74b4953d21ee31a3acf61eff68972e100c2ac3",
+      "sourceType": "github",
+      "skillPath": ".skills/media/processing/media3-transformer-editing/SKILL.md",
+      "computedHash": "43ec0d1a4ecfc8d4172c138168d0ce065549f3658a57913d1edeb4db8c62f8e4"
+    },
+    "media3-video-effects-lottie-muxer": {
+      "source": "sunnat629/android-media-pack",
+      "commit": "1d74b4953d21ee31a3acf61eff68972e100c2ac3",
+      "sourceType": "github",
+      "skillPath": ".skills/media/processing/media3-video-effects-lottie-muxer/SKILL.md",
+      "computedHash": "53d4addf278f142b6ff41e7cf9f50f6b7e57431bb436716ff9cb913f9c2c0d30"
+    },
     "microservices-patterns": {
       "source": "secondsky/claude-skills",
       "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
@@ -1197,6 +1267,13 @@
       "sourceType": "github",
       "skillPath": "plugins/oauth-implementation/skills/oauth-implementation/SKILL.md",
       "computedHash": "58d480e2e5c76f3ec416eb39656760a85a412b08512a556d3800f750b4c6b02e"
+    },
+    "observability-and-instrumentation": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/observability-and-instrumentation/SKILL.md",
+      "computedHash": "766ac549f1771ca1b020ea446acfd8b350f259a1d293e7b147af2624f19429e7"
     },
     "onboarding-ux": {
       "source": "jezweb/claude-skills",
@@ -1505,6 +1582,13 @@
       "sourceType": "github",
       "skillPath": "plugins/social-media/skills/social-media-posts/SKILL.md",
       "computedHash": "bb7fb6e33b6bd382dedae724c20ca6e5c42655c4dd80896abc2aaefc20dbd437"
+    },
+    "source-driven-development": {
+      "source": "guillemroca/agent-skills-android",
+      "commit": "68fd141eec5ad2029ae8393e510dbe46dea48c36",
+      "sourceType": "github",
+      "skillPath": "skills/source-driven-development/SKILL.md",
+      "computedHash": "4803a2a226b01b8a35e72447b9058b65787464d941c267e9fc7bb29f8fabdec3"
     },
     "strategy-document": {
       "source": "jezweb/claude-skills",
