@@ -1038,6 +1038,8 @@
     <string name="pesantren_step_province">Choose a Province</string>
     <string name="pesantren_step_regency">Choose a Regency / City</string>
     <string name="pesantren_copy_nspp">Copy NSPP</string>
+    <string name="backup_title">Workspace Backup (.omni)</string>
+    <string name="backup_intro">Bundles manifest.json, settings, favorites, and history into a portable .omni archive (optional AES-256-GCM encryption).</string>
     <string name="backup_saved_toast">.omni backup saved</string>
     <string name="key_vault_delete_cd">Delete key</string>
 

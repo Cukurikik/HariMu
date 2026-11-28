@@ -1038,6 +1038,8 @@
     <string name="pesantren_step_province">Pilih Provinsi</string>
     <string name="pesantren_step_regency">Pilih Kabupaten / Kota</string>
     <string name="pesantren_copy_nspp">Salin NSPP</string>
+    <string name="backup_title">Backup Workspace (.omni)</string>
+    <string name="backup_intro">Mengemas manifest.json, setelan, favorit, dan riwayat ke arsip .omni portabel (opsional enkripsi AES-256-GCM).</string>
     <string name="backup_saved_toast">Backup .omni tersimpan</string>
     <string name="key_vault_delete_cd">Hapus kunci</string>
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Visibility
@@ -28,7 +27,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +48,7 @@ import com.harimu.app.core.design.HariMuInsetPanel
 import com.harimu.app.core.design.HariMuResponsiveContainer
 import com.harimu.app.core.design.HariMuSectionCard
 import com.harimu.app.core.design.HariMuThemeTokens
+import com.harimu.app.core.design.HariMuTopBar
 import com.harimu.app.core.design.MonoTextStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -124,21 +123,10 @@ fun BackupScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(if (isEnglish) "Workspace Backup (.omni)" else "Backup Workspace (.omni)") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .testTag("backup_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back)
-                        )
-                    }
-                }
+            HariMuTopBar(
+                title = stringResource(R.string.backup_title),
+                onBack = onBack,
+                backTestTag = "backup_back_button"
             )
         }
     ) { padding ->
@@ -150,11 +138,7 @@ fun BackupScreen(
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 HariMuSectionCard {
                     Text(
-                        text = if (isEnglish) {
-                            "Bundles manifest.json, settings, favorites, and history into a portable .omni archive (optional AES-256-GCM encryption)."
-                        } else {
-                            "Mengemas manifest.json, setelan, favorit, dan riwayat ke arsip .omni portabel (opsional enkripsi AES-256-GCM)."
-                        },
+                        text = stringResource(R.string.backup_intro),
                         style = MaterialTheme.typography.bodyMedium
                     )
 
