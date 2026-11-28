@@ -280,6 +280,10 @@ fun DetailedResultView(
 }
 
 fun openFile(output: ToolOutputFile, storage: FileStorageManager, context: Context) {
+    if (!output.file.exists()) {
+        Toast.makeText(context, context.getString(R.string.job_file_missing), Toast.LENGTH_SHORT).show()
+        return
+    }
     runCatching {
         context.startActivity(Intent.createChooser(storage.buildOpenIntent(output.file, output.mimeType), output.displayName))
     }.onFailure {
@@ -288,6 +292,10 @@ fun openFile(output: ToolOutputFile, storage: FileStorageManager, context: Conte
 }
 
 fun shareFile(output: ToolOutputFile, storage: FileStorageManager, context: Context) {
+    if (!output.file.exists()) {
+        Toast.makeText(context, context.getString(R.string.job_file_missing), Toast.LENGTH_SHORT).show()
+        return
+    }
     runCatching {
         context.startActivity(Intent.createChooser(storage.buildShareIntent(output.file, output.mimeType), output.displayName))
     }.onFailure {
@@ -341,23 +349,43 @@ fun uploadToCloud(
     }
     scope.launch(Dispatchers.IO) {
         val config = container.cloudStore.load()
-        if (!config.isConfigured()) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, context.getString(R.string.cloud_upload_configure_first), Toast.LENGTH_LONG).show()
-            }
-        } else {
-            container.uploadQueue.enqueue(output.file, output.mimeType, config.provider)
-            val uploaded = container.uploadQueue.processPending(
-                configProvider = { container.cloudStore.load() },
-                persistConfig = { container.cloudStore.save(it) }
-            )
+        val validationError = config.validationError(isEnglish)
+        if (!config.isConfigured() || validationError != null) {
             withContext(Dispatchers.Main) {
                 Toast.makeText(
                     context,
-                    context.getString(if (uploaded > 0) R.string.cloud_upload_done else R.string.cloud_upload_queued),
+                    validationError ?: context.getString(R.string.cloud_upload_configure_first),
                     Toast.LENGTH_LONG
                 ).show()
             }
+            return@launch
+        }
+        val queuedTask = container.uploadQueue.enqueue(output.file, output.mimeType, config.provider)
+        val outcome = runCatching {
+            container.uploadQueue.processPending(
+                configProvider = { container.cloudStore.load() },
+                persistConfig = { container.cloudStore.save(it) }
+            )
+        }
+        val refreshedTask = container.uploadQueue.snapshot().firstOrNull { it.id == queuedTask.id }
+        val toastText = outcome.fold(
+            onSuccess = { uploaded ->
+                when {
+                    uploaded > 0 -> context.getString(R.string.cloud_upload_done)
+                    refreshedTask?.lastError?.isNotBlank() == true ->
+                        context.getString(R.string.cloud_upload_failed_detail, refreshedTask.lastError)
+                    else -> context.getString(R.string.cloud_upload_queued)
+                }
+            },
+            onFailure = { err ->
+                context.getString(
+                    R.string.cloud_upload_failed_detail,
+                    err.localizedMessage ?: err.javaClass.simpleName
+                )
+            }
+        )
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
         }
     }
 }
@@ -370,17 +398,32 @@ fun retryCloudUpload(
     isEnglish: Boolean
 ) {
     scope.launch(Dispatchers.IO) {
-        val uploaded = container.uploadQueue.retryTask(
-            taskId = task.id,
-            configProvider = { container.cloudStore.load() },
-            persistConfig = { container.cloudStore.save(it) }
+        val outcome = runCatching {
+            container.uploadQueue.retryTask(
+                taskId = task.id,
+                configProvider = { container.cloudStore.load() },
+                persistConfig = { container.cloudStore.save(it) }
+            )
+        }
+        val refreshedTask = container.uploadQueue.snapshot().firstOrNull { it.id == task.id }
+        val toastText = outcome.fold(
+            onSuccess = { uploaded ->
+                when {
+                    uploaded > 0 -> context.getString(R.string.cloud_upload_done)
+                    refreshedTask?.lastError?.isNotBlank() == true ->
+                        context.getString(R.string.cloud_upload_failed_detail, refreshedTask.lastError)
+                    else -> context.getString(R.string.cloud_upload_still_pending)
+                }
+            },
+            onFailure = { err ->
+                context.getString(
+                    R.string.cloud_upload_failed_detail,
+                    err.localizedMessage ?: err.javaClass.simpleName
+                )
+            }
         )
         withContext(Dispatchers.Main) {
-            Toast.makeText(
-                context,
-                context.getString(if (uploaded > 0) R.string.cloud_upload_done else R.string.cloud_upload_still_pending),
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
         }
     }
 }

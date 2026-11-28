@@ -118,16 +118,39 @@ fun ScreenRecorderScreen(
     var overlayEnabled by rememberSaveable { mutableStateOf(false) }
     var recordedOnce by remember { mutableStateOf(false) }
 
+    var hasMicPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var micDeniedOnce by rememberSaveable { mutableStateOf(false) }
+    var pendingStartAfterMic by remember { mutableStateOf(false) }
+
     val projectionManager = remember {
         context.getSystemService(MediaProjectionManager::class.java)
     }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val overlayLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    val overlayLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (!Settings.canDrawOverlays(context)) {
+            overlayEnabled = false
+            Toast.makeText(
+                context,
+                resources.getString(R.string.screen_recorder_overlay_needed),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
 
     val captureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null) {
-            notificationLauncher.launch("android.permission.POST_NOTIFICATIONS")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
             val (width, height) = when (resolution) {
                 "1080p" -> 1920 to 1080
                 "1440p" -> 2560 to 1440
@@ -156,6 +179,20 @@ fun ScreenRecorderScreen(
         }
     }
 
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasMicPermission = granted
+        if (granted) {
+            micDeniedOnce = false
+            if (pendingStartAfterMic) {
+                pendingStartAfterMic = false
+                captureLauncher.launch(projectionManager.createScreenCaptureIntent())
+            }
+        } else {
+            pendingStartAfterMic = false
+            micDeniedOnce = true
+        }
+    }
+
     LaunchedEffect(state.output) {
         val file = state.output ?: return@LaunchedEffect
         if (recordedOnce) return@LaunchedEffect
@@ -177,14 +214,12 @@ fun ScreenRecorderScreen(
     }
 
     fun startCapture() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) !=
-            PackageManager.PERMISSION_GRANTED && audioMode != ScreenRecorderEngine.AudioMode.NONE
-        ) {
-            Toast.makeText(
-                context,
-                resources.getString(R.string.screen_recorder_mic_required),
-                Toast.LENGTH_SHORT
-            ).show()
+        val micGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        hasMicPermission = micGranted
+        if (!micGranted && audioMode != ScreenRecorderEngine.AudioMode.NONE) {
+            pendingStartAfterMic = true
+            micLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
         captureLauncher.launch(projectionManager.createScreenCaptureIntent())
@@ -374,6 +409,70 @@ fun ScreenRecorderScreen(
                                 onCheckedChange = null,
                                 enabled = !state.running
                             )
+                        }
+
+                        if (audioMode != ScreenRecorderEngine.AudioMode.NONE && !hasMicPermission) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("screen_recorder_mic_rationale_card"),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = HariMuThemeTokens.semantic.warningContainer
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    HariMuThemeTokens.semantic.warning.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            if (micDeniedOnce) R.string.recorder_perm_mic_denied_hint
+                                            else R.string.screen_recorder_mic_required
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = HariMuThemeTokens.semantic.onWarningContainer
+                                    )
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                pendingStartAfterMic = false
+                                                micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            },
+                                            modifier = Modifier
+                                                .heightIn(min = 48.dp)
+                                                .testTag("screen_recorder_grant_mic_button")
+                                        ) {
+                                            Text(stringResource(R.string.voice_recorder_grant_mic))
+                                        }
+                                        if (micDeniedOnce) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    runCatching {
+                                                        context.startActivity(
+                                                            Intent(
+                                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                                Uri.parse("package:${context.packageName}")
+                                                            )
+                                                        )
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .heightIn(min = 48.dp)
+                                                    .testTag("screen_recorder_open_settings_button")
+                                            ) {
+                                                Text(stringResource(R.string.recorder_open_app_settings))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         when {

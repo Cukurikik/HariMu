@@ -15,14 +15,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -34,8 +38,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.harimu.app.AppContainer
 import com.harimu.app.R
@@ -57,26 +64,35 @@ fun BackupScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val savedToast = stringResource(R.string.backup_saved_toast)
     val spacing = HariMuThemeTokens.spacing
     val controls = HariMuThemeTokens.controls
+    val semantic = HariMuThemeTokens.semantic
 
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
+    var isBusy by remember { mutableStateOf(false) }
     var statusMsg by remember { mutableStateOf("") }
+    var statusIsError by remember { mutableStateOf(false) }
     var pendingExport by remember { mutableStateOf<File?>(null) }
 
     val saveSaf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val src = pendingExport
         if (uri != null && src != null) {
             scope.launch(Dispatchers.IO) {
+                isBusy = true
                 val copied = runCatching { container.storage.copyFileToUri(src, uri) }
                 withContext(Dispatchers.Main) {
                     if (copied.isSuccess) {
+                        statusIsError = false
                         Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
                     } else {
-                        statusMsg = copied.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan .omni"
+                        statusIsError = true
+                        statusMsg = copied.exceptionOrNull()?.localizedMessage ?: "Failed to save .omni"
                     }
+                    isBusy = false
                 }
             }
         }
@@ -85,16 +101,21 @@ fun BackupScreen(
     val openSaf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
+                withContext(Dispatchers.Main) { isBusy = true }
                 val res = runCatching {
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: error("File tidak terbaca")
+                        ?: error("File could not be read")
                     container.workspace.importOmniBackup(bytes, password.ifBlank { null })
                 }
                 withContext(Dispatchers.Main) {
-                    statusMsg = res.fold(
-                        onSuccess = { it },
-                        onFailure = { it.localizedMessage ?: "Gagal memulihkan .omni" }
-                    )
+                    res.onSuccess {
+                        statusIsError = false
+                        statusMsg = it
+                    }.onFailure {
+                        statusIsError = true
+                        statusMsg = it.localizedMessage ?: "Failed to restore .omni"
+                    }
+                    isBusy = false
                 }
             }
         }
@@ -136,6 +157,14 @@ fun BackupScreen(
                         },
                         style = MaterialTheme.typography.bodyMedium
                     )
+
+                    Text(
+                        text = stringResource(R.string.backup_scope_exclusion_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("backup_scope_exclusion_note")
+                    )
+
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -143,6 +172,22 @@ fun BackupScreen(
                             .fillMaxWidth()
                             .testTag("backup_password_input"),
                         singleLine = true,
+                        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { showPassword = !showPassword },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .testTag("backup_password_visibility_toggle")
+                            ) {
+                                Icon(
+                                    imageVector = if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = stringResource(
+                                        if (showPassword) R.string.backup_cd_hide_password else R.string.backup_cd_show_password
+                                    )
+                                )
+                            }
+                        },
                         label = {
                             Text(
                                 if (isEnglish) {
@@ -153,14 +198,78 @@ fun BackupScreen(
                             )
                         }
                     )
+
+                    val (noticeBg, noticeFg, noticeText) = when {
+                        password.isBlank() -> Triple(
+                            semantic.warningContainer,
+                            semantic.onWarningContainer,
+                            stringResource(R.string.backup_unencrypted_warning)
+                        )
+                        password.length < 8 -> Triple(
+                            semantic.warningContainer,
+                            semantic.onWarningContainer,
+                            stringResource(R.string.backup_weak_password_warning)
+                        )
+                        else -> Triple(
+                            semantic.successContainer,
+                            semantic.onSuccessContainer,
+                            stringResource(R.string.backup_strong_password_info)
+                        )
+                    }
+                    Surface(
+                        color = noticeBg,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("backup_encryption_notice")
+                    ) {
+                        Text(
+                            text = noticeText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = noticeFg,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+
+                    if (isBusy) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(
+                            text = stringResource(R.string.backup_processing),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     Button(
+                        enabled = !isBusy,
                         onClick = {
                             scope.launch(Dispatchers.IO) {
-                                val file = container.workspace.exportOmniBackup(password.ifBlank { null })
+                                withContext(Dispatchers.Main) { isBusy = true }
+                                val cleanPass = password.ifBlank { null }
+                                val exportResult = runCatching {
+                                    container.workspace.exportOmniBackup(cleanPass)
+                                }
                                 withContext(Dispatchers.Main) {
-                                    pendingExport = file
-                                    statusMsg = "Dibuat: ${file.name} (${container.storage.formatBytes(file.length())})"
-                                    saveSaf.launch(file.name)
+                                    exportResult.onSuccess { file ->
+                                        pendingExport = file
+                                        val modeLabel = resources.getString(
+                                            if (cleanPass != null) R.string.backup_status_encrypted
+                                            else R.string.backup_status_plain
+                                        )
+                                        statusIsError = false
+                                        statusMsg = resources.getString(
+                                            R.string.backup_created_fmt,
+                                            modeLabel,
+                                            file.name,
+                                            container.storage.formatBytes(file.length())
+                                        )
+                                        isBusy = false
+                                        saveSaf.launch(file.name)
+                                    }.onFailure { err ->
+                                        statusIsError = true
+                                        statusMsg = err.localizedMessage ?: "Export failed"
+                                        isBusy = false
+                                    }
                                 }
                             }
                         },
@@ -175,6 +284,7 @@ fun BackupScreen(
                     }
 
                     OutlinedButton(
+                        enabled = !isBusy,
                         onClick = { openSaf.launch(arrayOf("*/*")) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -192,7 +302,7 @@ fun BackupScreen(
                             Text(
                                 text = statusMsg,
                                 style = MonoTextStyle,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = if (statusIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
                             )
                         }
                     }

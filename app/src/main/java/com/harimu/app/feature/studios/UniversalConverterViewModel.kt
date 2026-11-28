@@ -2,10 +2,12 @@ package com.harimu.app.feature.studios
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.harimu.app.AppContainer
+import com.harimu.app.R
 import com.harimu.app.core.converter.ConversionTargetOption
 import com.harimu.app.core.converter.ConversionValidationResult
 import com.harimu.app.core.converter.ConverterFormatMatrix
@@ -17,8 +19,10 @@ import com.harimu.app.core.data.JobEntity
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolGroup
 import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolParam
 import com.harimu.app.core.toolapi.ToolRegistry
+import com.harimu.app.feature.toolscreen.ExportState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,16 +48,22 @@ data class UniversalConverterUiState(
     val paramValues: Map<String, Any> = emptyMap(),
     val batchSeparateJobs: Boolean = true,
     val selectedWorkflow: ConverterWorkflow? = null,
+    val focusedToolId: String? = null,
     val searchQuery: String = "",
     val isEnqueueing: Boolean = false,
     val lastEnqueueMessage: String? = null,
-    val sourceWarningMessage: String? = null
+    val sourceWarningMessage: String? = null,
+    val exportState: ExportState = ExportState.Idle,
+    val pendingExportOutput: ToolOutputFile? = null
 ) {
     val selectedTarget: ConversionTargetOption?
         get() = availableTargets.firstOrNull { it.id == selectedTargetId }
 
     val selectedTool: Tool?
         get() = selectedTarget?.let { ToolRegistry.findById(it.toolId) }
+
+    val focusedTool: Tool?
+        get() = focusedToolId?.let { ToolRegistry.findById(it) }
 
     val visibleParams: List<ToolParam>
         get() {
@@ -88,7 +98,8 @@ data class UniversalConverterUiState(
             sources = sources,
             textInput = textInput,
             params = mergedParams(),
-            isEnglish = isEnglish
+            isEnglish = isEnglish,
+            isTextMode = isTextMode
         )
 }
 
@@ -145,7 +156,7 @@ class UniversalConverterViewModel(
                 detectedTextFormat = if (textMode) SourceFormatDetector.detectTextFormat(current.textInput) else current.detectedTextFormat,
                 availableTargets = targets,
                 selectedTargetId = nextTarget?.id,
-                paramValues = seedParamsForTarget(nextTarget, current.paramValues),
+                paramValues = seedParamsForTarget(nextTarget, current.paramValues, current.selectedTarget?.toolId),
                 lastEnqueueMessage = null,
                 sourceWarningMessage = null
             )
@@ -165,14 +176,17 @@ class UniversalConverterViewModel(
                 val newUris = mergedPairs.map { it.first }
                 val newSources = mergedPairs.map { it.second }
                 val targets = ConverterFormatMatrix.validTargetsForSources(newSources)
-                val nextTarget = targets.firstOrNull { it.id == current.selectedTargetId } ?: targets.firstOrNull()
+                val nextTarget = current.focusedToolId?.let { focusId ->
+                    targets.firstOrNull { it.toolId == focusId }
+                } ?: targets.firstOrNull { it.id == current.selectedTargetId }
+                    ?: targets.firstOrNull()
                 current.copy(
                     isTextMode = false,
                     sourceUris = newUris,
                     sources = newSources,
                     availableTargets = targets,
                     selectedTargetId = nextTarget?.id,
-                    paramValues = seedParamsForTarget(nextTarget, current.paramValues),
+                    paramValues = seedParamsForTarget(nextTarget, current.paramValues, current.selectedTarget?.toolId),
                     lastEnqueueMessage = null,
                     sourceWarningMessage = null
                 )
@@ -192,7 +206,7 @@ class UniversalConverterViewModel(
                 sources = newSources,
                 availableTargets = targets,
                 selectedTargetId = nextTarget?.id,
-                paramValues = seedParamsForTarget(nextTarget, current.paramValues),
+                paramValues = seedParamsForTarget(nextTarget, current.paramValues, current.selectedTarget?.toolId),
                 sourceWarningMessage = null
             )
         }
@@ -205,6 +219,7 @@ class UniversalConverterViewModel(
                 sources = emptyList(),
                 availableTargets = emptyList(),
                 selectedTargetId = null,
+                paramValues = emptyMap(),
                 lastEnqueueMessage = null,
                 sourceWarningMessage = null
             )
@@ -222,7 +237,7 @@ class UniversalConverterViewModel(
                 detectedTextFormat = fmt,
                 availableTargets = targets,
                 selectedTargetId = nextTarget?.id,
-                paramValues = seedParamsForTarget(nextTarget, current.paramValues),
+                paramValues = seedParamsForTarget(nextTarget, current.paramValues, current.selectedTarget?.toolId),
                 lastEnqueueMessage = null,
                 sourceWarningMessage = null
             )
@@ -259,39 +274,21 @@ class UniversalConverterViewModel(
             }
             if (loadResult == null) {
                 _state.update {
-                    it.copy(
-                        sourceWarningMessage = if (isEnglish) {
-                            "Selected file is empty or unreadable."
-                        } else {
-                            "Berkas yang dipilih kosong atau tidak dapat dibaca."
-                        }
-                    )
+                    it.copy(sourceWarningMessage = ctx.getString(R.string.converter_text_load_empty_err))
                 }
                 return@launch
             }
             val (bytes, truncated) = loadResult
             if (bytes.isEmpty()) {
                 _state.update {
-                    it.copy(
-                        sourceWarningMessage = if (isEnglish) {
-                            "Selected file is empty or unreadable."
-                        } else {
-                            "Berkas yang dipilih kosong atau tidak dapat dibaca."
-                        }
-                    )
+                    it.copy(sourceWarningMessage = ctx.getString(R.string.converter_text_load_empty_err))
                 }
                 return@launch
             }
             val looksBinary = bytes.take(4096).any { it == 0.toByte() }
             if (looksBinary) {
                 _state.update {
-                    it.copy(
-                        sourceWarningMessage = if (isEnglish) {
-                            "Selected file appears binary and cannot be loaded as text."
-                        } else {
-                            "Berkas tampak biner dan tidak dapat dimuat sebagai teks."
-                        }
-                    )
+                    it.copy(sourceWarningMessage = ctx.getString(R.string.converter_text_load_binary_err))
                 }
                 return@launch
             }
@@ -299,13 +296,7 @@ class UniversalConverterViewModel(
             setTextInput(content)
             if (truncated) {
                 _state.update {
-                    it.copy(
-                        sourceWarningMessage = if (isEnglish) {
-                            "Text loaded (truncated at first 512 KB due to editor limit)."
-                        } else {
-                            "Teks dimuat (dipotong pada 512 KB pertama karena batas ukuran editor)."
-                        }
-                    )
+                    it.copy(sourceWarningMessage = ctx.getString(R.string.converter_text_load_truncated))
                 }
             }
         }
@@ -315,7 +306,7 @@ class UniversalConverterViewModel(
         _state.update { current ->
             current.copy(
                 selectedTargetId = target.id,
-                paramValues = seedParamsForTarget(target, current.paramValues),
+                paramValues = seedParamsForTarget(target, current.paramValues, current.selectedTarget?.toolId),
                 lastEnqueueMessage = null
             )
         }
@@ -327,6 +318,10 @@ class UniversalConverterViewModel(
 
     fun setBatchSeparate(separate: Boolean) {
         _state.update { it.copy(batchSeparateJobs = separate) }
+    }
+
+    fun clearFocusedTool() {
+        _state.update { it.copy(focusedToolId = null) }
     }
 
     fun focusToolOrWorkflow(toolId: String) {
@@ -347,21 +342,33 @@ class UniversalConverterViewModel(
                 current.copy(
                     mode = ConverterScreenMode.WORKBENCH,
                     selectedWorkflow = workflow,
+                    focusedToolId = toolId,
                     isTextMode = true,
                     textInput = sample,
                     detectedTextFormat = sampleFmt,
                     availableTargets = targets,
                     selectedTargetId = preferred?.id,
-                    paramValues = seedParamsForTarget(preferred, current.paramValues),
+                    paramValues = seedParamsForTarget(preferred, current.paramValues, current.selectedTarget?.toolId),
                     sourceWarningMessage = null
                 )
             }
         } else {
             _state.update { current ->
+                val fileTargets = if (current.sources.isNotEmpty()) {
+                    ConverterFormatMatrix.validTargetsForSources(current.sources)
+                } else {
+                    emptyList()
+                }
+                val matchingTarget = fileTargets.firstOrNull { it.toolId == toolId }
+                val nextTarget = matchingTarget ?: fileTargets.firstOrNull { it.id == current.selectedTargetId } ?: fileTargets.firstOrNull()
                 current.copy(
                     mode = ConverterScreenMode.WORKBENCH,
                     selectedWorkflow = workflow,
+                    focusedToolId = toolId,
                     isTextMode = false,
+                    availableTargets = fileTargets,
+                    selectedTargetId = nextTarget?.id,
+                    paramValues = seedParamsForTarget(nextTarget, current.paramValues, current.selectedTarget?.toolId),
                     sourceWarningMessage = null
                 )
             }
@@ -403,7 +410,13 @@ class UniversalConverterViewModel(
                 }
             }
 
-            val msg = if (enqueuedJobs.size > 1) {
+            val msg = appContextRef?.let { ctx ->
+                if (enqueuedJobs.size > 1) {
+                    ctx.getString(R.string.converter_enqueue_batch, enqueuedJobs.size)
+                } else {
+                    ctx.getString(R.string.converter_enqueue_single)
+                }
+            } ?: if (enqueuedJobs.size > 1) {
                 if (isEnglish) "Queued ${enqueuedJobs.size} conversion jobs" else "${enqueuedJobs.size} job konversi masuk antrean"
             } else {
                 if (isEnglish) "Conversion job queued" else "Job konversi dimasukkan ke antrean"
@@ -442,22 +455,112 @@ class UniversalConverterViewModel(
         }
     }
 
+    fun exportToDefaultFolderOrRequestSaf(
+        output: ToolOutputFile,
+        defaultTreeUri: String,
+        onRequestSaf: (ToolOutputFile) -> Unit
+    ) {
+        if (!output.file.exists()) {
+            _state.update { it.copy(exportState = ExportState.Failed(output.displayName)) }
+            return
+        }
+        if (defaultTreeUri.isNotBlank()) {
+            viewModelScope.launch {
+                _state.update {
+                    it.copy(
+                        exportState = ExportState.Exporting(output.displayName),
+                        pendingExportOutput = output
+                    )
+                }
+                val savedUri = withContext(Dispatchers.IO) {
+                    runCatching {
+                        container.storage.saveToTreeUri(
+                            source = output.file,
+                            treeUri = defaultTreeUri.toUri(),
+                            mimeType = output.mimeType
+                        )
+                    }.getOrNull()
+                }
+                if (savedUri != null) {
+                    _state.update {
+                        it.copy(
+                            exportState = ExportState.Succeeded(output.displayName),
+                            pendingExportOutput = null
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            exportState = ExportState.Idle,
+                            pendingExportOutput = output
+                        )
+                    }
+                    onRequestSaf(output)
+                }
+            }
+        } else {
+            _state.update {
+                it.copy(
+                    exportState = ExportState.Idle,
+                    pendingExportOutput = output
+                )
+            }
+            onRequestSaf(output)
+        }
+    }
+
+    fun completeSafExport(destUri: Uri?) {
+        val output = _state.value.pendingExportOutput
+        if (destUri == null || output == null) {
+            _state.update { it.copy(pendingExportOutput = null) }
+            return
+        }
+        if (!output.file.exists()) {
+            _state.update {
+                it.copy(
+                    exportState = ExportState.Failed(output.displayName),
+                    pendingExportOutput = null
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(exportState = ExportState.Exporting(output.displayName)) }
+            val ok = withContext(Dispatchers.IO) {
+                container.storage.copyFileToUri(output.file, destUri)
+            }
+            _state.update {
+                it.copy(
+                    exportState = if (ok) ExportState.Succeeded(output.displayName) else ExportState.Failed(output.displayName),
+                    pendingExportOutput = null
+                )
+            }
+        }
+    }
+
+    fun clearExportState() {
+        _state.update { it.copy(exportState = ExportState.Idle) }
+    }
+
     private fun seedParamsForTarget(
         target: ConversionTargetOption?,
-        existing: Map<String, Any>
+        existing: Map<String, Any>,
+        previousToolId: String? = null
     ): Map<String, Any> {
-        if (target == null) return existing
-        val tool = ToolRegistry.findById(target.toolId) ?: return existing
-        val updated = existing.toMutableMap()
+        if (target == null) return emptyMap()
+        val tool = ToolRegistry.findById(target.toolId) ?: return target.defaultParams + target.fixedParams
+        val sameTool = previousToolId == target.toolId
+        val updated = mutableMapOf<String, Any>()
         tool.params.forEach { param ->
-            if (param.key !in updated) {
-                updated[param.key] = when (param) {
+            val preserved = if (sameTool) existing[param.key] else null
+            updated[param.key] = preserved
+                ?: target.defaultParams[param.key]
+                ?: when (param) {
                     is ToolParam.SliderParam -> param.defaultValue
                     is ToolParam.DropdownParam -> param.defaultOption
                     is ToolParam.ToggleParam -> param.defaultValue
                     is ToolParam.TextParam -> param.defaultValue
                 }
-            }
         }
         updated.putAll(target.fixedParams)
         return updated

@@ -74,6 +74,39 @@ enum class ConverterWorkflow(
     fun subtitle(isEnglish: Boolean): String = if (isEnglish) subtitleEn else subtitleId
 
     companion object {
+        private val TOOL_FORMAT_KEYWORDS: Map<String, String> = mapOf(
+            "CNV-01" to "mp4 mkv webm avi mov video container transcode",
+            "CNV-02" to "gif animated video palette",
+            "CNV-03" to "mp3 aac m4a wav flac extract audio",
+            "CNV-04" to "upscale 2x scale mp4",
+            "CNV-05" to "mp3 m4a aac ogg opus wav flac audio transcode",
+            "CNV-06" to "hires 24-bit flac wav 96khz",
+            "CNV-07" to "stt whisper speech text transcript txt",
+            "CNV-08" to "8d spatial audio surround",
+            "CNV-09" to "jpg jpeg png webp pdf heic avif dng bmp gif image",
+            "CNV-10" to "svg vector raster png jpg",
+            "CNV-11" to "icon favicon adaptive zip png",
+            "CNV-12" to "base64 datauri png decode encode",
+            "CNV-13" to "pdf docx word xlsx excel pptx powerpoint office",
+            "CNV-14" to "pdf png jpg zip matrix pages",
+            "CNV-15" to "ocr tesseract pdf txt scan",
+            "CNV-16" to "zip extract sanitize zip-slip",
+            "CNV-17" to "7z rar tar.gz tgz zip archive",
+            "CNV-18" to "aes aes-256 encrypt decrypt hzm zip lock password",
+            "CNV-19" to "epub ebook txt html pdf",
+            "CNV-20" to "cbz cbr comic pdf epub",
+            "CNV-21" to "ttf otf woff font webfont",
+            "CNV-22" to "subset woff ttf truetype",
+            "CNV-23" to "json xml bidirectional",
+            "CNV-24" to "csv tsv table comma tab",
+            "CNV-25" to "json css pretty minify format",
+            "CNV-26" to "markdown md html",
+            "CNV-27" to "geojson kml map coordinates",
+            "CNV-28" to "stl obj 3d mesh"
+        )
+
+        fun searchKeywordsForTool(toolId: String): String = TOOL_FORMAT_KEYWORDS[toolId].orEmpty()
+
         fun workflowForTool(toolId: String): ConverterWorkflow? =
             entries.firstOrNull { toolId in it.toolIds }
 

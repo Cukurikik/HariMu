@@ -76,7 +76,8 @@ fun ToolScreen(
     onOpenPdfStudio: ((initialTab: String, toolId: String) -> Unit)? = null,
     onOpenUniversalConverter: ((toolId: String) -> Unit)? = null,
     initialJobId: String? = null,
-    onOpenJobCenter: (() -> Unit)? = null
+    onOpenJobCenter: (() -> Unit)? = null,
+    onOpenSettings: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val spacing = HariMuThemeTokens.spacing
@@ -348,6 +349,12 @@ fun ToolScreen(
                         if (tool.isStub) StubNoticeCard(tool = tool)
                         PdfToolCapabilityCards(tool.id, tool.group, state.paramValues, onOpenPdfStudio)
                         ConverterToolCapabilityCards(tool.id, tool.group, state.selectedUris, container, isEnglish, onOpenUniversalConverter)
+                        AiToolGatewayCard(
+                            tool = tool,
+                            gatewayUrl = settings.aiGatewayUrl,
+                            hasUploadConsent = hasUploadConsent,
+                            onOpenSettings = onOpenSettings
+                        )
                         InputSection(tool, state, vm, container, pickers, isEnglish)
                         SpecializedPreviews(tool, state, vm, container, isEnglish)
                     }
@@ -437,6 +444,12 @@ fun ToolScreen(
                         if (tool.isStub) StubNoticeCard(tool = tool)
                         PdfToolCapabilityCards(tool.id, tool.group, state.paramValues, onOpenPdfStudio)
                         ConverterToolCapabilityCards(tool.id, tool.group, state.selectedUris, container, isEnglish, onOpenUniversalConverter)
+                        AiToolGatewayCard(
+                            tool = tool,
+                            gatewayUrl = settings.aiGatewayUrl,
+                            hasUploadConsent = hasUploadConsent,
+                            onOpenSettings = onOpenSettings
+                        )
                         InputSection(tool, state, vm, container, pickers, isEnglish)
                         if (showReadinessCard) {
                             WorkspaceReadinessCard(
@@ -508,7 +521,9 @@ fun ToolScreen(
                             triggerExecution()
                         }
                     },
-                    onDismiss = { showUploadConsent = false }
+                    onDismiss = { showUploadConsent = false },
+                    isEnglish = isEnglish,
+                    gatewayUrl = settings.aiGatewayUrl
                 )
             }
         }

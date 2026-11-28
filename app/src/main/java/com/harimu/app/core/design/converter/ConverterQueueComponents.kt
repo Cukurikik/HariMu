@@ -509,6 +509,63 @@ private fun ConverterJobCard(
                             Text(stringResource(R.string.action_upload_cloud))
                         }
                     }
+
+                    existingOutputs.drop(1).forEachIndexed { extraIdx, extraOut ->
+                        val itemNum = extraIdx + 2
+                        Surface(
+                            shape = HariMuThemeTokens.shapes.control,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.converter_output_item_fmt,
+                                        itemNum,
+                                        extraOut.displayName,
+                                        FileStorageManager.companionFormatBytes(extraOut.file.length())
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = { onOpenOutput(extraOut) },
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("converter_job_extra_open_${job.jobId}_$extraIdx")
+                                    ) {
+                                        Text(stringResource(R.string.action_open))
+                                    }
+                                    TextButton(
+                                        onClick = { onShareOutput(extraOut) },
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("converter_job_extra_share_${job.jobId}_$extraIdx")
+                                    ) {
+                                        Text(stringResource(R.string.action_share))
+                                    }
+                                    TextButton(
+                                        onClick = { onSaveOutput(extraOut) },
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("converter_job_extra_save_${job.jobId}_$extraIdx")
+                                    ) {
+                                        Text(stringResource(R.string.action_save))
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -156,13 +156,8 @@ fun ConverterHeroHeader(
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     if (activeJobCount > 0 || queuedJobCount > 0) {
-                        val queueText = if (isEnglish) {
-                            "${activeJobCount} running • ${queuedJobCount} queued"
-                        } else {
-                            "${activeJobCount} berjalan • ${queuedJobCount} antre"
-                        }
                         CapabilityBadge(
-                            label = queueText,
+                            label = stringResource(R.string.converter_hero_queue_fmt, activeJobCount, queuedJobCount),
                             containerColor = HariMuThemeTokens.semantic.infoContainer,
                             contentColor = HariMuThemeTokens.semantic.onInfoContainer,
                             modifier = Modifier.testTag("converter_hero_queue_badge")
@@ -195,7 +190,7 @@ fun ConverterWorkflowStrip(
                 FilterChip(
                     selected = selectedWorkflow == null,
                     onClick = { onSelectWorkflow(null) },
-                    label = { Text(stringResource(R.string.converter_workflow_all, 28)) },
+                    label = { Text(stringResource(R.string.converter_workflow_all, ConverterWorkflow.allMappedToolIds().size)) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = accent.copy(alpha = 0.16f),
                         selectedLabelColor = safeAccent
@@ -457,10 +452,20 @@ fun ConverterSourceCard(
                     }
 
                     if (sources.size > 1) {
+                        val formatSummary = sources.map { it.format.badge }.distinct().joinToString(" • ")
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text(
+                                text = stringResource(R.string.converter_batch_summary_formats, formatSummary),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             TextButton(
                                 onClick = onClearFiles,
                                 modifier = Modifier
@@ -541,13 +546,7 @@ fun ConverterSourceCard(
                         .testTag("converter_text_input"),
                     textStyle = MonoTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                     placeholder = {
-                        Text(
-                            text = if (isEnglish) {
-                                "Paste JSON, XML, CSV, TSV, CSS, Markdown, GeoJSON, or Base64..."
-                            } else {
-                                "Tempel JSON, XML, CSV, TSV, CSS, Markdown, GeoJSON, atau Base64..."
-                            }
-                        )
+                        Text(text = stringResource(R.string.converter_text_placeholder))
                     },
                     shape = HariMuThemeTokens.shapes.control,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -830,4 +829,61 @@ fun ConverterWorkflowSearchBar(
             unfocusedContainerColor = MaterialTheme.colorScheme.surface
         )
     )
+}
+
+@Composable
+fun ConverterFocusedToolBanner(
+    toolId: String,
+    toolTitle: String,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val semantic = HariMuThemeTokens.semantic
+    Surface(
+        shape = HariMuThemeTokens.shapes.control,
+        color = semantic.infoContainer,
+        border = BorderStroke(1.dp, semantic.infoBorder.copy(alpha = 0.55f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("converter_focused_tool_banner")
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                tint = semantic.onInfoContainer,
+                modifier = Modifier.size(18.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(R.string.converter_focused_tool_title, toolId, toolTitle),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = semantic.onInfoContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.converter_focused_tool_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = semantic.onInfoContainer
+                )
+            }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("converter_focused_tool_dismiss")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.converter_dismiss_focus),
+                    tint = semantic.onInfoContainer
+                )
+            }
+        }
+    }
 }

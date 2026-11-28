@@ -256,13 +256,7 @@ private fun videoGenTool(): Tool = object : Tool {
             ?: throw IllegalStateException("Job selesai tanpa URL unduhan")
         emit(ToolProgress.Running(88, "Mengunduh hasil video…"))
         val dest = ctx.storage.createOutputFile("AIVID", (status.mime ?: "video/mp4").substringAfter('/'))
-        client.download(downloadUrl, dest) { written, total ->
-            if (total > 0) {
-                // Progres unduhan dipetakan ke 88..99 agar tidak mundur di UI.
-                val pct = 88 + (written * 11 / total).toInt()
-                if (pct in 88..99) runCatching { }
-            }
-        }
+        client.download(downloadUrl, dest) { _, _ -> }
         emit(
             ToolProgress.Done(
                 ToolResult(
@@ -317,9 +311,7 @@ private fun analyzeImagesTool(): Tool = object : Tool {
                 )
             )
             val (bytes, mime) = prepareImageBytes(ctx, uri)
-            val result = client.analyzeImage(bytes, mime, finalQuestion) { written, total ->
-                runCatching { written.coerceAtMost(total) }
-            }
+            val result = client.analyzeImage(bytes, mime, finalQuestion) { _, _ -> }
             mock = mock || result.mock
             report.append("Gambar ${index + 1}:\n").append(result.text.trim()).append("\n\n")
         }
@@ -433,6 +425,7 @@ private fun chatTool(): Tool = object : Tool {
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val client = ctx.aiOrFail()
+        ensureConsent(client, ctx.isEnglish)
         val message = input.textInput.trim()
         require(message.isNotEmpty()) { "Tulis pesan dulu" }
         val temperature = input.getString("temperature", "0.7").toDoubleOrNull() ?: 0.7
@@ -491,6 +484,7 @@ private fun translateTool(): Tool = object : Tool {
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val client = ctx.aiOrFail()
+        ensureConsent(client, ctx.isEnglish)
         val text = input.textInput.trim()
         require(text.isNotEmpty()) { "Tulis teks yang ingin diterjemahkan dulu" }
         val targetLang = input.getString("targetLang", "id")
@@ -541,6 +535,7 @@ private fun weatherTool(): Tool = object : Tool {
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val client = ctx.aiOrFail()
+        ensureConsent(client, ctx.isEnglish)
         val raw = input.textInput.trim()
         require(raw.isNotEmpty()) {
             if (ctx.isEnglish) "Enter a city name or latitude,longitude" else "Masukkan nama kota atau latitude,longitude"
@@ -612,6 +607,7 @@ private fun exchangeRateTool(): Tool = object : Tool {
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val client = ctx.aiOrFail()
+        ensureConsent(client, ctx.isEnglish)
         val amount = input.textInput.trim().ifBlank { "1" }.replace(",", ".").toDoubleOrNull()
             ?: throw IllegalArgumentException(
                 if (ctx.isEnglish) "Amount must be a number, e.g. 100" else "Jumlah harus berupa angka, contoh: 100"
@@ -687,6 +683,7 @@ private fun dictionaryTool(): Tool = object : Tool {
 
     override suspend fun run(ctx: ToolContext, input: ToolInput): Flow<ToolProgress> = flow {
         val client = ctx.aiOrFail()
+        ensureConsent(client, ctx.isEnglish)
         val word = input.textInput.trim()
         require(word.isNotEmpty()) {
             if (ctx.isEnglish) "Type the word to look up" else "Tulis kata yang ingin dicari"
@@ -772,10 +769,7 @@ private fun cloudImageTool(
             .filter { it.isNotBlank() }
             .joinToString(", ")
         emit(ToolProgress.Running(30, "Mengunggah ${ctx.storage.formatBytes(bytes.size.toLong())} ke gateway…"))
-        val binary = client.editImage(op, bytes, mime, prompt) { written, total ->
-            val pct = if (total > 0) 30 + (written * 45 / total).toInt() else 30
-            runCatching { pct }
-        }
+        val binary = client.editImage(op, bytes, mime, prompt) { _, _ -> }
         emit(ToolProgress.Running(90, "Menyimpan hasil…"))
         val format = input.getString("format", "PNG")
         val ext = if (format == "JPG") "jpg" else "png"

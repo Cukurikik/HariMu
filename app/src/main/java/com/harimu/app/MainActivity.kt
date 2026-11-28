@@ -391,7 +391,8 @@ private fun HariMuRoot(
                             navController.navigate(UniversalConverterRoute(initialToolId = id))
                         },
                         initialJobId = args.jobId,
-                        onOpenJobCenter = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) }
+                        onOpenJobCenter = { navController.navigateToTopLevel(TopLevelDestination.HISTORY) },
+                        onOpenSettings = { navController.navigateToTopLevel(TopLevelDestination.SETTINGS) }
                     )
                 }
                 composable<VoiceRecorderRoute> {

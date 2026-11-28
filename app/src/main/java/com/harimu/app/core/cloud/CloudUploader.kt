@@ -4,7 +4,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -31,24 +30,41 @@ class CloudUploader(
         .connectTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(180, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
-        .build()
+        .build(),
+    private val driveApiBase: String = "https://www.googleapis.com",
+    private val dropboxApiBase: String = "https://api.dropboxapi.com",
+    private val tokenEndpointProvider: (CloudProvider) -> String = { OAuthPkce.tokenEndpoint(it) }
 ) {
+
+    data class ConnectionTestOutcome(val summary: String, val updatedConfig: CloudConfig)
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Uji koneksi tanpa mengunggah data pengguna (HEAD/GET ringan sesuai provider). */
-    suspend fun testConnection(config: CloudConfig): String = withContext(Dispatchers.IO) {
-        require(config.isConfigured()) { "Koneksi belum lengkap" }
-        when (config.provider) {
+    /** Uji koneksi tanpa mengunggah data pengguna; memperbarui token OAuth kedaluwarsa bila perlu. */
+    suspend fun testConnection(config: CloudConfig): String = testConnectionDetailed(config).summary
+
+    suspend fun testConnectionDetailed(
+        config: CloudConfig,
+        persistConfig: (suspend (CloudConfig) -> Unit)? = null
+    ): ConnectionTestOutcome = withContext(Dispatchers.IO) {
+        val validationErr = config.validationError(isEnglish = false)
+        if (validationErr != null) {
+            throw CloudException(validationErr, retryable = false)
+        }
+        var active = refreshTokenIfNeeded(config)
+        if (active != config) {
+            persistConfig?.invoke(active)
+        }
+        when (active.provider) {
             CloudProvider.S3_R2 -> {
                 // Tanda tangani PUT kosong ke objek uji; server menjawab 200/403 tanpa menyimpan isi.
-                val key = "${config.pathPrefix.trimEnd('/')}/_harimu_test_${System.currentTimeMillis()}.txt"
-                val url = buildS3Url(config, key)
+                val key = "${active.pathPrefix.trimEnd('/')}/_harimu_test_${System.currentTimeMillis()}.txt"
+                val url = buildS3Url(active, key)
                 val headers = SigV4.signPut(
                     url = url,
-                    region = config.region.ifBlank { "auto" },
-                    accessKeyId = config.accessKeyId,
-                    secretAccessKey = config.secretAccessKey,
+                    region = active.region.ifBlank { "auto" },
+                    accessKeyId = active.accessKeyId,
+                    secretAccessKey = active.secretAccessKey,
                     payload = ByteArray(0)
                 )
                 val request = Request.Builder()
@@ -62,49 +78,71 @@ class CloudUploader(
                     if (!response.isSuccessful) {
                         throw CloudException(
                             "S3/R2 menolak kredensial (HTTP ${response.code}). Periksa bucket, region, dan kunci.",
-                            retryable = response.code >= 500
+                            retryable = response.code >= 500 || response.code == 429
                         )
                     }
                 }
-                "S3/R2 OK (HTTP 200, uji tulis ${if (config.bucket.isNotBlank()) config.bucket else "bucket"})"
+                ConnectionTestOutcome(
+                    summary = "S3/R2 OK (HTTP 200, uji tulis ${active.bucket.ifBlank { "bucket" }})",
+                    updatedConfig = active
+                )
             }
             CloudProvider.GOOGLE_DRIVE -> {
-                val request = Request.Builder()
-                    .url("https://www.googleapis.com/drive/v3/about?fields=user")
-                    .header("Authorization", "Bearer ${config.driveAccessToken}")
+                fun buildDriveProbe(token: String) = Request.Builder()
+                    .url("$driveApiBase/drive/v3/about?fields=user")
+                    .header("Authorization", "Bearer $token")
                     .get()
                     .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw CloudException("Google Drive menolak token (HTTP ${response.code})", retryable = response.code >= 500)
-                    }
+                var code = client.newCall(buildDriveProbe(active.driveAccessToken)).execute().use { it.code }
+                if (code == 401 && active.driveRefreshToken.isNotBlank()) {
+                    active = refreshTokenIfNeeded(active, force = true)
+                    persistConfig?.invoke(active)
+                    code = client.newCall(buildDriveProbe(active.driveAccessToken)).execute().use { it.code }
                 }
-                "Google Drive OK"
+                if (code !in 200..299) {
+                    throw CloudException(
+                        "Google Drive menolak token (HTTP $code)",
+                        retryable = code >= 500 || code == 429
+                    )
+                }
+                ConnectionTestOutcome("Google Drive OK", active)
             }
             CloudProvider.DROPBOX -> {
-                val request = Request.Builder()
-                    .url("https://api.dropboxapi.com/2/users/get_current_account")
-                    .header("Authorization", "Bearer ${config.dropboxAccessToken}")
+                fun buildDropboxProbe(token: String) = Request.Builder()
+                    .url("$dropboxApiBase/2/users/get_current_account")
+                    .header("Authorization", "Bearer $token")
                     .post(ByteArray(0).toRequestBody("application/json".toMediaType()))
                     .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw CloudException("Dropbox menolak token (HTTP ${response.code})", retryable = response.code >= 500)
-                    }
+                var code = client.newCall(buildDropboxProbe(active.dropboxAccessToken)).execute().use { it.code }
+                if (code == 401 && active.dropboxRefreshToken.isNotBlank()) {
+                    active = refreshTokenIfNeeded(active, force = true)
+                    persistConfig?.invoke(active)
+                    code = client.newCall(buildDropboxProbe(active.dropboxAccessToken)).execute().use { it.code }
                 }
-                "Dropbox OK"
+                if (code !in 200..299) {
+                    throw CloudException(
+                        "Dropbox menolak token (HTTP $code)",
+                        retryable = code >= 500 || code == 429
+                    )
+                }
+                ConnectionTestOutcome("Dropbox OK", active)
             }
             CloudProvider.CUSTOM_REST -> {
-                val request = Request.Builder()
-                    .url(config.customUrl)
+                val requestBuilder = Request.Builder()
+                    .url(active.customUrl.trim())
                     .header("Accept", "application/json")
                     .get()
-                    .build()
-                val statusCode = client.newCall(request).execute().use { response ->
-                    if (response.code >= 500) throw CloudException("Server REST galat ${response.code}", retryable = true)
+                applyCustomHeaders(requestBuilder, active.customHeadersJson)
+                val statusCode = client.newCall(requestBuilder.build()).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw CloudException(
+                            "REST kustom menolak koneksi (HTTP ${response.code})",
+                            retryable = response.code >= 500 || response.code == 429
+                        )
+                    }
                     response.code
                 }
-                "REST kustom menjawab (kode $statusCode)"
+                ConnectionTestOutcome("REST kustom OK (HTTP $statusCode)", active)
             }
         }
     }
@@ -214,13 +252,8 @@ class CloudUploader(
     private fun uploadCustomRest(file: File, displayName: String, mimeType: String, config: CloudConfig): UploadOutcome {
         val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
         builder.addFormDataPart(config.customFieldName.ifBlank { "file" }, displayName, file.asRequestBody(mimeType.toMediaType()))
-        val requestBuilder = Request.Builder().url(config.customUrl)
-        runCatching { json.parseToJsonElement(config.customHeadersJson) as? JsonObject }
-            .getOrNull()
-            ?.forEach { (key, value) ->
-                if (key.equals("content-type", true) || key.equals("host", true)) return@forEach
-                requestBuilder.header(key, value.jsonPrimitive.content)
-            }
+        val requestBuilder = Request.Builder().url(config.customUrl.trim())
+        applyCustomHeaders(requestBuilder, config.customHeadersJson)
         val method = config.customMethod.uppercase()
         val body = builder.build()
         when (method) {
@@ -257,7 +290,7 @@ class CloudUploader(
                         )
                     )
                     val request = Request.Builder()
-                        .url(OAuthPkce.tokenEndpoint(CloudProvider.GOOGLE_DRIVE))
+                        .url(tokenEndpointProvider(CloudProvider.GOOGLE_DRIVE))
                         .post(form)
                         .build()
                     val tokens = exchange(request, "Google Drive")
@@ -277,7 +310,7 @@ class CloudUploader(
                         )
                     )
                     val request = Request.Builder()
-                        .url(OAuthPkce.tokenEndpoint(CloudProvider.DROPBOX))
+                        .url(tokenEndpointProvider(CloudProvider.DROPBOX))
                         .post(form)
                         .build()
                     val tokens = exchange(request, "Dropbox")
@@ -307,7 +340,7 @@ class CloudUploader(
                 "code_verifier" to codeVerifier
             )
         )
-        val request = Request.Builder().url(OAuthPkce.tokenEndpoint(provider)).post(form).build()
+        val request = Request.Builder().url(tokenEndpointProvider(provider)).post(form).build()
         exchange(request, provider.label(false))
     }
 
@@ -350,6 +383,18 @@ class CloudUploader(
             "${URLEncoder.encode(key, "UTF-8")}=${URLEncoder.encode(value, "UTF-8")}"
         }
         return encoded.toRequestBody("application/x-www-form-urlencoded".toMediaType())
+    }
+
+    private fun applyCustomHeaders(requestBuilder: Request.Builder, rawHeadersJson: String) {
+        if (rawHeadersJson.isBlank()) return
+        val parsed = runCatching { json.parseToJsonElement(rawHeadersJson) as? JsonObject }.getOrNull() ?: return
+        parsed.forEach { (key, value) ->
+            if (key.equals("content-type", true) || key.equals("host", true)) return@forEach
+            val primitive = value as? kotlinx.serialization.json.JsonPrimitive ?: return@forEach
+            if (primitive.isString) {
+                requestBuilder.header(key, primitive.content)
+            }
+        }
     }
 
     private fun escapeJson(value: String): String = value

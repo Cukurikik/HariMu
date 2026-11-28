@@ -389,7 +389,9 @@ class ToolJobWorker(
         } catch (ce: CancellationException) {
             throw ce
         } catch (t: Throwable) {
-            val err = t.localizedMessage ?: "Tool gagal dijalankan"
+            val err = (t as? com.harimu.app.core.ai.AiException)?.userMessage(isEnglish)
+                ?: t.localizedMessage
+                ?: "Tool gagal dijalankan"
             withContext(NonCancellable) {
                 jobDao.updateCompletion(
                     jobId = jobId,

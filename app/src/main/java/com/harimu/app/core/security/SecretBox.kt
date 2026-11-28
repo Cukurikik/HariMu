@@ -3,6 +3,7 @@ package com.harimu.app.core.security
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.annotation.VisibleForTesting
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -21,6 +22,9 @@ object SecretBox {
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
     private const val PREFIX = "SB1:"
     private const val TAG_BITS = 128
+
+    @VisibleForTesting
+    internal var keyProviderForTest: ((String) -> SecretKey)? = null
 
     fun seal(plainText: String, alias: String = "harimu_secretbox"): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -44,6 +48,7 @@ object SecretBox {
     fun isSealed(value: String): Boolean = value.startsWith(PREFIX)
 
     private fun key(alias: String): SecretKey {
+        keyProviderForTest?.let { return it(alias) }
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         (keyStore.getKey(alias, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)

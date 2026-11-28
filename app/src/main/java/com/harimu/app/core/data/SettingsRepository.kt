@@ -150,15 +150,16 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun applyImported(imported: AppSettings) {
         context.dataStore.edit {
-            it[Keys.THEME_MODE] = imported.themeMode
+            it[Keys.THEME_MODE] = imported.resolvedThemeMode().name
             it[Keys.DYNAMIC_COLOR] = imported.dynamicColor
             it[Keys.IS_ENGLISH] = imported.isEnglish
-            it[Keys.OUTPUT_QUALITY] = imported.outputQuality.toString()
+            it[Keys.OUTPUT_QUALITY] = imported.outputQuality.coerceIn(30, 100).toString()
             it[Keys.AUTO_CLEAN_TEMP] = imported.autoCleanTemp
-            it[Keys.OUTPUT_FOLDER_URI] = imported.outputFolderUri
-            it[Keys.OUTPUT_FOLDER_LABEL] = imported.outputFolderLabel
-            it[Keys.CLOUD_ENDPOINT] = imported.cloudEndpointUrl
-            it[Keys.CLOUD_BUCKET] = imported.cloudBucketName
+            it[Keys.OUTPUT_FOLDER_URI] = imported.outputFolderUri.trim()
+            it[Keys.OUTPUT_FOLDER_LABEL] = imported.outputFolderLabel.trim()
+            it[Keys.CLOUD_ENDPOINT] = imported.cloudEndpointUrl.trim()
+            it[Keys.CLOUD_BUCKET] = imported.cloudBucketName.trim()
+            it[Keys.AI_GATEWAY] = imported.aiGatewayUrl.trim().trimEnd('/')
         }
     }
 }

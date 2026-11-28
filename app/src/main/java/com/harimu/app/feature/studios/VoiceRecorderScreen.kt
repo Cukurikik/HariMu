@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -121,8 +123,11 @@ fun VoiceRecorderScreen(
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
     var recordedOnce by remember { mutableStateOf(false) }
 
+    var micDeniedOnce by rememberSaveable { mutableStateOf(false) }
+
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasPermission = granted
+        micDeniedOnce = !granted
     }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -161,7 +166,12 @@ fun VoiceRecorderScreen(
             permLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
-        notificationLauncher.launch("android.permission.POST_NOTIFICATIONS")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         VoiceRecordingController.reset()
         ContextCompat.startForegroundService(
             context,
@@ -320,16 +330,43 @@ fun VoiceRecorderScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                stringResource(R.string.permission_audio_rationale),
+                                stringResource(
+                                    if (micDeniedOnce) R.string.recorder_perm_mic_denied_hint
+                                    else R.string.permission_audio_rationale
+                                ),
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                            Button(
-                                onClick = { permLauncher.launch(Manifest.permission.RECORD_AUDIO) },
-                                modifier = Modifier
-                                    .heightIn(min = 48.dp)
-                                    .testTag("voice_grant_mic_button")
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(stringResource(R.string.voice_recorder_grant_mic))
+                                Button(
+                                    onClick = { permLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("voice_grant_mic_button")
+                                ) {
+                                    Text(stringResource(R.string.voice_recorder_grant_mic))
+                                }
+                                if (micDeniedOnce) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            runCatching {
+                                                context.startActivity(
+                                                    Intent(
+                                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                        Uri.parse("package:${context.packageName}")
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .heightIn(min = 48.dp)
+                                            .testTag("voice_open_app_settings_button")
+                                    ) {
+                                        Text(stringResource(R.string.recorder_open_app_settings))
+                                    }
+                                }
                             }
                         }
                     }

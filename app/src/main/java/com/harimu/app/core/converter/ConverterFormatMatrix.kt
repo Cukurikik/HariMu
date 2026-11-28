@@ -13,8 +13,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Base64
 import java.util.Locale
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 /**
  * Source format identified from magic bytes, container structure, extension, or text inspection.
@@ -124,6 +125,7 @@ data class ConversionTargetOption(
     val supportsBatchQueue: Boolean = true,
     val supportsMultiInputSingleJob: Boolean = false,
     val fixedParams: Map<String, Any> = emptyMap(),
+    val defaultParams: Map<String, Any> = emptyMap(),
     val visibleParamKeys: List<String> = emptyList()
 ) {
     fun label(isEnglish: Boolean): String = if (isEnglish) labelEn else labelId
@@ -157,7 +159,7 @@ object SourceFormatDetector {
     ): DetectedSource {
         val cleanName = displayName.trim().ifBlank { "file" }
         val ext = extractCompositeExtension(cleanName)
-        val (format, method, mismatch) = sniff(ext, headerBytes)
+        val (format, method, mismatch) = sniff(ext, headerBytes, byteSize)
         val (baseNoteId, baseNoteEn) = limitationHint(format)
         val (noteId, noteEn) = if (mismatch && ext.isNotBlank()) {
             val mismatchId = "Ekstensi .$ext tidak cocok dengan isi berkas sebenarnya ($method). Target ditentukan dari isi asli."
@@ -230,24 +232,31 @@ object SourceFormatDetector {
     }
 
     private fun sniffZipSubtype(context: Context, uri: Uri, ext: String): SourceFormat? = runCatching {
-        val temp = java.io.File.createTempFile("sniff", ".zip", context.cacheDir)
-        try {
-            context.contentResolver.openInputStream(uri)?.use { inp ->
-                temp.outputStream().use { out -> inp.copyTo(out, 16 * 1024) }
-            } ?: return null
-            ZipFile(temp).use { zip ->
-                when {
-                    zip.getEntry("word/document.xml") != null -> SourceFormat.DOCX
-                    zip.getEntry("META-INF/container.xml") != null -> SourceFormat.EPUB
-                    ext == "cbz" -> {
-                        val hasImages = zip.entries().asSequence().any { !it.isDirectory && EbookEngine.isImageName(it.name) }
-                        if (hasImages) SourceFormat.CBZ else SourceFormat.ZIP
+        context.contentResolver.openInputStream(uri)?.use { raw ->
+            ZipInputStream(raw.buffered()).use { zis ->
+                var inspected = 0
+                var hasImages = false
+                try {
+                    while (inspected < 512) {
+                        val entry = zis.nextEntry ?: break
+                        inspected++
+                        val name = entry.name
+                        if (name == "word/document.xml") return@runCatching SourceFormat.DOCX
+                        if (name == "META-INF/container.xml") return@runCatching SourceFormat.EPUB
+                        if (!entry.isDirectory && EbookEngine.isImageName(name)) {
+                            hasImages = true
+                        }
+                        zis.closeEntry()
                     }
+                } catch (_: Exception) {
+                    // Encrypted or truncated entry payload after headers; preserve inspected classification if entries exist.
+                }
+                when {
+                    inspected == 0 -> null
+                    ext == "cbz" -> if (hasImages) SourceFormat.CBZ else SourceFormat.ZIP
                     else -> SourceFormat.ZIP
                 }
             }
-        } finally {
-            temp.delete()
         }
     }.getOrNull()
 
@@ -274,7 +283,7 @@ object SourceFormatDetector {
         val mismatch: Boolean = false
     )
 
-    private fun sniff(ext: String, bytes: ByteArray): SniffResult {
+    private fun sniff(ext: String, bytes: ByteArray, byteSize: Long = bytes.size.toLong()): SniffResult {
         // 1. Magic-byte / header detection first for deterministic binary & structured types
         if (bytes.size >= 8 && bytes.copyOfRange(0, 8).contentEquals("HARIMUA1".toByteArray(Charsets.UTF_8))) {
             return SniffResult(SourceFormat.HZM, "Header", ext.isNotBlank() && ext != "hzm")
@@ -387,8 +396,8 @@ object SourceFormatDetector {
                 else -> SniffResult(SourceFormat.ZIP, "Header", ext.isNotBlank() && ext != "zip")
             }
         }
-        if (ConverterEngine.isBinaryStl(bytes)) {
-            return SniffResult(SourceFormat.STL, "Header")
+        if (isBinaryStlHeader(bytes, byteSize)) {
+            return SniffResult(SourceFormat.STL, "Header", ext.isNotBlank() && ext != "stl")
         }
         if (bytes.isNotEmpty() && looksLikeText(bytes)) {
             val headText = bytes.toString(Charsets.UTF_8).trimStart()
@@ -400,8 +409,9 @@ object SourceFormatDetector {
             if (ConverterEngine.looksLikeAsciiStl(bytes)) {
                 return SniffResult(SourceFormat.STL, "Header", ext.isNotBlank() && ext != "stl")
             }
-            if (headText.startsWith("data:image/", ignoreCase = true)) {
-                return SniffResult(SourceFormat.BASE64_IMAGE, "Content")
+            if (looksLikeBase64Image(headText)) {
+                val expected = ext.isBlank() || ext in setOf("txt", "b64", "base64")
+                return SniffResult(SourceFormat.BASE64_IMAGE, "Content", !expected)
             }
             // Do not allow plaintext content with a spoofed binary extension (e.g. text renamed .png or .mp3)
             if (ext in BINARY_NON_TEXT_EXTS) {
@@ -412,28 +422,58 @@ object SourceFormatDetector {
                     SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
                 }
             }
+            val strictText = detectStructuredTextStrict(headText)
             // Validate structured text extensions against actual text structure
             return when (ext) {
                 "json", "geojson" -> {
-                    val detectedText = detectStructuredTextStrict(headText)
-                    when (detectedText) {
-                        SourceFormat.JSON, SourceFormat.GEOJSON -> SniffResult(detectedText, "Content")
+                    when (strictText) {
+                        SourceFormat.JSON, SourceFormat.GEOJSON -> SniffResult(strictText, "Content")
                         SourceFormat.XML -> SniffResult(SourceFormat.XML, "Content", mismatch = true)
                         else -> SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
                     }
                 }
                 "xml", "kml" -> {
                     if (headText.startsWith("<")) SniffResult(SourceFormat.XML, "Content")
+                    else if (strictText != SourceFormat.UNKNOWN) SniffResult(strictText, "Content", mismatch = true)
                     else SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
                 }
-                "csv" -> SniffResult(SourceFormat.CSV, "Content")
-                "tsv" -> SniffResult(SourceFormat.TSV, "Content")
-                "css" -> SniffResult(SourceFormat.CSS, "Content")
-                "md", "markdown" -> SniffResult(SourceFormat.MARKDOWN, "Content")
+                "csv" -> {
+                    if (strictText != SourceFormat.UNKNOWN) {
+                        SniffResult(strictText, "Content", mismatch = true)
+                    } else if (!headText.contains(',') && headText.contains('\t')) {
+                        SniffResult(SourceFormat.TSV, "Content", mismatch = true)
+                    } else {
+                        SniffResult(SourceFormat.CSV, "Content")
+                    }
+                }
+                "tsv" -> {
+                    if (strictText != SourceFormat.UNKNOWN) {
+                        SniffResult(strictText, "Content", mismatch = true)
+                    } else if (!headText.contains('\t') && headText.contains(',')) {
+                        SniffResult(SourceFormat.CSV, "Content", mismatch = true)
+                    } else {
+                        SniffResult(SourceFormat.TSV, "Content")
+                    }
+                }
+                "css" -> {
+                    if (strictText != SourceFormat.UNKNOWN) {
+                        SniffResult(strictText, "Content", mismatch = true)
+                    } else if (byteSize in 1L..bytes.size.toLong() && (!headText.contains('{') || !headText.contains(':'))) {
+                        SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
+                    } else {
+                        SniffResult(SourceFormat.CSS, "Content")
+                    }
+                }
+                "md", "markdown" -> {
+                    if (strictText != SourceFormat.UNKNOWN && strictText != SourceFormat.BASE64_IMAGE) {
+                        SniffResult(strictText, "Content", mismatch = true)
+                    } else {
+                        SniffResult(SourceFormat.MARKDOWN, "Content")
+                    }
+                }
                 "svg" -> SniffResult(SourceFormat.UNKNOWN, "Content", mismatch = true)
                 else -> {
-                    val detectedText = detectStructuredTextStrict(headText)
-                    SniffResult(detectedText, if (detectedText != SourceFormat.UNKNOWN) "Content" else "Ext")
+                    SniffResult(strictText, if (strictText != SourceFormat.UNKNOWN) "Content" else "Ext")
                 }
             }
         }
@@ -519,22 +559,51 @@ object SourceFormatDetector {
         return controlCount * 50 <= bytes.size
     }
 
+    private fun isBinaryStlHeader(bytes: ByteArray, byteSize: Long): Boolean {
+        if (bytes.size < 84) return false
+        val triangles = ByteBuffer.wrap(bytes, 80, 4).order(ByteOrder.LITTLE_ENDIAN).int
+        if (triangles <= 0) return false
+        val expectedBytes = 84L + 50L * triangles
+        return if (byteSize > 0L) expectedBytes == byteSize else expectedBytes == bytes.size.toLong()
+    }
+
+    private fun looksLikeBase64Image(trimmed: String): Boolean {
+        if (trimmed.startsWith("data:image/", ignoreCase = true)) return true
+        val compact = trimmed.filterNot { it.isWhitespace() }
+        if (compact.length < 16) return false
+        val hasImageMagicPrefix = compact.startsWith("iVBORw0KGgo") ||
+            compact.startsWith("/9j/") ||
+            compact.startsWith("R0lGOD") ||
+            compact.startsWith("UklGR")
+        if (!hasImageMagicPrefix) return false
+        return compact.all { ch ->
+            ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch == '+' || ch == '/' || ch == '='
+        }
+    }
+
+    private fun isBareGeoJsonText(lower: String): Boolean {
+        if (lower.contains("\"featurecollection\"") || lower.contains("\"geometrycollection\"")) return true
+        if (lower.contains("\"geometry\"") && lower.contains("\"coordinates\"")) return true
+        return lower.contains("\"coordinates\"") && (
+            lower.contains("\"point\"") ||
+                lower.contains("\"multipoint\"") ||
+                lower.contains("\"linestring\"") ||
+                lower.contains("\"multilinestring\"") ||
+                lower.contains("\"polygon\"") ||
+                lower.contains("\"multipolygon\"")
+            )
+    }
+
     private fun detectStructuredTextStrict(raw: String): SourceFormat {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return SourceFormat.UNKNOWN
-        if (trimmed.startsWith("data:image/", ignoreCase = true)) return SourceFormat.BASE64_IMAGE
+        if (looksLikeBase64Image(trimmed)) return SourceFormat.BASE64_IMAGE
         if (trimmed.startsWith("<")) {
             return if (trimmed.contains("<svg", ignoreCase = true)) SourceFormat.SVG else SourceFormat.XML
         }
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
             val lower = trimmed.lowercase(Locale.US)
-            return if (lower.contains("\"featurecollection\"") ||
-                (lower.contains("\"geometry\"") && lower.contains("\"coordinates\""))
-            ) {
-                SourceFormat.GEOJSON
-            } else {
-                SourceFormat.JSON
-            }
+            return if (isBareGeoJsonText(lower)) SourceFormat.GEOJSON else SourceFormat.JSON
         }
         return SourceFormat.UNKNOWN
     }
@@ -542,19 +611,13 @@ object SourceFormatDetector {
     fun detectTextFormat(raw: String): SourceFormat {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return SourceFormat.UNKNOWN
-        if (trimmed.startsWith("data:image/", ignoreCase = true)) return SourceFormat.BASE64_IMAGE
+        if (looksLikeBase64Image(trimmed)) return SourceFormat.BASE64_IMAGE
         if (trimmed.startsWith("<")) {
             return if (trimmed.contains("<svg", ignoreCase = true)) SourceFormat.SVG else SourceFormat.XML
         }
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
             val lower = trimmed.lowercase(Locale.US)
-            return if (lower.contains("\"featurecollection\"") ||
-                (lower.contains("\"geometry\"") && lower.contains("\"coordinates\""))
-            ) {
-                SourceFormat.GEOJSON
-            } else {
-                SourceFormat.JSON
-            }
+            return if (isBareGeoJsonText(lower)) SourceFormat.GEOJSON else SourceFormat.JSON
         }
         val lines = trimmed.lines().filter { it.isNotBlank() }
         if (lines.any { it.startsWith("#") || it.startsWith("- ") || it.startsWith("```") || it.contains("**") }) {
@@ -729,7 +792,20 @@ object ConverterFormatMatrix {
             ),
             ConversionTargetOption(
                 id = "aud_8d", toolId = "CNV-08", labelId = "Audio Spasial 8D", labelEn = "8D Spatial Audio",
-                outputExt = "mp3", outputBadge = "8D MP3",
+                outputExt = when (format) {
+                    SourceFormat.WAV -> "wav"
+                    SourceFormat.FLAC -> "flac"
+                    SourceFormat.OGG -> "ogg"
+                    SourceFormat.M4A_AAC -> "m4a"
+                    else -> "mp3"
+                },
+                outputBadge = when (format) {
+                    SourceFormat.WAV -> "8D WAV"
+                    SourceFormat.FLAC -> "8D FLAC"
+                    SourceFormat.OGG -> "8D OGG"
+                    SourceFormat.M4A_AAC -> "8D M4A"
+                    else -> "8D MP3"
+                },
                 visibleParamKeys = listOf("rotationHz", "depthPct", "roomReverb")
             ),
             ConversionTargetOption(
@@ -762,9 +838,10 @@ object ConverterFormatMatrix {
                 id = "svg_jpg", toolId = "CNV-10", labelId = "Render JPG", labelEn = "Render JPG",
                 outputExt = "jpg", outputBadge = "JPG",
                 isLimitedOrBasic = true,
-                limitNoteId = "AndroidSVG 1.4: filter efek & animasi tidak dirender; JPG tidak mendukung transparansi.",
-                limitNoteEn = "AndroidSVG 1.4: filters & animations are skipped; JPG flattens transparency.",
+                limitNoteId = "AndroidSVG 1.4: filter efek & animasi tidak dirender; JPG memakai latar solid (bawaan putih).",
+                limitNoteEn = "AndroidSVG 1.4: filters & animations are skipped; JPG uses a solid background (white by default).",
                 fixedParams = mapOf("fmt" to "JPG"),
+                defaultParams = mapOf("bg" to "Putih"),
                 visibleParamKeys = listOf("width", "bg")
             )
         )
@@ -1081,8 +1158,7 @@ object ConverterFormatMatrix {
         ConversionTargetOption(
             id = "img_pdf", toolId = "CNV-09", labelId = "PDF Halaman Tunggal", labelEn = "Single-Page PDF",
             outputExt = "pdf", outputBadge = "PDF",
-            fixedParams = mapOf("format" to "PDF"),
-            visibleParamKeys = listOf("quality")
+            fixedParams = mapOf("format" to "PDF")
         ),
         ConversionTargetOption(
             id = "img_icons", toolId = "CNV-11", labelId = "Paket Ikon + Favicon (.zip)", labelEn = "Icon + Favicon Pack (.zip)",
@@ -1196,7 +1272,8 @@ object ConverterFormatMatrix {
         sources: List<DetectedSource>,
         textInput: String,
         params: Map<String, Any>,
-        isEnglish: Boolean
+        isEnglish: Boolean,
+        isTextMode: Boolean? = null
     ): ConversionValidationResult {
         if (target == null) {
             return ConversionValidationResult(
@@ -1209,14 +1286,18 @@ object ConverterFormatMatrix {
         val isDecodeBase64 = target.toolId == "CNV-12" && target.fixedParams["mode"]?.toString()?.startsWith("Decode") == true
 
         if (isDataTextTool || isDecodeBase64) {
-            val hasFileSources = sources.isNotEmpty()
-            if (textInput.isBlank() && !hasFileSources) {
-                return ConversionValidationResult(
-                    isValid = false,
-                    blockingError = if (isEnglish) "Enter source text or pick a source file first." else "Masukkan teks sumber atau pilih berkas terlebih dahulu."
-                )
+            val useTextInput = when (isTextMode) {
+                true -> true
+                false -> false
+                null -> textInput.isNotBlank() || sources.isEmpty()
             }
-            if (textInput.isNotBlank()) {
+            if (useTextInput) {
+                if (textInput.isBlank()) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) "Enter source text or switch to Files mode." else "Masukkan teks sumber atau pindah ke mode Berkas."
+                    )
+                }
                 if (target.toolId == "CNV-23" && textInput.length > 4 * 1024 * 1024) {
                     return ConversionValidationResult(
                         isValid = false,
@@ -1237,6 +1318,12 @@ object ConverterFormatMatrix {
                         blockingError = if (isEnglish) "XML input must start with '<'." else "Masukan XML harus diawali tanda '<'."
                     )
                 }
+                if (target.id == "css_pretty" && (!textInput.contains('{') || !textInput.contains('}') || !textInput.contains(':'))) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) "Invalid CSS syntax (expected selector { property: value; })." else "Sintaks CSS tidak valid (diperlukan selector { property: value; })."
+                    )
+                }
                 if (target.toolId == "CNV-27" && !looksLikeValidGeoJson(textInput)) {
                     return ConversionValidationResult(
                         isValid = false,
@@ -1247,7 +1334,23 @@ object ConverterFormatMatrix {
                         }
                     )
                 }
+                if (isDecodeBase64 && !isDecodableBase64Payload(textInput)) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) {
+                            "Base64 payload is invalid or truncated."
+                        } else {
+                            "Data Base64 tidak valid atau terpotong."
+                        }
+                    )
+                }
             } else {
+                if (sources.isEmpty()) {
+                    return ConversionValidationResult(
+                        isValid = false,
+                        blockingError = if (isEnglish) "Pick at least one input file." else "Pilih minimal satu berkas masukan."
+                    )
+                }
                 val maxTextFileBytes = 4L * 1024L * 1024L
                 val oversized = sources.firstOrNull { it.byteSize > maxTextFileBytes }
                 if (oversized != null) {
@@ -1338,6 +1441,13 @@ object ConverterFormatMatrix {
             "FeatureCollection", "Feature", "Point", "MultiPoint",
             "LineString", "MultiLineString", "Polygon", "MultiPolygon", "GeometryCollection"
         )
+    }
+
+    private fun isDecodableBase64Payload(raw: String): Boolean {
+        val clean = raw.trim().substringAfter("base64,", raw.trim()).filterNot { it.isWhitespace() }
+        if (clean.length < 8) return false
+        val decoded = runCatching { Base64.getMimeDecoder().decode(clean) }.getOrNull() ?: return false
+        return decoded.size >= 8
     }
 
     /** Sample snippets for Data/Code & Base64 text conversions. */

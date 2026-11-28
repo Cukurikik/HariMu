@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +76,7 @@ import com.harimu.app.core.design.ToolIdBadge
 import com.harimu.app.core.design.ToolParameterPanel
 import com.harimu.app.core.design.converter.ConverterBatchSummaryBanner
 import com.harimu.app.core.design.converter.ConverterCapabilityNoticeBanner
+import com.harimu.app.core.design.converter.ConverterFocusedToolBanner
 import com.harimu.app.core.design.converter.ConverterHeroHeader
 import com.harimu.app.core.design.converter.ConverterJobQueueSection
 import com.harimu.app.core.design.converter.ConverterSourceCard
@@ -84,18 +86,16 @@ import com.harimu.app.core.design.converter.ConverterWorkflowStrip
 import com.harimu.app.core.jobs.ToolJobWorker
 import com.harimu.app.core.toolapi.Tool
 import com.harimu.app.core.toolapi.ToolGroup
-import com.harimu.app.core.toolapi.ToolOutputFile
 import com.harimu.app.core.toolapi.ToolRegistry
+import com.harimu.app.feature.toolscreen.ExportState
+import com.harimu.app.feature.toolscreen.ExportStatusBanner
 import com.harimu.app.feature.toolscreen.ToolWorkspaceValidator
 import com.harimu.app.feature.toolscreen.UploadConsentDialog
 import com.harimu.app.feature.toolscreen.openFile
 import com.harimu.app.feature.toolscreen.retryCloudUpload
-import com.harimu.app.feature.toolscreen.saveFile
 import com.harimu.app.feature.toolscreen.shareFile
 import com.harimu.app.feature.toolscreen.uploadToCloud
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,11 +119,18 @@ fun UniversalConverterScreen(
     val uploadTasks by container.uploadQueue.tasksFlow.collectAsStateWithLifecycle()
     val settings by container.settings.settingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
 
-    var showUploadConsent by remember { mutableStateOf(false) }
-    var pendingExportFile by remember { mutableStateOf<ToolOutputFile?>(null) }
+    var showUploadConsent by rememberSaveable { mutableStateOf(false) }
     val savedToast = stringResource(R.string.toast_saved)
     val saveFailedToast = stringResource(R.string.toast_save_failed)
     val copiedToast = stringResource(R.string.converter_copy_output_done)
+
+    LaunchedEffect(state.exportState) {
+        when (state.exportState) {
+            is ExportState.Succeeded -> Toast.makeText(context, savedToast, Toast.LENGTH_SHORT).show()
+            is ExportState.Failed -> Toast.makeText(context, saveFailedToast, Toast.LENGTH_SHORT).show()
+            else -> Unit
+        }
+    }
 
     val multiFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) vm.addFiles(uris)
@@ -135,15 +142,7 @@ fun UniversalConverterScreen(
         uri?.let { vm.loadTextFromUri(it, isEnglish) }
     }
     val safSaveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { destUri ->
-        val src = pendingExportFile
-        if (destUri != null && src != null) {
-            scope.launch {
-                val ok = withContext(Dispatchers.IO) {
-                    container.storage.copyFileToUri(src.file, destUri)
-                }
-                Toast.makeText(context, if (ok) savedToast else saveFailedToast, Toast.LENGTH_SHORT).show()
-            }
-        }
+        vm.completeSafExport(destUri)
     }
 
     fun copyTextToClipboard(text: String) {
@@ -274,6 +273,10 @@ fun UniversalConverterScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        ExportStatusBanner(
+                            exportState = state.exportState,
+                            onDismiss = vm::clearExportState
+                        )
                         ConverterJobQueueSection(
                             jobs = jobs,
                             onCancelJob = vm::cancelJob,
@@ -282,16 +285,10 @@ fun UniversalConverterScreen(
                             onOpenOutput = { out -> openFile(out, container.storage, context) },
                             onShareOutput = { out -> shareFile(out, container.storage, context) },
                             onSaveOutput = { out ->
-                                saveFile(
+                                vm.exportToDefaultFolderOrRequestSaf(
                                     output = out,
-                                    storage = container.storage,
-                                    settings = settings,
-                                    scope = scope,
-                                    context = context,
-                                    savedToast = savedToast,
-                                    saveFailedToast = saveFailedToast,
-                                    pendingExportFile = { pendingExportFile = it },
-                                    safSaveLauncher = safSaveLauncher
+                                    defaultTreeUri = settings.outputFolderUri,
+                                    onRequestSaf = { target -> safSaveLauncher.launch(target.displayName) }
                                 )
                             },
                             onUploadOutput = { out ->
@@ -340,6 +337,10 @@ fun UniversalConverterScreen(
                             onOpenTool = onOpenTool
                         )
                     }
+                    ExportStatusBanner(
+                        exportState = state.exportState,
+                        onDismiss = vm::clearExportState
+                    )
                     ConverterJobQueueSection(
                         jobs = jobs,
                         onCancelJob = vm::cancelJob,
@@ -348,16 +349,10 @@ fun UniversalConverterScreen(
                         onOpenOutput = { out -> openFile(out, container.storage, context) },
                         onShareOutput = { out -> shareFile(out, container.storage, context) },
                         onSaveOutput = { out ->
-                            saveFile(
+                            vm.exportToDefaultFolderOrRequestSaf(
                                 output = out,
-                                storage = container.storage,
-                                settings = settings,
-                                scope = scope,
-                                context = context,
-                                savedToast = savedToast,
-                                saveFailedToast = saveFailedToast,
-                                pendingExportFile = { pendingExportFile = it },
-                                safSaveLauncher = safSaveLauncher
+                                defaultTreeUri = settings.outputFolderUri,
+                                onRequestSaf = { target -> safSaveLauncher.launch(target.displayName) }
                             )
                         },
                         onUploadOutput = { out ->
@@ -427,6 +422,15 @@ private fun ConverterWorkbenchPane(
     onOpenAdvancedTool: (Tool) -> Unit
 ) {
     val context = LocalContext.current
+    val focusedTool = state.focusedTool
+    if (focusedTool != null && !state.isTextMode && state.selectedTarget?.toolId != focusedTool.id) {
+        ConverterFocusedToolBanner(
+            toolId = focusedTool.id,
+            toolTitle = focusedTool.title(isEnglish),
+            onDismiss = vm::clearFocusedTool
+        )
+    }
+
     ConverterSourceCard(
         isTextMode = state.isTextMode,
         sources = state.sources,
@@ -577,7 +581,9 @@ private fun ConverterWorkflowsPane(
                         tool.id.lowercase().contains(q) ||
                         tool.title(isEnglish).lowercase().contains(q) ||
                         tool.description(isEnglish).lowercase().contains(q) ||
-                        workflow.title(isEnglish).lowercase().contains(q)
+                        workflow.title(isEnglish).lowercase().contains(q) ||
+                        workflow.subtitle(isEnglish).lowercase().contains(q) ||
+                        ConverterWorkflow.searchKeywordsForTool(tool.id).contains(q)
                     )
             }
         }

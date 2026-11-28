@@ -38,7 +38,7 @@ import javax.crypto.spec.GCMParameterSpec
  *   pada kunci Keystore — kalau kunci diikat ke biometrik, setiap operasi AES (termasuk dekripsi
  *   berkas) akan meminta sidik jari dan banyak perangkat tidak punya sensor. Ini dicatat di DECISIONS.
  * - Enkripsi berkas **hanya untuk kunci AES**; RSA tidak dipakai untuk data besar (batas blok).
- * - Menghapus entri vault tidak menghapus kunci Keystore (butuh alias; UI menyebutkan).
+ * - Menghapus entri AES di vault ikut menghapus alias kunci di AndroidKeyStore (berkas .hmvlt lama tidak bisa didekripsi lagi).
  */
 object VaultCryptoEngine {
 
@@ -233,6 +233,19 @@ object VaultCryptoEngine {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         return keyStore.getKey(alias, null) as? SecretKey
             ?: error("Kunci Keystore '$alias' tidak ditemukan (mungkin sudah dihapus)")
+    }
+
+    fun deleteKeyStoreAlias(entity: VaultKeyEntity): Boolean {
+        if (!entity.keystoreBacked) return false
+        return runCatching {
+            val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+            if (keyStore.containsAlias(entity.alias)) {
+                keyStore.deleteEntry(entity.alias)
+                true
+            } else {
+                false
+            }
+        }.getOrDefault(false)
     }
 
     // ------------------------------------------------------------- sign/verify

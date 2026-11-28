@@ -570,12 +570,31 @@ fun RunButtonSection(
 fun UploadConsentDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    isEnglish: Boolean = false
+    isEnglish: Boolean = false,
+    gatewayUrl: String = ""
 ) {
+    val destinationLabel = remember(gatewayUrl) {
+        val trimmed = gatewayUrl.trim()
+        if (trimmed.isBlank()) {
+            "Cloudflare AI Gateway"
+        } else {
+            runCatching { java.net.URI(trimmed).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: trimmed
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.upload_consent_title)) },
-        text = { Text(stringResource(R.string.upload_consent_body)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.upload_consent_host_fmt, destinationLabel),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(stringResource(R.string.upload_consent_body))
+            }
+        },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
@@ -589,6 +608,95 @@ fun UploadConsentDialog(
             ) { Text(stringResource(R.string.upload_consent_cancel)) }
         }
     )
+}
+
+@Composable
+fun AiToolGatewayCard(
+    tool: Tool,
+    gatewayUrl: String,
+    hasUploadConsent: Boolean,
+    onOpenSettings: (() -> Unit)? = null
+) {
+    if (!tool.requiresNetwork) return
+    val trimmedUrl = gatewayUrl.trim()
+    val isConfigured = trimmedUrl.isNotBlank()
+    val hostLabel = remember(trimmedUrl) {
+        if (!isConfigured) ""
+        else runCatching { java.net.URI(trimmedUrl).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: trimmedUrl
+    }
+    val containerColor = if (isConfigured) {
+        HariMuThemeTokens.semantic.infoContainer
+    } else {
+        HariMuThemeTokens.semantic.warningContainer
+    }
+    val contentColor = if (isConfigured) {
+        HariMuThemeTokens.semantic.onInfoContainer
+    } else {
+        HariMuThemeTokens.semantic.onWarningContainer
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("ai_gateway_tool_info_card"),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.25f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = if (isConfigured) Icons.Filled.Info else Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = stringResource(R.string.tool_ai_gateway_card_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor
+                )
+            }
+            Text(
+                text = if (isConfigured) {
+                    stringResource(R.string.tool_ai_gateway_ready_fmt, hostLabel)
+                } else {
+                    stringResource(R.string.tool_ai_gateway_missing)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor
+            )
+            Text(
+                text = stringResource(
+                    if (hasUploadConsent) R.string.tool_ai_gateway_consent_on
+                    else R.string.tool_ai_gateway_consent_off
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor
+            )
+            Text(
+                text = stringResource(R.string.tool_ai_gateway_quota_disclosure),
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor.copy(alpha = 0.85f)
+            )
+            if (onOpenSettings != null) {
+                TextButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("ai_tool_open_settings_button")
+                ) {
+                    Text(stringResource(R.string.tool_ai_open_settings))
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -774,6 +882,7 @@ fun ConverterToolCapabilityCards(
         "CNV-04" -> R.string.converter_honest_cnv04
         "CNV-06" -> R.string.converter_honest_cnv06
         "CNV-10" -> R.string.converter_honest_cnv10
+        "CNV-13" -> R.string.converter_honest_cnv13
         "CNV-17" -> R.string.converter_honest_cnv17
         "CNV-18" -> R.string.converter_honest_cnv18
         "CNV-19" -> R.string.converter_honest_cnv19

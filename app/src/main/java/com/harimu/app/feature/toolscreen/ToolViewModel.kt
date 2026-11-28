@@ -515,7 +515,9 @@ class ToolViewModel(
             tool.run(ctx, input)
                 .catch { e ->
                     if (e is CancellationException) throw e
-                    val err = e.localizedMessage ?: "Error"
+                    val err = (e as? com.harimu.app.core.ai.AiException)?.userMessage(isEnglish)
+                        ?: e.localizedMessage
+                        ?: "Error"
                     container.jobManager.failInProcessJob(trackedJob.jobId, err)
                     val retryable = JobInputValidator.canRetryStoredInput(ctxRef, tool, input)
                     _state.update {

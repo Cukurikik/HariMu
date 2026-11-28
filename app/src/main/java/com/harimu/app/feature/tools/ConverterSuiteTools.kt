@@ -622,7 +622,15 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
         override val engineLabel = "LIB"
         override val icon = Icons.Filled.PictureAsPdf
         override val inputSpec = InputSpec.AnyFile
-        override val params = emptyList<ToolParam>()
+        override val params = listOf(
+            ToolParam.DropdownParam(
+                "target",
+                "Tujuan PDF (untuk masukan PDF)",
+                "PDF Target (for PDF input)",
+                listOf("Word (.docx)", "Excel (.xlsx)", "PowerPoint (.pptx)"),
+                "Word (.docx)"
+            )
+        )
         override fun title(isEnglish: Boolean) =
             if (isEnglish) "PDF to Word / Word to PDF" else "PDF ke Word / Word ke PDF"
 
@@ -646,22 +654,32 @@ fun converterSuiteTools(mediaJob: MediaJob = MediaJob()): List<Tool> = listOf(
             val targetId = when {
                 header.size >= 5 && header.copyOfRange(0, 5).contentEquals("%PDF-".toByteArray(Charsets.US_ASCII)) -> "PDF-06"
                 header.size >= 2 && header[0] == 'P'.code.toByte() && header[1] == 'K'.code.toByte() -> {
-                    val temp = ctx.storage.copyUriToTemp(uri, "cnv13_chk", "zip")
-                    try {
-                        val hasDocxEntry = runCatching {
-                            java.util.zip.ZipFile(temp).use { zip -> zip.getEntry("word/document.xml") != null }
-                        }.getOrDefault(false)
-                        if (hasDocxEntry) "PDF-07"
-                        else error(
-                            if (ctx.isEnglish) {
-                                "ZIP archive is not a .docx document (missing word/document.xml)."
-                            } else {
-                                "Arsip ZIP ini bukan dokumen .docx (tidak ada word/document.xml)."
+                    val hasDocxEntry = runCatching {
+                        ctx.appContext.contentResolver.openInputStream(uri)?.use { raw ->
+                            java.util.zip.ZipInputStream(raw.buffered()).use { zis ->
+                                var inspected = 0
+                                var found = false
+                                while (inspected < 256) {
+                                    val entry = zis.nextEntry ?: break
+                                    inspected++
+                                    if (entry.name == "word/document.xml") {
+                                        found = true
+                                        break
+                                    }
+                                    zis.closeEntry()
+                                }
+                                found
                             }
-                        )
-                    } finally {
-                        temp.delete()
-                    }
+                        } ?: false
+                    }.getOrDefault(false)
+                    if (hasDocxEntry) "PDF-07"
+                    else error(
+                        if (ctx.isEnglish) {
+                            "ZIP archive is not a .docx document (missing word/document.xml)."
+                        } else {
+                            "Arsip ZIP ini bukan dokumen .docx (tidak ada word/document.xml)."
+                        }
+                    )
                 }
                 else -> error(
                     if (ctx.isEnglish) {

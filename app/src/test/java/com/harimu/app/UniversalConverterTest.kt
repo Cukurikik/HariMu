@@ -57,9 +57,22 @@ import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
 import org.robolectric.shadows.ShadowStatFs
+import android.graphics.Bitmap
+import com.harimu.app.core.engines.FontEngine
+import com.harimu.app.core.toolapi.ToolContext
+import com.harimu.app.core.toolapi.ToolInput
+import com.harimu.app.core.toolapi.ToolProgress
+import com.harimu.app.feature.toolscreen.ExportState
+import kotlinx.coroutines.flow.toList
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36], application = HariMuApp::class)
@@ -445,6 +458,433 @@ class UniversalConverterTest {
                 cleanupTestDb(container)
             }
         }
+    }
+
+    @Test
+    fun formatIntegrityRejectsSpoofedContainersAndDetectsRawBase64BareGeoJsonAndLargeBinaryStl() {
+        withMainActivity { activity ->
+            val container = initTestWorkManagerAndClearDb(activity)
+            val spoofedCsvJson = File(activity.cacheDir, "fake_json.csv").apply {
+                writeText("""{"spoofed":true}""")
+            }
+            val spoofedCsvXml = File(activity.cacheDir, "fake_xml.csv").apply {
+                writeText("<root><row/></root>")
+            }
+            val spoofedCsvTsv = File(activity.cacheDir, "fake_tsv.csv").apply {
+                writeText("a\tb\n1\t2")
+            }
+            val invalidCss = File(activity.cacheDir, "bad.css").apply {
+                writeText("just plain text without selectors or rules")
+            }
+            val docxSpoofedAsCbz = File(activity.cacheDir, "not_comic.cbz").apply {
+                ZipOutputStream(FileOutputStream(this)).use { zip ->
+                    zip.putNextEntry(ZipEntry("word/document.xml"))
+                    zip.write("<w:document/>".toByteArray())
+                    zip.closeEntry()
+                }
+            }
+            val epubNamedZip = File(activity.cacheDir, "ebook_package.zip").apply {
+                ZipOutputStream(FileOutputStream(this)).use { zip ->
+                    zip.putNextEntry(ZipEntry("META-INF/container.xml"))
+                    zip.write("<container/>".toByteArray())
+                    zip.closeEntry()
+                }
+            }
+            val emptyZipNamedCbz = File(activity.cacheDir, "no_images.cbz").apply {
+                ZipOutputStream(FileOutputStream(this)).use { zip ->
+                    zip.putNextEntry(ZipEntry("readme.txt"))
+                    zip.write("not a comic".toByteArray())
+                    zip.closeEntry()
+                }
+            }
+            try {
+                val jsonCsv = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(spoofedCsvJson))
+                assertEquals(SourceFormat.JSON, jsonCsv.format)
+                assertTrue(jsonCsv.extensionMismatch)
+
+                val xmlCsv = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(spoofedCsvXml))
+                assertEquals(SourceFormat.XML, xmlCsv.format)
+                assertTrue(xmlCsv.extensionMismatch)
+
+                val tsvCsv = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(spoofedCsvTsv))
+                assertEquals(SourceFormat.TSV, tsvCsv.format)
+                assertTrue(tsvCsv.extensionMismatch)
+
+                val badCss = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(invalidCss))
+                assertEquals(SourceFormat.UNKNOWN, badCss.format)
+                assertTrue(badCss.extensionMismatch)
+
+                val docx = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(docxSpoofedAsCbz))
+                assertEquals(SourceFormat.DOCX, docx.format)
+                assertTrue(docx.extensionMismatch)
+
+                val epub = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(epubNamedZip))
+                assertEquals(SourceFormat.EPUB, epub.format)
+
+                val fakeCbz = SourceFormatDetector.detectFromUri(activity, container.storage, Uri.fromFile(emptyZipNamedCbz))
+                assertEquals(SourceFormat.ZIP, fakeCbz.format)
+                assertTrue(fakeCbz.extensionMismatch)
+
+                // Raw Base64 image payload without data: URI prefix
+                val rawPngB64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                assertEquals(SourceFormat.BASE64_IMAGE, SourceFormatDetector.detectTextFormat(rawPngB64))
+
+                // Bare GeoJSON Geometry (Point) without FeatureCollection wrapper
+                assertEquals(
+                    SourceFormat.GEOJSON,
+                    SourceFormatDetector.detectTextFormat("""{"type":"Point","coordinates":[106.8271,-6.1754]}""")
+                )
+
+                // Large binary STL (> 4096 header buffer) verified by 84 + 50 * triangles == total byteSize
+                val triCount = 120
+                val stlHeader = ByteArray(84)
+                ByteBuffer.wrap(stlHeader).order(ByteOrder.LITTLE_ENDIAN).apply {
+                    position(80)
+                    putInt(triCount)
+                }
+                val detectedLargeStl = SourceFormatDetector.detectFromBytesAndName(
+                    uriString = "file:///tmp/model.stl",
+                    displayName = "model.stl",
+                    headerBytes = stlHeader,
+                    byteSize = 84L + 50L * triCount
+                )
+                assertEquals(SourceFormat.STL, detectedLargeStl.format)
+            } finally {
+                listOf(spoofedCsvJson, spoofedCsvXml, spoofedCsvTsv, invalidCss, docxSpoofedAsCbz, epubNamedZip, emptyZipNamedCbz)
+                    .forEach { it.delete() }
+                cleanupTestDb(container)
+            }
+        }
+    }
+
+    @Test
+    fun b10TargetMatrixMatchesRealEngineCapabilitiesAndDefaults() {
+        val wav8d = ConverterFormatMatrix.validFormatTargetsFor(SourceFormat.WAV).first { it.id == "aud_8d" }
+        assertEquals("wav", wav8d.outputExt)
+        assertEquals("8D WAV", wav8d.outputBadge)
+
+        val flac8d = ConverterFormatMatrix.validFormatTargetsFor(SourceFormat.FLAC).first { it.id == "aud_8d" }
+        assertEquals("flac", flac8d.outputExt)
+        assertEquals("8D FLAC", flac8d.outputBadge)
+
+        val opus8d = ConverterFormatMatrix.validFormatTargetsFor(SourceFormat.OPUS).first { it.id == "aud_8d" }
+        assertEquals("mp3", opus8d.outputExt)
+
+        val imgPdf = ConverterFormatMatrix.validFormatTargetsFor(SourceFormat.PNG).first { it.id == "img_pdf" }
+        assertTrue("img_pdf must not expose unused quality slider", imgPdf.visibleParamKeys.isEmpty())
+
+        val svgJpg = ConverterFormatMatrix.validFormatTargetsFor(SourceFormat.SVG).first { it.id == "svg_jpg" }
+        assertEquals("Putih", svgJpg.defaultParams["bg"])
+
+        val cnv13 = ToolRegistry.findById("CNV-13")
+        assertNotNull(cnv13)
+        assertTrue(cnv13!!.params.any { it.key == "target" })
+    }
+
+    @Test
+    fun crossModeValidationParamIsolationBatchQueueAndMissingExportGuardWork() {
+        withMainActivity { activity ->
+            val container = initTestWorkManagerAndClearDb(activity)
+            val pngA = File(activity.cacheDir, "b10_a.png").apply { writeBytes(makeTestPngBytes()) }
+            val pngB = File(activity.cacheDir, "b10_b.png").apply { writeBytes(makeTestPngBytes()) }
+            try {
+                val vm = UniversalConverterViewModel(container)
+                vm.bindContext(activity)
+
+                // Text mode with valid JSON -> switching back to File mode with zero files must NOT validate stale textInput
+                vm.setTextInput("""{"ok":true}""")
+                assertTrue(vm.state.value.validate(isEnglish = true).isValid)
+                vm.setTextMode(false)
+                assertFalse(vm.state.value.validate(isEnglish = true).isValid)
+
+                // Invalid CSS & truncated Base64 must fail validation
+                vm.setTextInput(".card { color: red; }")
+                assertTrue(vm.state.value.validate(isEnglish = true).isValid)
+                val cssTarget = vm.state.value.selectedTarget!!
+                assertFalse(
+                    ConverterFormatMatrix.validateInputs(
+                        target = cssTarget,
+                        sources = emptyList(),
+                        textInput = "not css",
+                        params = emptyMap(),
+                        isEnglish = true,
+                        isTextMode = true
+                    ).isValid
+                )
+                val b64Target = ConverterFormatMatrix.validFormatTargetsFor(SourceFormat.BASE64_IMAGE).first()
+                assertFalse(
+                    ConverterFormatMatrix.validateInputs(
+                        target = b64Target,
+                        sources = emptyList(),
+                        textInput = "data:image/png;base64,@@@",
+                        params = emptyMap(),
+                        isEnglish = true,
+                        isTextMode = true
+                    ).isValid
+                )
+
+                // File mode with focused tool preference + cross-tool param isolation
+                vm.focusToolOrWorkflow("CNV-11")
+                assertEquals("CNV-11", vm.state.value.focusedToolId)
+                vm.addFiles(listOf(Uri.fromFile(pngA), Uri.fromFile(pngB)))
+                waitUntilVmState(vm) { it.sources.size == 2 }
+                assertEquals("img_icons", vm.state.value.selectedTargetId)
+
+                // Switch to Text mode with blank text -> must NOT fall back to stale file sources
+                vm.setTextMode(true)
+                assertFalse(vm.state.value.validate(isEnglish = true).isValid)
+                vm.setTextMode(false)
+
+                // Select AES-256 encrypt (CNV-18), set password, then switch to img_webp (CNV-09) -> password must not leak
+                val encryptTarget = vm.state.value.availableTargets.first { it.id == "any_encrypt_zip" }
+                vm.selectTarget(encryptTarget)
+                vm.setParam("password", "SecretPass99")
+                assertEquals("SecretPass99", vm.state.value.paramValues["password"])
+
+                val webpTarget = vm.state.value.availableTargets.first { it.id == "img_webp" }
+                vm.selectTarget(webpTarget)
+                assertNull("Stale password from CNV-18 must be cleared when switching to CNV-09", vm.state.value.paramValues["password"])
+
+                vm.clearFocusedTool()
+                assertNull(vm.state.value.focusedToolId)
+
+                // Batch enqueue on 2 PNGs must create 2 distinct CNV-09 jobs
+                vm.enqueueConversion(isEnglish = true)
+                val jobs = waitForJobsCount(container, expected = 2)
+                assertEquals(2, jobs.count { it.toolId == "CNV-09" })
+
+                // Missing export file must fail cleanly instead of launching SAF
+                var safRequested = false
+                val missingOutput = com.harimu.app.core.toolapi.ToolOutputFile(
+                    file = File(activity.cacheDir, "does_not_exist.webp"),
+                    mimeType = "image/webp",
+                    displayName = "does_not_exist.webp"
+                )
+                vm.exportToDefaultFolderOrRequestSaf(missingOutput, "") { safRequested = true }
+                assertFalse(safRequested)
+                assertTrue(vm.state.value.exportState is ExportState.Failed)
+            } finally {
+                pngA.delete()
+                pngB.delete()
+                cleanupTestDb(container)
+            }
+        }
+    }
+
+    @Test
+    fun representativeConverterToolsExecuteEndToEndWithoutFabrication() {
+        withMainActivity { activity ->
+            val container = initTestWorkManagerAndClearDb(activity)
+            val ctx = ToolContext(activity.applicationContext, container.storage, isEnglish = true)
+            val pngFile = File(activity.cacheDir, "e2e_sample.png").apply { writeBytes(makeTestPngBytes()) }
+            val plainTxtFile = File(activity.cacheDir, "secret_note.txt").apply { writeText("HariMu B10 payload") }
+            val stlFile = File(activity.cacheDir, "single_tri.stl").apply { writeBytes(makeBinaryStlBytes()) }
+            val fontFile = File(activity.cacheDir, "minimal.ttf").apply {
+                val head = ByteArray(54)
+                val maxp = ByteArray(6).also { it[4] = 1 }
+                val cmap = ByteArray(4)
+                val sfnt = FontEngine.Sfnt(
+                    0x00010000,
+                    listOf(FontEngine.Table("head", head), FontEngine.Table("maxp", maxp), FontEngine.Table("cmap", cmap))
+                )
+                writeBytes(FontEngine.writeSfnt(sfnt))
+            }
+            try {
+                runBlocking {
+                    // CNV-23 JSON <-> XML
+                    val cnv23 = ToolRegistry.findById("CNV-23")!!
+                    val xmlOut = cnv23.run(ctx, ToolInput(textInput = """{"app":"HariMu","ok":true}""", params = mapOf("dir" to "JSON -> XML")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(xmlOut.textOutput!!.contains("<app>HariMu</app>"))
+
+                    val jsonOut = cnv23.run(ctx, ToolInput(textInput = xmlOut.textOutput!!, params = mapOf("dir" to "XML -> JSON")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(jsonOut.textOutput!!.contains("\"HariMu\""))
+
+                    // CNV-24 CSV <-> TSV
+                    val cnv24 = ToolRegistry.findById("CNV-24")!!
+                    val tsvOut = cnv24.run(ctx, ToolInput(textInput = "a,\"b,c\"\n1,2", params = mapOf("dir" to "CSV -> TSV")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(tsvOut.textOutput!!.contains("a\t"))
+                    val csvBack = cnv24.run(ctx, ToolInput(textInput = tsvOut.textOutput!!, params = mapOf("dir" to "TSV -> CSV")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(csvBack.textOutput!!.contains("\"b,c\""))
+
+                    // CNV-25 Pretty/Minify JSON + Pretty CSS
+                    val cnv25 = ToolRegistry.findById("CNV-25")!!
+                    val minJson = cnv25.run(ctx, ToolInput(textInput = "{\n  \"a\" : 1\n}", params = mapOf("mode" to "Minify JSON")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertEquals("""{"a":1}""", minJson.textOutput)
+                    val prettyCss = cnv25.run(ctx, ToolInput(textInput = ".box{color:#fff;margin:4px;}", params = mapOf("mode" to "Pretty CSS")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(prettyCss.textOutput!!.contains("\n  color:#fff;"))
+
+                    // CNV-26 Markdown -> HTML
+                    val cnv26 = ToolRegistry.findById("CNV-26")!!
+                    val htmlOut = cnv26.run(ctx, ToolInput(textInput = "# Title\n\nHello **HariMu**"))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(htmlOut.textOutput!!.contains("<h1>Title</h1>"))
+                    assertTrue(htmlOut.textOutput!!.contains("<strong>HariMu</strong>"))
+
+                    // CNV-27 Bare GeoJSON -> KML
+                    val cnv27 = ToolRegistry.findById("CNV-27")!!
+                    val kmlOut = cnv27.run(ctx, ToolInput(textInput = """{"type":"Point","coordinates":[106.8271,-6.1754]}"""))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(kmlOut.textOutput!!.contains("<Point><coordinates>106.8271,-6.1754,0.0</coordinates></Point>"))
+
+                    // CNV-28 Binary STL -> OBJ
+                    val cnv28 = ToolRegistry.findById("CNV-28")!!
+                    val objOut = cnv28.run(ctx, ToolInput(uris = listOf(Uri.fromFile(stlFile))))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    val objText = objOut.outputs.single().file.readText()
+                    assertTrue(objText.contains("v 0.0 0.0 0.0"))
+                    assertTrue(objText.contains("f 1 2 3"))
+
+                    // CNV-18 AES-256 encrypt -> decrypt + CNV-16 sanitize
+                    val cnv18 = ToolRegistry.findById("CNV-18")!!
+                    val encRes = cnv18.run(
+                        ctx,
+                        ToolInput(
+                            uris = listOf(Uri.fromFile(plainTxtFile)),
+                            params = mapOf("mode" to "Enkripsi ZIP AES-256", "password" to "StrongPass123")
+                        )
+                    ).toList().filterIsInstance<ToolProgress.Done>().single().result
+                    val encZip = encRes.outputs.single().file
+                    assertTrue(encZip.exists() && encZip.length() > 0)
+
+                    val decRes = cnv18.run(
+                        ctx,
+                        ToolInput(
+                            uris = listOf(Uri.fromFile(encZip)),
+                            params = mapOf("mode" to "Dekripsi ZIP AES-256", "password" to "StrongPass123")
+                        )
+                    ).toList().filterIsInstance<ToolProgress.Done>().single().result
+                    val plainZip = decRes.outputs.single().file
+                    assertTrue(plainZip.exists() && plainZip.length() > 0)
+
+                    val cnv16 = ToolRegistry.findById("CNV-16")!!
+                    val cleanRes = cnv16.run(ctx, ToolInput(uris = listOf(Uri.fromFile(plainZip))))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result
+                    assertTrue(cleanRes.outputs.single().file.exists())
+
+                    // CNV-21 TTF -> WOFF -> TTF
+                    val cnv21 = ToolRegistry.findById("CNV-21")!!
+                    val woffOut = cnv21.run(ctx, ToolInput(uris = listOf(Uri.fromFile(fontFile)), params = mapOf("target" to "TTF/OTF → WOFF")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result.outputs.single().file
+                    assertEquals("woff", woffOut.extension)
+                    val ttfBack = cnv21.run(ctx, ToolInput(uris = listOf(Uri.fromFile(woffOut)), params = mapOf("target" to "WOFF → TTF/OTF")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result.outputs.single().file
+                    assertEquals("ttf", ttfBack.extension)
+
+                    // CNV-09 PNG -> WEBP & PNG -> PDF, plus CNV-12 Encode & Decode Base64
+                    val cnv09 = ToolRegistry.findById("CNV-09")!!
+                    val webpOut = cnv09.run(ctx, ToolInput(uris = listOf(Uri.fromFile(pngFile)), params = mapOf("format" to "WEBP", "quality" to 85f)))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result.outputs.single().file
+                    assertEquals("RIFF", webpOut.readBytes().copyOfRange(0, 4).toString(Charsets.US_ASCII))
+
+                    val pdfOut = cnv09.run(ctx, ToolInput(uris = listOf(Uri.fromFile(pngFile)), params = mapOf("format" to "PDF")))
+                        .toList().filterIsInstance<ToolProgress.Done>().single().result.outputs.single().file
+                    assertEquals("%PDF-", pdfOut.readBytes().copyOfRange(0, 5).toString(Charsets.US_ASCII))
+
+                    val cnv12 = ToolRegistry.findById("CNV-12")!!
+                    val b64Res = cnv12.run(
+                        ctx,
+                        ToolInput(uris = listOf(Uri.fromFile(pngFile)), params = mapOf("mode" to "Encode (gambar → Base64)", "dataUri" to true))
+                    ).toList().filterIsInstance<ToolProgress.Done>().single().result
+                    val b64String = b64Res.outputs.single().file.readText()
+                    assertTrue(b64String.startsWith("data:image/"))
+
+                    val decodedPng = cnv12.run(
+                        ctx,
+                        ToolInput(textInput = b64String, params = mapOf("mode" to "Decode (Base64 → gambar)"))
+                    ).toList().filterIsInstance<ToolProgress.Done>().single().result.outputs.single().file
+                    assertTrue(decodedPng.readBytes().copyOfRange(0, 4).contentEquals(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)))
+                }
+            } finally {
+                listOf(pngFile, plainTxtFile, stlFile, fontFile).forEach { it.delete() }
+                cleanupTestDb(container)
+            }
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun workflowsSearchFindsToolsByFormatKeywordsAndShowsFocusedBanner() {
+        withMainActivity { activity ->
+            val container = initTestWorkManagerAndClearDb(activity)
+            try {
+                setTestContent(activity, isEnglish = true) {
+                    UniversalConverterScreen(
+                        container = container,
+                        isEnglish = true,
+                        onOpenTool = {},
+                        onBack = {}
+                    )
+                }
+
+                clickNode(findByTag(collectSemanticsNodes(activity.window.decorView), "converter_mode_workflows")!!)
+                flushMainUi(activity)
+
+                // Search by format keyword "kml" -> finds CNV-27
+                val searchNode = findByTag(collectSemanticsNodes(activity.window.decorView), "converter_search_input")!!
+                searchNode.config.getOrNull(SemanticsActions.SetText)?.action?.invoke(androidx.compose.ui.text.AnnotatedString("kml"))
+                flushMainUi(activity, frames = 8)
+
+                val kmlNodes = collectSemanticsNodes(activity.window.decorView)
+                assertNotNull(findByTag(kmlNodes, "converter_tool_card_CNV-27"))
+                assertNull(findByTag(kmlNodes, "converter_tool_card_CNV-01"))
+
+                // Clear search and search "woff" -> open in workbench -> focused banner visible & dismissible
+                searchNode.config.getOrNull(SemanticsActions.SetText)?.action?.invoke(androidx.compose.ui.text.AnnotatedString("woff"))
+                flushMainUi(activity, frames = 8)
+                val fontNodes = collectSemanticsNodes(activity.window.decorView)
+                assertNotNull(findByTag(fontNodes, "converter_tool_card_CNV-21"))
+
+                clickNode(findByTag(fontNodes, "converter_tool_workbench_CNV-21")!!)
+                flushMainUi(activity, frames = 8)
+
+                val wbNodes = collectSemanticsNodes(activity.window.decorView)
+                assertNotNull(findByTag(wbNodes, "converter_focused_tool_banner"))
+                clickNode(findByTag(wbNodes, "converter_focused_tool_dismiss")!!)
+                flushMainUi(activity, frames = 6)
+                assertNull(findByTag(collectSemanticsNodes(activity.window.decorView), "converter_focused_tool_banner"))
+            } finally {
+                cleanupTestDb(container)
+            }
+        }
+    }
+
+    private fun makeTestPngBytes(): ByteArray {
+        val bmp = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+        bmp.eraseColor(android.graphics.Color.CYAN)
+        val out = ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bmp.recycle()
+        return out.toByteArray()
+    }
+
+    private fun makeBinaryStlBytes(): ByteArray {
+        val bb = ByteBuffer.allocate(84 + 50).order(ByteOrder.LITTLE_ENDIAN)
+        bb.position(80)
+        bb.putInt(1)
+        // Normal
+        bb.putFloat(0f); bb.putFloat(0f); bb.putFloat(1f)
+        // v1 (0,0,0), v2 (1,0,0), v3 (0,1,0)
+        bb.putFloat(0f); bb.putFloat(0f); bb.putFloat(0f)
+        bb.putFloat(1f); bb.putFloat(0f); bb.putFloat(0f)
+        bb.putFloat(0f); bb.putFloat(1f); bb.putFloat(0f)
+        bb.putShort(0)
+        return bb.array()
+    }
+
+    private fun waitForJobsCount(container: AppContainer, expected: Int): List<JobEntity> {
+        repeat(40) {
+            val all = runBlocking(Dispatchers.IO) { container.database.jobDao().observeAll().first() }
+            if (all.size >= expected) return all
+            ShadowLooper.idleMainLooper(25, TimeUnit.MILLISECONDS)
+            Thread.sleep(20)
+        }
+        return runBlocking(Dispatchers.IO) { container.database.jobDao().observeAll().first() }
     }
 
     private fun initTestWorkManagerAndClearDb(activity: MainActivity): AppContainer {
