@@ -1,6 +1,13 @@
 {
   "version": 2,
   "skills": {
+    "accessibility-inclusive-design": {
+      "source": "hueyexe/frontend-agent-skills",
+      "commit": "2841c079dd8a9c634882227194dc42e25227710d",
+      "sourceType": "github",
+      "skillPath": "accessibility-inclusive-design/SKILL.md",
+      "computedHash": "83b4897fc99ce6cfa95831f4f44c810afa631beeffdbdd1877b9b7b565e1eb38"
+    },
     "aceternity-ui": {
       "source": "secondsky/claude-skills",
       "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
@@ -106,6 +113,20 @@
       "skillPath": "skills/android-navigation-deeplinks/SKILL.md",
       "computedHash": "a46e32a10e0d17b96f7c5d2b558633d8c986d814eb7887eff9215c4829e2d964"
     },
+    "android-performance-observability": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-performance-observability/SKILL.md",
+      "computedHash": "076eddc64a51709229d237d82ad1e49f47224acb888a0723daa47880f4083990"
+    },
+    "android-permissions-activity-results": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-permissions-activity-results/SKILL.md",
+      "computedHash": "f221fa74e17e6aeb45603d701eeb60e50fcda3984cc4a9b61979b8a8d07b6ba4"
+    },
     "android-permissions-security": {
       "source": "android/skills",
       "commit": "7f7b21730a605d112ca9f79b6e40105ce7b670ee",
@@ -119,6 +140,13 @@
       "sourceType": "github",
       "skillPath": "profilers/android-profiler/SKILL.md",
       "computedHash": "8dfcfca81310cb187fe61381d3c6f7933f5eb1915ce06a67707fbbb23f318fe1"
+    },
+    "android-security-best-practices": {
+      "source": "krutikjain/android-agent-skills",
+      "commit": "c5bf6731b8441019418784484cca1578413e6ad3",
+      "sourceType": "github",
+      "skillPath": "skills/android-security-best-practices/SKILL.md",
+      "computedHash": "6fe010a0206c06a321ddac3f5a01e924dbf0eed2124ed84f610ba73b94df7a23"
     },
     "android-security-hardened": {
       "source": "prasad-vennam/awesome-android-ai-agent-skills",
@@ -960,6 +988,13 @@
       "skillPath": "plugins/design-assets/skills/image-processing/SKILL.md",
       "computedHash": "7065677fbd9ccaead5944f930403535340c5642b0e4533f7bd22b91d953eb61e"
     },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "commit": "2fc5e1459efbbf06d92c7306517c286bf12490cf",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "ba5494cb853df34dc3284176083f954829717c42474107d5d01934b2f43930b4"
+    },
     "inspira-ui": {
       "source": "secondsky/claude-skills",
       "commit": "14966c3024f48eea0386eb970b230ea0f4bebd33",
@@ -1127,6 +1162,13 @@
       "sourceType": "github",
       "skillPath": "plugins/mobile-app-testing/skills/mobile-app-testing/SKILL.md",
       "computedHash": "2e507712dd2e7686524e7e1d2352b50e7cdb5aa718abb515f5b566a375daf1c1"
+    },
+    "mobile-design": {
+      "source": "RubenGlez/mobile-design",
+      "commit": "9d220f76b21e83ae9a48f0adaf64842d08fac56e",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "bcb440b288e40b2548716d985d6d6f2067ca3139e80b3a38693de78a65e98d20"
     },
     "mobile-first-design": {
       "source": "secondsky/claude-skills",
@@ -1716,6 +1758,13 @@
       "skillPath": "plugins/typescript-migration/skills/typescript-migration/SKILL.md",
       "computedHash": "644ca788495b64964b3f6c30e5328ade782372b6c0e73dfbe449058bc43e821c"
     },
+    "ui-visual-composition": {
+      "source": "hueyexe/frontend-agent-skills",
+      "commit": "2841c079dd8a9c634882227194dc42e25227710d",
+      "sourceType": "github",
+      "skillPath": "ui-visual-composition/SKILL.md",
+      "computedHash": "27259da5eaebd2782e07d25c187cebd7d5dd9ef07232727e27a3b59a489e6f49"
+    },
     "uk-business-english": {
       "source": "jezweb/claude-skills",
       "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
@@ -1764,6 +1813,20 @@
       "sourceType": "github",
       "skillPath": "plugins/dev-tools/skills/ux-extract/SKILL.md",
       "computedHash": "590fe637bb9fdc723eb460cff624d57bd666d36cd8ecd18451f529376c359b1e"
+    },
+    "ux-usability-foundations": {
+      "source": "hueyexe/frontend-agent-skills",
+      "commit": "2841c079dd8a9c634882227194dc42e25227710d",
+      "sourceType": "github",
+      "skillPath": "ux-usability-foundations/SKILL.md",
+      "computedHash": "909629b75e9f3e95c4c99c8bf7c4783be797cae64afbd4db1d095c05e67bd8b8"
+    },
+    "ux-writing-content-design": {
+      "source": "hueyexe/frontend-agent-skills",
+      "commit": "2841c079dd8a9c634882227194dc42e25227710d",
+      "sourceType": "github",
+      "skillPath": "ux-writing-content-design/SKILL.md",
+      "computedHash": "bbd3e3f5497559be89749da50f130be350900d5346d8c4ead2acf7c5166797c8"
     },
     "vite-flare-starter": {
       "source": "jezweb/claude-skills",
