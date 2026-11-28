@@ -1,0 +1,108 @@
+pipeline:
+  id: pipeline_Cukurikik_HariMu_build_ccfd
+  name: pipeline_Cukurikik_HariMu_build_ccfd
+  stages:
+    - name: Android Build and Test
+      id: android_build_and_test
+      runtime: cloud
+      platform:
+        os: linux
+        arch: amd64
+      clone:
+        enabled: true
+      cache:
+        enabled: true
+      build-intelligence:
+        enabled: true
+      steps:
+        - name: Setup JDK 21 and Gradle
+          id: setup_java_gradle
+          run:
+            shell: bash
+            script: |-
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq openjdk-21-jdk
+              export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+              export PATH="$JAVA_HOME/bin:$PATH"
+              java -version
+              wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -O /tmp/gradle.zip
+              sudo rm -rf /opt/gradle-9.3.1 && sudo unzip -q /tmp/gradle.zip -d /opt
+              echo "Gradle installed to /opt/gradle-9.3.1"
+        - name: Build Debug APK
+          id: build_debug
+          run:
+            shell: bash
+            script: |-
+              export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+              export PATH="$JAVA_HOME/bin:/opt/gradle-9.3.1/bin:$PATH"
+              java -version
+              gradle --version
+              gradle assembleDebug --no-daemon
+        - name: Run Unit Tests
+          id: run_unit_tests
+          run:
+            shell: bash
+            script: |-
+              export CI=true
+              export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+              export PATH="$JAVA_HOME/bin:/opt/gradle-9.3.1/bin:$PATH"
+              gradle testDebugUnitTest --no-daemon
+            report:
+              type: junit
+              paths:
+                - app/build/test-results/testDebugUnitTest/*.xml
+    - name: Backend AI Gateway Tests
+      id: backend_ai_gateway_tests
+      runtime: cloud
+      platform:
+        os: linux
+        arch: amd64
+      clone:
+        enabled: true
+      cache:
+        enabled: true
+      steps:
+        - name: Setup Node 22
+          id: setup_node
+          run:
+            shell: bash
+            script: |-
+              NODE_VERSION=$(curl -fsSL https://nodejs.org/dist/latest-v22.x/ | grep -oP 'node-v22\.\d+\.\d+' | head -1)
+              echo "Installing $NODE_VERSION"
+              curl -fsSL "https://nodejs.org/dist/latest-v22.x/${NODE_VERSION}-linux-x64.tar.xz" | sudo tar -xJ -C /opt
+              sudo mv /opt/${NODE_VERSION}-linux-x64 /opt/node
+              export PATH="/opt/node/bin:$PATH"
+              node --version
+              npm --version
+        - name: Install Dependencies
+          id: install_deps
+          run:
+            shell: bash
+            script: |-
+              export PATH="/opt/node/bin:$PATH"
+              cd backend/ai-gateway
+              npm ci
+        - name: Typecheck
+          id: typecheck
+          run:
+            shell: bash
+            script: |-
+              export PATH="/opt/node/bin:$PATH"
+              cd backend/ai-gateway
+              npm run typecheck
+        - name: Run Tests
+          id: run_tests
+          run:
+            shell: bash
+            script: |-
+              export CI=true
+              export PATH="/opt/node/bin:$PATH"
+              cd backend/ai-gateway
+              mkdir -p .harness/reports
+              npx vitest run --reporter=junit --outputFile=.harness/reports/junit.xml
+            report:
+              type: junit
+              paths:
+                - backend/ai-gateway/.harness/reports/junit.xml
+  tags:
+    onboarding: "true"
