@@ -8,8 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -23,83 +24,28 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.io.File
 
-/** Status rekaman yang dipakai UI studio (suara maupun layar). */
-data class RecordingUiState(
-    val running: Boolean = false,
-    val paused: Boolean = false,
-    val elapsedMs: Long = 0L,
-    val output: File? = null,
-    val error: String? = null,
-    val note: String = ""
-)
-
-/**
- * Jembatan antara UI studio dan [VoiceRecorderEngine] yang hidup di dalam
- * [VoiceRecordingService]. Service memegang foreground service tipe `microphone` supaya Android
- * tidak membunuh proses saat layar mati.
- */
 object VoiceRecordingController {
-
     private val _state = MutableStateFlow(RecordingUiState())
     val state: StateFlow<RecordingUiState> = _state.asStateFlow()
-    private val _spectrum = MutableStateFlow(FloatArray(SpectrumAnalyzer.BANDS) { 0.05f })
-    val spectrum: StateFlow<FloatArray> = _spectrum.asStateFlow()
 
-    private var engine: VoiceRecorderEngine? = null
-    private var format: VoiceRecorderEngine.OutputFormat = VoiceRecorderEngine.OutputFormat.WAV
+    internal var engine: VoiceRecorderEngine? = null
 
-    fun start(context: Context, options: VoiceRecorderEngine.Options) {
-        if (_state.value.running) return
-        format = options.format
-        val recorder = VoiceRecorderEngine(context.applicationContext).also { engine = it }
-        recorder.setPauseListener {
-            _state.value = _state.value.copy(paused = true, note = "focus")
-            _spectrum.value = FloatArray(SpectrumAnalyzer.BANDS) { 0f }
-        }
-        _state.value = RecordingUiState(running = true)
-        try {
-            recorder.start(options, object : VoiceRecorderEngine.Listener {
-                override fun onSpectrum(bands: FloatArray, elapsedMs: Long) {
-                    _spectrum.value = bands
-                    _state.value = _state.value.copy(elapsedMs = elapsedMs, paused = recorder.isPaused)
-                }
-
-                override fun onPaused(reason: String) {
-                    _state.value = _state.value.copy(paused = true, note = reason)
-                }
-
-                override fun onFinished(session: VoiceRecorderEngine.Session) {
-                    _state.value = RecordingUiState(
-                        running = false,
-                        output = session.output,
-                        note = session.format.extension
-                    )
-                    engine = null
-                }
-
-                override fun onError(message: String) {
-                    _state.value = _state.value.copy(running = false, error = message)
-                    engine = null
-                }
-            })
-        } catch (error: Exception) {
-            _state.value = RecordingUiState(error = error.message ?: "Perekaman gagal")
-            engine = null
-        }
+    internal fun update(state: RecordingUiState) {
+        _state.value = state
     }
 
     fun pause() {
         engine?.pause()
-        _state.value = _state.value.copy(paused = true, note = "manual")
+        _state.value = _state.value.copy(paused = true)
     }
 
     fun resume() {
         engine?.resume()
-        _state.value = _state.value.copy(paused = false, note = "")
+        _state.value = _state.value.copy(paused = false)
     }
 
     fun stop() {
@@ -107,19 +53,41 @@ object VoiceRecordingController {
     }
 
     fun reset() {
-        _state.value = RecordingUiState()
-        _spectrum.value = FloatArray(SpectrumAnalyzer.BANDS) { 0.05f }
+        if (!_state.value.running) _state.value = RecordingUiState()
     }
 
-    val activeFormat: VoiceRecorderEngine.OutputFormat get() = format
+    internal fun releaseAll() {
+        engine?.release()
+        engine = null
+        _state.value = _state.value.copy(running = false)
+    }
 }
 
+/**
+ * Foreground service tipe `microphone` (CORE-06).
+ * Otomatis menjeda saat kehilangan fokus audio (mis. panggilan masuk).
+ */
 class VoiceRecordingService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var audioManager: AudioManager? = null
+    private var focusRequest: AudioFocusRequest? = null
+
+    private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
+        if (change == AudioManager.AUDIOFOCUS_LOSS ||
+            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+        ) {
+            if (VoiceRecordingController.state.value.running &&
+                !VoiceRecordingController.state.value.paused
+            ) {
+                VoiceRecordingController.pause()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         createChannel()
         scope.launch {
             VoiceRecordingController.state.collectLatest { state ->
@@ -128,14 +96,18 @@ class VoiceRecordingService : Service() {
                         this@VoiceRecordingService,
                         NOTIFICATION_ID,
                         buildNotification(state.paused),
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                         } else {
                             0
                         }
                     )
                 } else {
-                    ServiceCompat.stopForeground(this@VoiceRecordingService, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                    abandonAudioFocus()
+                    ServiceCompat.stopForeground(
+                        this@VoiceRecordingService,
+                        ServiceCompat.STOP_FOREGROUND_REMOVE
+                    )
                     stopSelf()
                 }
             }
@@ -145,23 +117,17 @@ class VoiceRecordingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                val format = runCatching {
-                    VoiceRecorderEngine.OutputFormat.valueOf(
-                        intent.getStringExtra(EXTRA_FORMAT) ?: VoiceRecorderEngine.OutputFormat.WAV.name
-                    )
-                }.getOrDefault(VoiceRecorderEngine.OutputFormat.WAV)
-                val sampleRate = intent.getIntExtra(EXTRA_SAMPLE_RATE, 44_100)
                 ServiceCompat.startForeground(
                     this,
                     NOTIFICATION_ID,
                     buildNotification(false),
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                     } else {
                         0
                     }
                 )
-                VoiceRecordingController.start(this, VoiceRecorderEngine.Options(sampleRate, format))
+                startRecording(intent)
             }
             ACTION_PAUSE -> VoiceRecordingController.pause()
             ACTION_RESUME -> VoiceRecordingController.resume()
@@ -170,8 +136,90 @@ class VoiceRecordingService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun startRecording(intent: Intent) {
+        if (VoiceRecordingController.state.value.running) return
+        requestAudioFocus()
+        val format = runCatching {
+            VoiceRecorderEngine.Format.valueOf(
+                intent.getStringExtra(EXTRA_FORMAT) ?: VoiceRecorderEngine.Format.WAV.name
+            )
+        }.getOrDefault(VoiceRecorderEngine.Format.WAV)
+
+        val config = VoiceRecorderEngine.Config(
+            sampleRate = intent.getIntExtra(EXTRA_SAMPLE_RATE, 44_100),
+            channels = intent.getIntExtra(EXTRA_CHANNELS, 1),
+            format = format,
+            bitrateBps = intent.getIntExtra(EXTRA_BITRATE, 128_000)
+        )
+        val engine = VoiceRecorderEngine(applicationContext)
+        VoiceRecordingController.engine = engine
+        VoiceRecordingController.update(RecordingUiState(running = true))
+
+        runCatching {
+            engine.start(config, object : VoiceRecorderEngine.Listener {
+                override fun onSpectrum(bands: List<Float>, elapsedMs: Long) {
+                    val cur = VoiceRecordingController.state.value
+                    if (cur.running) {
+                        VoiceRecordingController.update(
+                            cur.copy(elapsedMs = elapsedMs, spectrum = bands)
+                        )
+                    }
+                }
+
+                override fun onFinished(file: File, durationMs: Long) {
+                    VoiceRecordingController.update(
+                        RecordingUiState(running = false, output = file, elapsedMs = durationMs)
+                    )
+                }
+
+                override fun onError(message: String) {
+                    VoiceRecordingController.update(
+                        RecordingUiState(running = false, error = message)
+                    )
+                }
+            })
+        }.onFailure { err ->
+            VoiceRecordingController.update(
+                RecordingUiState(running = false, error = err.message ?: "Gagal merekam suara")
+            )
+            stopSelf()
+        }
+    }
+
+    private fun requestAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener(focusListener)
+                .build()
+            focusRequest = req
+            am.requestAudioFocus(req)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { am.abandonAudioFocusRequest(it) }
+            focusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(focusListener)
+        }
+    }
+
     override fun onDestroy() {
-        VoiceRecordingController.stop()
+        abandonAudioFocus()
+        VoiceRecordingController.releaseAll()
         scope.cancel()
         super.onDestroy()
     }
@@ -180,26 +228,22 @@ class VoiceRecordingService : Service() {
 
     private fun buildNotification(paused: Boolean): Notification {
         val openIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
+            this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val toggleIntent = PendingIntent.getService(
-            this,
-            1,
+            this, 10,
             Intent(this, VoiceRecordingService::class.java).setAction(if (paused) ACTION_RESUME else ACTION_PAUSE),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val stopIntent = PendingIntent.getService(
-            this,
-            2,
+            this, 11,
             Intent(this, VoiceRecordingService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_harimu)
-            .setContentTitle(getString(R.string.recording_voice_title))
+            .setContentTitle(getString(R.string.recording_channel_name))
             .setContentText(getString(if (paused) R.string.recording_paused else R.string.recording_active))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -214,26 +258,33 @@ class VoiceRecordingService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, getString(R.string.recording_channel_name), NotificationManager.IMPORTANCE_LOW)
-                    .apply { description = getString(R.string.recording_channel_desc) }
+                NotificationChannel(
+                    CHANNEL_ID,
+                    getString(R.string.recording_channel_name),
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply { description = getString(R.string.recording_channel_desc) }
             )
         }
     }
 
     companion object {
-        const val CHANNEL_ID = "harimu_recording"
-        const val NOTIFICATION_ID = 4211
+        const val CHANNEL_ID = ScreenRecorderService.CHANNEL_ID
+        const val NOTIFICATION_ID = 4213
         const val ACTION_START = "com.harimu.app.recording.VOICE_START"
         const val ACTION_PAUSE = "com.harimu.app.recording.VOICE_PAUSE"
         const val ACTION_RESUME = "com.harimu.app.recording.VOICE_RESUME"
         const val ACTION_STOP = "com.harimu.app.recording.VOICE_STOP"
         private const val EXTRA_FORMAT = "format"
         private const val EXTRA_SAMPLE_RATE = "sample_rate"
+        private const val EXTRA_CHANNELS = "channels"
+        private const val EXTRA_BITRATE = "bitrate"
 
-        fun intent(context: Context, options: VoiceRecorderEngine.Options): Intent =
+        fun intent(context: Context, config: VoiceRecorderEngine.Config): Intent =
             Intent(context, VoiceRecordingService::class.java)
                 .setAction(ACTION_START)
-                .putExtra(EXTRA_FORMAT, options.format.name)
-                .putExtra(EXTRA_SAMPLE_RATE, options.sampleRate)
+                .putExtra(EXTRA_FORMAT, config.format.name)
+                .putExtra(EXTRA_SAMPLE_RATE, config.sampleRate)
+                .putExtra(EXTRA_CHANNELS, config.channels)
+                .putExtra(EXTRA_BITRATE, config.bitrateBps)
     }
 }

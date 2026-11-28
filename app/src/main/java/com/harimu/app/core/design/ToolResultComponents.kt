@@ -84,6 +84,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.rememberPresentationState
 import coil.compose.AsyncImage
 import com.harimu.app.R
 import com.harimu.app.core.cloud.UploadStatus
@@ -247,10 +250,13 @@ private fun VideoResultPreview(output: ToolOutputFile, storage: FileStorageManag
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black)
             ) {
-                androidx.media3.ui.compose.ContentFrame(
+                val presentationState = rememberPresentationState(exoPlayer)
+                PlayerSurface(
                     player = exoPlayer,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxSize()
+                        .resizeWithContentScale(ContentScale.Fit, presentationState.videoSizeDp)
                 )
                 androidx.compose.material3.FilledIconButton(
                     onClick = { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },

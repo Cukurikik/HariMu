@@ -48,6 +48,7 @@ private fun PreviewToolCard() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, name = "Chrome & Surfaces Light")
 @Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Chrome & Surfaces AMOLED")
 @Composable

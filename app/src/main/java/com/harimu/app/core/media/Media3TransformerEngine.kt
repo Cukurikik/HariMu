@@ -4,14 +4,14 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import androidx.media3.common.C
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
-import androidx.media3.common.audio.SpeedProvider
-import androidx.media3.common.util.ExperimentalApi
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.ScaleAndRotateTransformation
+import androidx.media3.effect.SpeedChangeEffect
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
@@ -81,7 +81,7 @@ interface TransformerBackend {
     ): TransformerHandle
 }
 
-@androidx.annotation.OptIn(UnstableApi::class, ExperimentalApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 object RealMedia3TransformerBackend : TransformerBackend {
     override fun startExport(
         context: Context,
@@ -165,6 +165,19 @@ object RealMedia3TransformerBackend : TransformerBackend {
 
                 transformerRef = transformer
 
+                val speedFactor = request.speed.takeIf { abs(it - 1.0f) > 0.01f }?.coerceIn(0.25f, 4.0f)
+                val finalVideoEffects = buildList<Effect> {
+                    addAll(videoEffects)
+                    if (speedFactor != null && !request.removeVideo) {
+                        add(SpeedChangeEffect(speedFactor))
+                    }
+                }
+                val finalAudioProcessors = buildList<AudioProcessor> {
+                    if (speedFactor != null && !request.removeAudio) {
+                        add(SonicAudioProcessor().apply { setSpeed(speedFactor) })
+                    }
+                }
+
                 val allUris = request.allInputUris
                 if (allUris.size > 1) {
                     val items = allUris.map { uri ->
@@ -173,16 +186,14 @@ object RealMedia3TransformerBackend : TransformerBackend {
                             itemBuilder.setImageDurationMs(request.imageFrameDurationMs)
                         }
                         val editedBuilder = EditedMediaItem.Builder(itemBuilder.build())
-                        if (videoEffects.isNotEmpty()) {
-                            editedBuilder.setEffects(Effects(emptyList(), videoEffects))
+                            .setRemoveAudio(request.removeAudio || request.imageFrameDurationMs > 0L)
+                            .setRemoveVideo(request.removeVideo)
+                        if (finalAudioProcessors.isNotEmpty() || finalVideoEffects.isNotEmpty()) {
+                            editedBuilder.setEffects(Effects(finalAudioProcessors, finalVideoEffects))
                         }
                         editedBuilder.build()
                     }
-                    val sequence = if (request.imageFrameDurationMs > 0L) {
-                        EditedMediaItemSequence.withVideoFrom(items)
-                    } else {
-                        EditedMediaItemSequence.withAudioAndVideoFrom(items)
-                    }
+                    val sequence = EditedMediaItemSequence.Builder(items).build()
                     val composition = Composition.Builder(sequence).build()
                     transformer.start(composition, outputFile.absolutePath)
                 } else {
@@ -198,15 +209,8 @@ object RealMedia3TransformerBackend : TransformerBackend {
                     val editedBuilder = EditedMediaItem.Builder(mediaBuilder.build())
                         .setRemoveAudio(request.removeAudio)
                         .setRemoveVideo(request.removeVideo)
-                    if (videoEffects.isNotEmpty()) {
-                        editedBuilder.setEffects(Effects(emptyList(), videoEffects))
-                    }
-                    if (abs(request.speed - 1.0f) > 0.01f) {
-                        val targetSpeed = request.speed.coerceIn(0.25f, 4.0f)
-                        editedBuilder.setSpeed(object : SpeedProvider {
-                            override fun getSpeed(timeUs: Long): Float = targetSpeed
-                            override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = C.TIME_UNSET
-                        })
+                    if (finalAudioProcessors.isNotEmpty() || finalVideoEffects.isNotEmpty()) {
+                        editedBuilder.setEffects(Effects(finalAudioProcessors, finalVideoEffects))
                     }
                     transformer.start(editedBuilder.build(), outputFile.absolutePath)
                 }

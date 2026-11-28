@@ -66,7 +66,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.compose.ContentFrame
+import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.rememberPresentationState
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuColors
 import com.harimu.app.core.design.MonoTextStyle
@@ -203,10 +205,12 @@ fun VideoPreview(
             .clickable { showControls = !showControls },
         contentAlignment = Alignment.Center
     ) {
-        ContentFrame(
+        val presentationState = rememberPresentationState(exoPlayer)
+        PlayerSurface(
             player = exoPlayer,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = contentScale
+            modifier = Modifier
+                .fillMaxSize()
+                .resizeWithContentScale(contentScale, presentationState.videoSizeDp)
         )
 
         if (playerError != null) {

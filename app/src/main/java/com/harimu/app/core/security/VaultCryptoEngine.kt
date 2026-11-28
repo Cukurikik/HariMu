@@ -5,7 +5,6 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import com.harimu.app.core.data.VaultKeyEntity
 import java.io.File
-import java.io.FileOutputStream
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -20,287 +19,245 @@ import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.SecretKeySpec
 
 /**
- * Key Vault (FASE 14, CORE-07).
- *
- * Yang benar-benar dijamin:
- * - Kunci AES tinggal di **AndroidKeyStore** (non-ekspor; `publicKeyPem` hanya penanda).
- * - Pasangan RSA/EC dibuat di perangkat. Private key **disegel** dengan kunci master Keystore
- *   (`harimu_vault_master`, AES-256-GCM) sebelum disimpan di Room, jadi database saja tidak cukup
- *   untuk mencuri kunci. Ekspor PEM wajib melewati gerbang biometrik di UI.
- * - Enkripsi/dekripsi berkas memakai AES-GCM 128-bit tag dengan format `HMVLT1|iv|ciphertext`.
- * - Tanda tangan/verifikasi: `SHA256withRSA` atau `SHA256withECDSA`.
- *
- * Batas jujur:
- * - Gerbang biometrik adalah lapisan UI (`BiometricPrompt`), bukan `setUserAuthenticationRequired`
- *   pada kunci Keystore — kalau kunci diikat ke biometrik, setiap operasi AES (termasuk dekripsi
- *   berkas) akan meminta sidik jari dan banyak perangkat tidak punya sensor. Ini dicatat di DECISIONS.
- * - Enkripsi berkas **hanya untuk kunci AES**; RSA tidak dipakai untuk data besar (batas blok).
- * - Menghapus entri AES di vault ikut menghapus alias kunci di AndroidKeyStore (berkas .hmvlt lama tidak bisa didekripsi lagi).
+ * Engine kriptografi untuk Key Vault (CORE-07):
+ * - AES 128/256 di AndroidKeyStore (non-ekspor).
+ * - RSA 2048/3072/4096 & ECDSA P-256/P-384/P-521 dengan private key disegel [SecretBox] (`vault:v1:`).
+ * - Tanda tangan SHA256withRSA / SHA256withECDSA + verifikasi.
+ * - Enkripsi / dekripsi berkas AES-GCM (dengan kunci vault Keystore atau kata sandi PBKDF2).
  */
 object VaultCryptoEngine {
 
-    private const val ANDROID_KEYSTORE = "AndroidKeyStore"
-    private const val MASTER_ALIAS = "harimu_vault_master"
-    private const val SEAL_PREFIX = "vault:v1:"
+    private const val VAULT_PREFIX = "vault:v1:"
+    private const val KEYSTORE_PREFIX = "AndroidKeyStore://"
     private const val FILE_MAGIC = "HMVLT1"
+    private const val KDF_ITERATIONS = 210_000
     private const val GCM_TAG_BITS = 128
 
-    val AES_SIZES = listOf(128, 256)
-    val RSA_SIZES = listOf(2048, 3072, 4096)
-    val EC_CURVES = listOf("P-256", "P-384", "P-521")
-
-    // ---------------------------------------------------------------- generate
-
-    fun generateKey(
-        alias: String,
-        algorithm: String,
-        keySizeBits: Int = 256,
-        keepInKeystore: Boolean = true
-    ): VaultKeyEntity {
-        val cleanAlias = alias.trim().ifBlank { "harimu_key_${System.currentTimeMillis() % 100000}" }
-        return when {
-            algorithm.startsWith("AES") -> generateAes(cleanAlias, keySizeBits.coerceIn(128, 256))
-            algorithm.startsWith("RSA") -> generateRsa(cleanAlias, keySizeBits)
-            algorithm.startsWith("ECDSA") -> generateEc(cleanAlias, algorithm, keySizeBits)
+    fun generateKey(alias: String, algorithm: String, keySizeBits: Int): VaultKeyEntity {
+        val cleanAlias = alias.trim().ifBlank { "key_${System.currentTimeMillis()}" }
+        return when (algorithm.uppercase()) {
+            "ECDSA", "EC" -> generateEcKey(cleanAlias, keySizeBits)
+            "RSA" -> generateRsaKey(cleanAlias, keySizeBits)
+            "AES" -> generateAesKey(cleanAlias, keySizeBits)
             else -> error("Algoritma tidak didukung: $algorithm")
         }
     }
 
-    private fun generateAes(alias: String, bits: Int): VaultKeyEntity {
-        val keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
-        keyGen.init(
-            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setKeySize(if (bits == 128) 128 else 256)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build()
-        )
-        keyGen.generateKey()
-        return VaultKeyEntity(
-            alias = alias,
-            algorithm = "AES-${if (bits == 128) 128 else 256}-GCM",
-            keySizeBits = if (bits == 128) 128 else 256,
-            publicKeyPem = "(Non-exportable AndroidKeyStore key)",
-            privateKeyPem = "(Protected in AndroidKeyStore)",
-            fingerprintSha256 = sha256Hex("AES:$alias:$bits".toByteArray()),
-            keystoreBacked = true
-        )
-    }
-
-    private fun generateRsa(alias: String, bits: Int): VaultKeyEntity {
-        val size = bits.takeIf { it in RSA_SIZES } ?: 2048
-        val generator = KeyPairGenerator.getInstance("RSA")
-        generator.initialize(size)
-        val pair = generator.generateKeyPair()
-        return entityForPair(alias, "RSA-$size", size, pair.public, pair.private)
-    }
-
-    private fun generateEc(alias: String, algorithm: String, bits: Int): VaultKeyEntity {
-        val (label, curveName, curveBits) = when {
-            algorithm.contains("384") || bits == 384 -> Triple("P-384", "secp384r1", 384)
-            algorithm.contains("521") || bits == 521 -> Triple("P-521", "secp521r1", 521)
-            else -> Triple("P-256", "secp256r1", 256)
+    private fun generateEcKey(alias: String, bits: Int): VaultKeyEntity {
+        val curve = when (bits) {
+            256 -> "secp256r1"
+            384 -> "secp384r1"
+            521 -> "secp521r1"
+            else -> error("Ukuran kunci ECDSA harus 256, 384, atau 521 bit")
         }
-        val generator = KeyPairGenerator.getInstance("EC")
-        generator.initialize(ECGenParameterSpec(curveName))
-        val pair = generator.generateKeyPair()
-        return entityForPair(alias, "ECDSA-$label", curveBits, pair.public, pair.private)
-    }
-
-    private fun entityForPair(
-        alias: String,
-        algorithm: String,
-        bits: Int,
-        public: PublicKey,
-        private: PrivateKey
-    ): VaultKeyEntity {
-        val privatePem = toPem("PRIVATE KEY", private.encoded)
+        val gen = KeyPairGenerator.getInstance("EC").apply {
+            initialize(ECGenParameterSpec(curve), SecureRandom())
+        }
+        val pair = gen.generateKeyPair()
+        val pubPem = toPem("PUBLIC KEY", pair.public.encoded)
+        val privPem = toPem("PRIVATE KEY", pair.private.encoded)
+        val sealedPriv = VAULT_PREFIX + SecretBox.seal(privPem)
         return VaultKeyEntity(
             alias = alias,
-            algorithm = algorithm,
+            algorithm = "ECDSA-P-$bits",
             keySizeBits = bits,
-            publicKeyPem = toPem("PUBLIC KEY", public.encoded),
-            privateKeyPem = sealPrivate(privatePem),
-            fingerprintSha256 = sha256Hex(public.encoded),
+            publicKeyPem = pubPem,
+            privateKeyPem = sealedPriv,
+            fingerprintSha256 = sha256Fingerprint(pair.public.encoded),
             keystoreBacked = false
         )
     }
 
-    // -------------------------------------------------------------- export PEM
-
-    /** Hanya dipanggil setelah gerbang biometrik di UI berhasil. */
-    fun exportPrivatePem(entity: VaultKeyEntity): String {
-        require(!entity.keystoreBacked) {
-            "Kunci ini non-ekspor (AndroidKeyStore) dan tidak bisa diekspor"
+    private fun generateRsaKey(alias: String, bits: Int): VaultKeyEntity {
+        require(bits in listOf(2048, 3072, 4096)) { "Ukuran kunci RSA harus 2048, 3072, atau 4096 bit" }
+        val gen = KeyPairGenerator.getInstance("RSA").apply {
+            initialize(bits, SecureRandom())
         }
-        return unsealPrivate(entity.privateKeyPem)
-    }
-
-    fun exportPublicPem(entity: VaultKeyEntity): String = entity.publicKeyPem
-
-    internal fun sealPrivate(plainPem: String): String {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, masterKey())
-        val iv = cipher.iv
-        val encrypted = cipher.doFinal(plainPem.toByteArray(Charsets.UTF_8))
-        return SEAL_PREFIX + Base64.encodeToString(iv + encrypted, Base64.NO_WRAP)
-    }
-
-    internal fun unsealPrivate(stored: String): String {
-        if (stored.trimStart().startsWith("-----BEGIN")) return stored // data lama Fase 2
-        require(stored.startsWith(SEAL_PREFIX)) { "Format private key tidak dikenali" }
-        val raw = Base64.decode(stored.removePrefix(SEAL_PREFIX), Base64.DEFAULT)
-        require(raw.size > 12) { "Private key terenkripsi rusak" }
-        val iv = raw.copyOfRange(0, 12)
-        val cipherText = raw.copyOfRange(12, raw.size)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, masterKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
-        return cipher.doFinal(cipherText).toString(Charsets.UTF_8)
-    }
-
-    private fun masterKey(): SecretKey {
-        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        (keyStore.getKey(MASTER_ALIAS, null) as? SecretKey)?.let { return it }
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
-        generator.init(
-            KeyGenParameterSpec.Builder(MASTER_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setKeySize(256)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .build()
+        val pair = gen.generateKeyPair()
+        val pubPem = toPem("PUBLIC KEY", pair.public.encoded)
+        val privPem = toPem("PRIVATE KEY", pair.private.encoded)
+        val sealedPriv = VAULT_PREFIX + SecretBox.seal(privPem)
+        return VaultKeyEntity(
+            alias = alias,
+            algorithm = "RSA-$bits",
+            keySizeBits = bits,
+            publicKeyPem = pubPem,
+            privateKeyPem = sealedPriv,
+            fingerprintSha256 = sha256Fingerprint(pair.public.encoded),
+            keystoreBacked = false
         )
-        return generator.generateKey()
     }
 
-    // ------------------------------------------------------------ file encrypt
+    private fun generateAesKey(alias: String, bits: Int): VaultKeyEntity {
+        require(bits in listOf(128, 192, 256)) { "Ukuran kunci AES harus 128, 192, atau 256 bit" }
+        val ksAlias = "harimu_aes_${alias.replace(Regex("[^A-Za-z0-9_-]"), "_").take(32)}_${System.currentTimeMillis()}"
+        runCatching {
+            val kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            kg.init(
+                KeyGenParameterSpec.Builder(
+                    ksAlias,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+                )
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(bits)
+                    .build()
+            )
+            kg.generateKey()
+        }
+        return VaultKeyEntity(
+            alias = alias,
+            algorithm = "AES-$bits-GCM",
+            keySizeBits = bits,
+            publicKeyPem = "",
+            privateKeyPem = "${KEYSTORE_PREFIX}$ksAlias (non-exportable)",
+            fingerprintSha256 = sha256Fingerprint(ksAlias.toByteArray(Charsets.UTF_8)),
+            keystoreBacked = true
+        )
+    }
 
-    fun encryptFile(entity: VaultKeyEntity, input: File, dest: File): Long {
-        require(entity.keystoreBacked) { "Enkripsi berkas hanya untuk kunci AES (AndroidKeyStore)" }
-        val key = aesKey(entity.alias)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key)
+    fun exportPrivatePem(key: VaultKeyEntity): String {
+        require(!key.keystoreBacked && key.privateKeyPem.startsWith(VAULT_PREFIX)) {
+            "Kunci ini tersimpan di AndroidKeyStore dan tidak dapat diekspor"
+        }
+        return SecretBox.unseal(key.privateKeyPem.removePrefix(VAULT_PREFIX))
+    }
+
+    fun signBytes(key: VaultKeyEntity, data: ByteArray): ByteArray {
+        val privPem = exportPrivatePem(key)
+        val jcaAlg = when {
+            key.algorithm.startsWith("ECDSA") -> "EC"
+            key.algorithm.startsWith("RSA") -> "RSA"
+            else -> error("Algoritma ${key.algorithm} tidak mendukung tanda tangan asimetris")
+        }
+        val sigAlg = if (jcaAlg == "EC") "SHA256withECDSA" else "SHA256withRSA"
+        val privateKey: PrivateKey = KeyFactory.getInstance(jcaAlg)
+            .generatePrivate(PKCS8EncodedKeySpec(fromPem(privPem)))
+        return Signature.getInstance(sigAlg).run {
+            initSign(privateKey)
+            update(data)
+            sign()
+        }
+    }
+
+    fun verifyBytes(key: VaultKeyEntity, data: ByteArray, signature: ByteArray): Boolean = runCatching {
+        val jcaAlg = when {
+            key.algorithm.startsWith("ECDSA") -> "EC"
+            key.algorithm.startsWith("RSA") -> "RSA"
+            else -> return@runCatching false
+        }
+        val sigAlg = if (jcaAlg == "EC") "SHA256withECDSA" else "SHA256withRSA"
+        val publicKey: PublicKey = KeyFactory.getInstance(jcaAlg)
+            .generatePublic(X509EncodedKeySpec(fromPem(key.publicKeyPem)))
+        Signature.getInstance(sigAlg).run {
+            initVerify(publicKey)
+            update(data)
+            verify(signature)
+        }
+    }.getOrDefault(false)
+
+    fun encryptFileWithKeystore(source: File, dest: File, key: VaultKeyEntity) {
+        require(key.keystoreBacked && key.privateKeyPem.startsWith(KEYSTORE_PREFIX)) {
+            "Pilih kunci AES berbasis AndroidKeyStore untuk enkripsi berkas langsung"
+        }
+        val ksAlias = key.privateKeyPem.removePrefix(KEYSTORE_PREFIX).substringBefore(" ")
+        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val secret = ks.getKey(ksAlias, null) as? SecretKey
+            ?: error("Kunci $ksAlias tidak ditemukan di AndroidKeyStore")
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, secret) }
         val iv = cipher.iv
-        FileOutputStream(dest).use { out ->
+        val plain = source.readBytes()
+        val ct = cipher.doFinal(plain)
+        dest.outputStream().use { out ->
             out.write(FILE_MAGIC.toByteArray(Charsets.US_ASCII))
+            out.write(byteArrayOf(1, iv.size.toByte()))
             out.write(iv)
-            input.inputStream().use { raw ->
-                val buffer = ByteArray(64 * 1024)
-                while (true) {
-                    val read = raw.read(buffer)
-                    if (read <= 0) break
-                    out.write(cipher.update(buffer, 0, read))
-                }
-                out.write(cipher.doFinal())
-            }
+            out.write(ct)
         }
-        return dest.length()
     }
 
-    fun decryptFile(entity: VaultKeyEntity, input: File, dest: File): Long {
-        require(entity.keystoreBacked) { "Dekripsi berkas hanya untuk kunci AES (AndroidKeyStore)" }
-        val bytes = input.inputStream().use { stream ->
-            val magic = ByteArray(FILE_MAGIC.length)
-            var read = 0
-            while (read < magic.size) {
-                val n = stream.read(magic, read, magic.size - read)
-                if (n <= 0) break
-                read += n
-            }
-            require(read == magic.size && magic.toString(Charsets.US_ASCII) == FILE_MAGIC) {
-                "Berkas bukan arsip terenkripsi HariMu"
-            }
-            val iv = ByteArray(12)
-            var ivRead = 0
-            while (ivRead < iv.size) {
-                val n = stream.read(iv, ivRead, iv.size - ivRead)
-                if (n <= 0) break
-                ivRead += n
-            }
-            require(ivRead == 12) { "Header IV terpotong" }
-            val cipherText = stream.readBytes()
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, aesKey(entity.alias), GCMParameterSpec(GCM_TAG_BITS, iv))
-            cipher.doFinal(cipherText)
+    fun decryptFileWithKeystore(source: File, dest: File, key: VaultKeyEntity) {
+        val raw = source.readBytes()
+        require(raw.size > 16 && raw.copyOfRange(0, 6).contentEquals(FILE_MAGIC.toByteArray(Charsets.US_ASCII))) {
+            "Format berkas terenkripsi HariMu tidak dikenali"
         }
-        dest.writeBytes(bytes)
-        return dest.length()
-    }
-
-    private fun aesKey(alias: String): SecretKey {
-        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        return keyStore.getKey(alias, null) as? SecretKey
-            ?: error("Kunci Keystore '$alias' tidak ditemukan (mungkin sudah dihapus)")
-    }
-
-    fun deleteKeyStoreAlias(entity: VaultKeyEntity): Boolean {
-        if (!entity.keystoreBacked) return false
-        return runCatching {
-            val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-            if (keyStore.containsAlias(entity.alias)) {
-                keyStore.deleteEntry(entity.alias)
-                true
-            } else {
-                false
-            }
-        }.getOrDefault(false)
-    }
-
-    // ------------------------------------------------------------- sign/verify
-
-    fun signBytes(entity: VaultKeyEntity, data: ByteArray): ByteArray {
-        val algorithm = if (entity.algorithm.startsWith("RSA")) "SHA256withRSA" else "SHA256withECDSA"
-        val signature = Signature.getInstance(algorithm)
-        signature.initSign(privateKeyOf(entity))
-        signature.update(data)
-        return signature.sign()
-    }
-
-    fun verifyBytes(entity: VaultKeyEntity, data: ByteArray, signatureBytes: ByteArray): Boolean {
-        val algorithm = if (entity.algorithm.startsWith("RSA")) "SHA256withRSA" else "SHA256withECDSA"
-        return runCatching {
-            val signature = Signature.getInstance(algorithm)
-            signature.initVerify(publicKeyOf(entity))
-            signature.update(data)
-            signature.verify(signatureBytes)
-        }.getOrDefault(false)
-    }
-
-    private fun privateKeyOf(entity: VaultKeyEntity): PrivateKey {
-        if (entity.keystoreBacked) {
-            // Hanya kunci AES yang berada di Keystore; tidak dipakai untuk tanda tangan.
-            error("Kunci AES tidak bisa dipakai untuk tanda tangan; gunakan RSA/ECDSA")
+        val mode = raw[6].toInt()
+        require(mode == 1) { "Berkas ini dienkripsi dengan kata sandi, bukan kunci Keystore" }
+        val ivLen = raw[7].toInt() and 0xFF
+        val iv = raw.copyOfRange(8, 8 + ivLen)
+        val ct = raw.copyOfRange(8 + ivLen, raw.size)
+        val ksAlias = key.privateKeyPem.removePrefix(KEYSTORE_PREFIX).substringBefore(" ")
+        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val secret = ks.getKey(ksAlias, null) as? SecretKey
+            ?: error("Kunci $ksAlias tidak ditemukan di AndroidKeyStore")
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(Cipher.DECRYPT_MODE, secret, GCMParameterSpec(GCM_TAG_BITS, iv))
         }
-        val pem = unsealPrivate(entity.privateKeyPem)
-        val der = pemToDer(pem)
-        val factory = KeyFactory.getInstance(if (entity.algorithm.startsWith("RSA")) "RSA" else "EC")
-        return factory.generatePrivate(PKCS8EncodedKeySpec(der))
+        dest.writeBytes(cipher.doFinal(ct))
     }
 
-    private fun publicKeyOf(entity: VaultKeyEntity): PublicKey {
-        val der = pemToDer(entity.publicKeyPem)
-        val factory = KeyFactory.getInstance(if (entity.algorithm.startsWith("RSA")) "RSA" else "EC")
-        return factory.generatePublic(X509EncodedKeySpec(der))
+    fun encryptFileWithPassword(source: File, dest: File, password: String) {
+        require(password.isNotEmpty()) { "Kata sandi wajib diisi" }
+        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        val iv = ByteArray(12).also { SecureRandom().nextBytes(it) }
+        val secret = deriveAesKey(password, salt)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(Cipher.ENCRYPT_MODE, secret, GCMParameterSpec(GCM_TAG_BITS, iv))
+        }
+        val ct = cipher.doFinal(source.readBytes())
+        dest.outputStream().use { out ->
+            out.write(FILE_MAGIC.toByteArray(Charsets.US_ASCII))
+            out.write(byteArrayOf(2, iv.size.toByte()))
+            out.write(salt)
+            out.write(iv)
+            out.write(ct)
+        }
     }
 
-    fun pemToDer(pem: String): ByteArray {
-        val body = pem
-            .replace(Regex("-----BEGIN [^-]+-----"), "")
-            .replace(Regex("-----END [^-]+-----"), "")
-            .replace(Regex("\\s"), "")
-        require(body.isNotEmpty()) { "PEM kosong/tidak valid" }
-        return Base64.decode(body, Base64.DEFAULT)
+    fun decryptFileWithPassword(source: File, dest: File, password: String) {
+        require(password.isNotEmpty()) { "Kata sandi wajib diisi" }
+        val raw = source.readBytes()
+        require(raw.size > 36 && raw.copyOfRange(0, 6).contentEquals(FILE_MAGIC.toByteArray(Charsets.US_ASCII))) {
+            "Format berkas terenkripsi HariMu tidak dikenali"
+        }
+        val mode = raw[6].toInt()
+        require(mode == 2) { "Berkas ini dienkripsi dengan kunci Keystore perangkat" }
+        val ivLen = raw[7].toInt() and 0xFF
+        val salt = raw.copyOfRange(8, 24)
+        val iv = raw.copyOfRange(24, 24 + ivLen)
+        val ct = raw.copyOfRange(24 + ivLen, raw.size)
+        val secret = deriveAesKey(password, salt)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(Cipher.DECRYPT_MODE, secret, GCMParameterSpec(GCM_TAG_BITS, iv))
+        }
+        dest.writeBytes(cipher.doFinal(ct))
     }
 
-    fun toPem(label: String, der: ByteArray): String {
-        val base64 = Base64.encodeToString(der, Base64.NO_WRAP).chunked(64).joinToString("\n")
-        return "-----BEGIN $label-----\n$base64\n-----END $label-----"
+    private fun deriveAesKey(password: String, salt: ByteArray): SecretKeySpec {
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = PBEKeySpec(password.toCharArray(), salt, KDF_ITERATIONS, 256)
+        return SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
     }
 
-    fun sha256Hex(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(":") { "%02X".format(it) }
+    private fun toPem(label: String, der: ByteArray): String {
+        val b64 = Base64.encodeToString(der, Base64.NO_WRAP).chunked(64).joinToString("\n")
+        return "-----BEGIN $label-----\n$b64\n-----END $label-----"
+    }
 
-    fun secureRandomBytes(size: Int): ByteArray = ByteArray(size).also { SecureRandom().nextBytes(it) }
+    private fun fromPem(pem: String): ByteArray {
+        val clean = pem.lines()
+            .filter { !it.startsWith("-----") && it.isNotBlank() }
+            .joinToString("")
+        return Base64.decode(clean, Base64.DEFAULT)
+    }
+
+    private fun sha256Fingerprint(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString(":") { "%02X".format(it) }
 }

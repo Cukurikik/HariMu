@@ -57,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.rememberPresentationState
 import coil.compose.AsyncImage
 import com.harimu.app.R
 import com.harimu.app.core.design.pdf.PdfDocumentPreviewCard
@@ -501,10 +504,13 @@ private fun VideoPreviewCard(
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black)
             ) {
-                androidx.media3.ui.compose.ContentFrame(
+                val presentationState = rememberPresentationState(exoPlayer)
+                PlayerSurface(
                     player = exoPlayer,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxSize()
+                        .resizeWithContentScale(ContentScale.Fit, presentationState.videoSizeDp)
                 )
                 if (playerError != null) {
                     Text(
