@@ -46,7 +46,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -197,7 +199,17 @@ fun HariMuStatusBanner(
     }
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        // The banner appears in reaction to a load, refresh or failed action, so screen readers
+        // must be told about the new state instead of leaving it to be discovered by swiping.
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                liveRegion = if (tone == StatusTone.ERROR) {
+                    LiveRegionMode.Assertive
+                } else {
+                    LiveRegionMode.Polite
+                }
+            },
         shape = HariMuThemeTokens.shapes.card,
         colors = CardDefaults.cardColors(containerColor = container),
         elevation = CardDefaults.cardElevation(defaultElevation = HariMuThemeTokens.elevation.none),

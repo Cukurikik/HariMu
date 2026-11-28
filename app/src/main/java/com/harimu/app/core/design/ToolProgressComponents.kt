@@ -43,6 +43,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +89,13 @@ data class ProgressCallbacks(
     val jobId: String? = null,
     val onViewJobCenter: (() -> Unit)? = null
 )
+
+/**
+ * Terminal job states appear once and the user may be looking elsewhere when they do, so mark the
+ * card as a polite live region: the outcome is announced rather than waiting to be swiped onto.
+ */
+private fun Modifier.jobOutcomeLiveRegion(): Modifier =
+    semantics { liveRegion = LiveRegionMode.Polite }
 
 /**
  * Main progress view component showing real-time progress with cancellation support.
@@ -385,7 +395,7 @@ private fun DoneProgressCard(
     modifier: Modifier
 ) {
     HariMuSectionCard(
-        modifier = modifier,
+        modifier = modifier.jobOutcomeLiveRegion(),
         containerColor = MaterialTheme.colorScheme.surface,
         borderColor = HariMuThemeTokens.semantic.successBorder.copy(alpha = 0.65f)
     ) {
@@ -418,7 +428,7 @@ private fun FailedProgressCard(
     modifier: Modifier
 ) {
     HariMuSectionCard(
-        modifier = modifier,
+        modifier = modifier.jobOutcomeLiveRegion(),
         containerColor = MaterialTheme.colorScheme.errorContainer,
         borderColor = MaterialTheme.colorScheme.error
     ) {
@@ -458,7 +468,7 @@ private fun InterruptedProgressCard(
 ) {
     val semantic = HariMuThemeTokens.semantic
     HariMuSectionCard(
-        modifier = modifier,
+        modifier = modifier.jobOutcomeLiveRegion(),
         containerColor = semantic.warningContainer,
         borderColor = semantic.warning.copy(alpha = 0.6f)
     ) {
@@ -496,7 +506,7 @@ private fun CancelledProgressCard(
     modifier: Modifier
 ) {
     HariMuSectionCard(
-        modifier = modifier,
+        modifier = modifier.jobOutcomeLiveRegion(),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         borderColor = MaterialTheme.colorScheme.outlineVariant
     ) {
