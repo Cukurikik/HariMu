@@ -50,8 +50,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuInsetPanel
+import com.harimu.app.core.design.HariMuStatusBanner
 import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.design.StatusTone
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.design.utilities.UtilityAttributionFooter
 import com.harimu.app.core.design.utilities.UtilityBadgePill
@@ -445,6 +447,12 @@ private fun LiveQuakeBanner(
                 ) {
                     Text(stringResource(R.string.utility_refresh_btn))
                 }
+            }
+            if (state.isStale) {
+                HariMuStatusBanner(
+                    message = stringResource(R.string.utility_stale_data_notice),
+                    tone = StatusTone.WARNING
+                )
             }
         }
     }

@@ -101,6 +101,15 @@ fun EarthquakeScreen(
                 }
             }
 
+            if (state.isStale) {
+                item(key = "stale") {
+                    HariMuStatusBanner(
+                        message = stringResource(R.string.utility_stale_data_notice),
+                        tone = StatusTone.WARNING
+                    )
+                }
+            }
+
             state.snapshot?.let { snapshot ->
                 item(key = "latest") {
                     LatestEarthquakeCard(earthquake = snapshot.latest)

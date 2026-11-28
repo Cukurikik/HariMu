@@ -239,7 +239,8 @@ class NusantaraAndUtilitiesUiTest {
             val container = (activity.application as HariMuApp).container
             val storeOwner = FakeVmOwner()
             val fakeApi = FakePrayerApi()
-            seedViewModel(storeOwner, PrayerTimesViewModel(PrayerTimesRepository(fakeApi)))
+            val vm = PrayerTimesViewModel(PrayerTimesRepository(fakeApi))
+            seedViewModel(storeOwner, vm)
 
             setTestContent(activity, isEnglish = true, vmOwner = storeOwner) {
                 PrayerTimesScreen(container = container, isEnglish = true, onBack = {})
@@ -267,6 +268,9 @@ class NusantaraAndUtilitiesUiTest {
                 findByTag(nodes, "prayer_retry_button") != null
             }
             assertNotNull(findByTag(errored, "prayer_retry_button"))
+            assertNotNull("A failed refresh must keep the last schedule", vm.state.value.schedule)
+            assertTrue("A failed refresh must mark the kept schedule as stale", vm.state.value.isStale)
+            assertTrue(hasTextContaining(errored, "Showing the last successfully loaded data"))
 
             fakeApi.shouldFail = false
             clickNode(findByTag(errored, "prayer_retry_button")!!)
@@ -275,6 +279,7 @@ class NusantaraAndUtilitiesUiTest {
                     findByTag(nodes, "prayer_retry_button") == null
             }
             assertNotNull(findByTag(recovered, "prayer_schedule_card"))
+            assertFalse("A successful reload must clear the stale marker", vm.state.value.isStale)
         }
     }
 
@@ -303,9 +308,21 @@ class NusantaraAndUtilitiesUiTest {
             }
             assertTrue(hasTextContaining(results, "Soreang"))
             assertTrue(hasTextContaining(results, "40915"))
+            assertTrue(hasTextContaining(results, "matching area(s) for"))
+
+            val typed = collectSemanticsNodes(activity.window.decorView)
+            setText(findByTag(typed, "area_keyword_input")!!, "Bandung")
+            val changedQuery = waitUntilNodes(activity) { nodes ->
+                hasTextContaining(nodes, "Results are still for")
+            }
+            assertNotNull(
+                "Stale results must stay visible with their original keyword",
+                findByTag(changedQuery, "area_copy_40915")
+            )
 
             fakeApi.returnEmpty = true
-            clickNode(findByTag(results, "area_search_button")!!)
+            val beforeEmpty = collectSemanticsNodes(activity.window.decorView)
+            clickNode(findByTag(beforeEmpty, "area_search_button")!!)
             val emptyNodes = waitUntilNodes(activity) { nodes ->
                 findByTag(nodes, "area_clear_button") != null
             }

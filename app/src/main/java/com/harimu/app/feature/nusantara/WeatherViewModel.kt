@@ -32,6 +32,8 @@ data class WeatherUiState(
     val isLoading: Boolean = false,
     val forecast: WeatherForecast? = null,
     val error: String? = null,
+    /** True ketika prakiraan yang tampil berasal dari pemuatan sebelumnya dan pembaruan gagal. */
+    val isStale: Boolean = false,
     val fetchedAtMillis: Long? = null
 ) {
     val visibleProvinces: List<Region> get() = provinces.filterRegionName(regionFilter)
@@ -206,7 +208,13 @@ class WeatherViewModel(
                     t
                 }
             }
-            _state.update { it.copy(isLoading = false, error = failure?.toNusantaraMessage(isEnglish)) }
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    error = failure?.toNusantaraMessage(isEnglish),
+                    isStale = failure != null && it.forecast != null
+                )
+            }
         }
     }
 

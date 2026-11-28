@@ -28,8 +28,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.design.HariMuInsetPanel
+import com.harimu.app.core.design.HariMuStatusBanner
 import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.design.StatusTone
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.design.utilities.UtilityActionButton
 import com.harimu.app.core.design.utilities.UtilityAttributionFooter
@@ -69,6 +71,10 @@ fun PrayerTimesScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val spacing = HariMuThemeTokens.spacing
     val todayLabel = remember { LocalDate.now().toString() }
+    // Tanggal dari API lebih dipercaya daripada jam perangkat; perangkat hanya cadangan.
+    val scheduleDateLabel = state.schedule?.dateLabel.orEmpty()
+    val scheduleIsoDate = state.schedule?.isoDate.orEmpty()
+    val freshnessDate = scheduleDateLabel.ifBlank { scheduleIsoDate }.ifBlank { todayLabel }
 
     UtilityScreenScaffold(
         title = stringResource(R.string.prayer_title),
@@ -144,6 +150,15 @@ fun PrayerTimesScreen(
                 }
             }
 
+            if (state.isStale) {
+                item(key = "stale") {
+                    HariMuStatusBanner(
+                        message = stringResource(R.string.utility_stale_data_notice),
+                        tone = StatusTone.WARNING
+                    )
+                }
+            }
+
             val schedule = state.schedule
             if (schedule != null && !state.isLoading) {
                 item(key = "schedule") {
@@ -162,7 +177,7 @@ fun PrayerTimesScreen(
             item(key = "attribution") {
                 UtilityAttributionFooter(
                     sourceText = stringResource(R.string.prayer_source),
-                    freshnessNote = stringResource(R.string.prayer_freshness, todayLabel),
+                    freshnessNote = stringResource(R.string.prayer_freshness, freshnessDate),
                     fetchedAtMillis = state.fetchedAtMillis,
                     onlineOnlyNote = null
                 )

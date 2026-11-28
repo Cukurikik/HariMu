@@ -19,6 +19,8 @@ data class NusantaraHubUiState(
     val isLoading: Boolean = false,
     val latest: Earthquake? = null,
     val error: String? = null,
+    /** True ketika gempa yang tampil berasal dari pemuatan sebelumnya dan pembaruan gagal. */
+    val isStale: Boolean = false,
     val fetchedAtMillis: Long? = null
 )
 
@@ -46,7 +48,13 @@ class NusantaraHubViewModel(
                             fetchedAtMillis = System.currentTimeMillis()
                         )
                     },
-                    onFailure = { current.copy(isLoading = false, error = it.toNusantaraMessage(isEnglish)) }
+                    onFailure = {
+                        current.copy(
+                            isLoading = false,
+                            error = it.toNusantaraMessage(isEnglish),
+                            isStale = current.latest != null
+                        )
+                    }
                 )
             }
         }

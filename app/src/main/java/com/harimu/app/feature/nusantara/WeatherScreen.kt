@@ -27,8 +27,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.harimu.app.AppContainer
 import com.harimu.app.R
+import com.harimu.app.core.design.HariMuStatusBanner
 import com.harimu.app.core.design.HariMuThemeTokens
 import com.harimu.app.core.design.MonoTextStyle
+import com.harimu.app.core.design.StatusTone
 import com.harimu.app.core.design.utilities.UtilityAttributionFooter
 import com.harimu.app.core.design.utilities.UtilityBadgePill
 import com.harimu.app.core.design.utilities.UtilityBreadcrumbBar
@@ -200,6 +202,15 @@ fun WeatherScreen(
                 }
             }
 
+            if (state.isStale) {
+                item(key = "stale") {
+                    HariMuStatusBanner(
+                        message = stringResource(R.string.utility_stale_data_notice),
+                        tone = StatusTone.WARNING
+                    )
+                }
+            }
+
             val forecast = state.forecast
             if (forecast != null) {
                 item(key = "forecast-header") {
@@ -207,13 +218,10 @@ fun WeatherScreen(
                 }
                 item(key = "slots-count") {
                     UtilityResultHeader(
-                        countText = stringResource(R.string.weather_slots_count, forecast.slots.size.coerceAtMost(24))
+                        countText = stringResource(R.string.weather_slots_count, forecast.slots.size)
                     )
                 }
-                items(
-                    forecast.slots.take(24),
-                    key = { "${it.localTime}-${it.conditionId}-${it.temperatureC}" }
-                ) { slot ->
+                items(forecast.slots) { slot ->
                     WeatherSlotRow(slot = slot, isEnglish = isEnglish)
                 }
             } else if (!state.isLoading && state.error == null) {
@@ -283,6 +291,13 @@ private fun WeatherSlotRow(slot: WeatherSlot, isEnglish: Boolean) {
     } else {
         slot.conditionDescId.ifBlank { slot.conditionEn.ifBlank { "—" } }
     }
+    val temperatureText = slot.temperatureC?.let { "$it°C" } ?: "—"
+    val humidity = slot.humidityPercent
+    val humidityText = if (humidity != null) {
+        stringResource(R.string.weather_humidity, humidity)
+    } else {
+        stringResource(R.string.weather_humidity_unknown)
+    }
     UtilitySectionCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -322,12 +337,12 @@ private fun WeatherSlotRow(slot: WeatherSlot, isEnglish: Boolean) {
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = "${slot.temperatureC}°C",
+                    text = temperatureText,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = stringResource(R.string.weather_humidity, slot.humidityPercent),
+                    text = humidityText,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

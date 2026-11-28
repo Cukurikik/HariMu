@@ -847,6 +847,8 @@
     <string name="utility_error_title">Gagal memuat data</string>
     <string name="utility_fetched_this_session">Diambil pada sesi ini • %1$s</string>
     <string name="utility_not_fetched_yet">Belum dimuat pada sesi ini</string>
+    <string name="utility_stale_data_notice">Menampilkan data terakhir yang berhasil dimuat karena pembaruan gagal. Tekan coba lagi untuk data terbaru.</string>
+    <string name="utility_query_changed_notice">Hasil masih untuk “%1$s”. Tekan Cari untuk memperbarui.</string>
     <string name="utility_open_detail">Buka Detail</string>
     <string name="utility_copy_value">Salin %1$s</string>
 
@@ -862,7 +864,7 @@
     <string name="prayer_copy_schedule">Salin Jadwal</string>
     <string name="prayer_empty_title">Pilih kota terlebih dahulu</string>
     <string name="prayer_empty_desc">Ketuk salah satu kota populer di atas atau ketik nama kota/kabupaten lalu tekan Muat Jadwal.</string>
-    <string name="prayer_freshness">Jadwal harian berdasarkan tanggal lokal perangkat (%1$s). Tidak tersimpan offline antar-sesi.</string>
+    <string name="prayer_freshness">Jadwal untuk %1$s sesuai tanggal perangkat saat dimuat. Tidak tersimpan offline antar-sesi.</string>
     <string name="prayer_source">Sumber: api.myquran.com (Quran API ID v2, tanpa API key).</string>
 
     <string name="area_title">Cari Kode Pos &amp; Wilayah</string>
@@ -874,6 +876,7 @@
     <string name="area_search_cta">Cari Wilayah</string>
     <string name="area_loading">Mencari wilayah &amp; kode pos…</string>
     <string name="area_results_count">%1$d wilayah ditemukan</string>
+    <string name="area_results_for">%1$d wilayah untuk “%2$s”</string>
     <string name="area_empty_title">Belum ada hasil pencarian</string>
     <string name="area_empty_desc">Tidak ada wilayah yang cocok dengan kata kunci tersebut. Coba nama kecamatan, kota, atau 5 digit kode pos.</string>
     <string name="area_prompt_title">Cari alamat atau kode pos Indonesia</string>
@@ -901,6 +904,7 @@
     <string name="weather_filter_label">Saring daftar wilayah di tingkat ini</string>
     <string name="weather_loading">Mengambil data wilayah atau prakiraan BMKG…</string>
     <string name="weather_humidity">Kelembapan %1$d%%</string>
+    <string name="weather_humidity_unknown">Kelembapan tidak tersedia</string>
     <string name="weather_wind">Angin %1$s km/j</string>
     <string name="weather_slots_count">%1$d slot prakiraan</string>
     <string name="weather_empty_prompt_title">Pilih lokasi sampai tingkat desa</string>

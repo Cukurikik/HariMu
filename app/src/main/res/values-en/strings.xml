@@ -847,6 +847,8 @@
     <string name="utility_error_title">Could not load data</string>
     <string name="utility_fetched_this_session">Fetched this session • %1$s</string>
     <string name="utility_not_fetched_yet">Not loaded in this session yet</string>
+    <string name="utility_stale_data_notice">Showing the last successfully loaded data because the refresh failed. Retry for current data.</string>
+    <string name="utility_query_changed_notice">Results are still for “%1$s”. Press Search to refresh.</string>
     <string name="utility_open_detail">Open Details</string>
     <string name="utility_copy_value">Copy %1$s</string>
 
@@ -862,7 +864,7 @@
     <string name="prayer_copy_schedule">Copy Schedule</string>
     <string name="prayer_empty_title">Choose a city to begin</string>
     <string name="prayer_empty_desc">Tap a quick city preset above or enter a city/regency name and press Load Schedule.</string>
-    <string name="prayer_freshness">Daily schedule for device date (%1$s). Not stored offline across app restarts.</string>
+    <string name="prayer_freshness">Schedule for %1$s using the device date at load time. Not stored offline across app restarts.</string>
     <string name="prayer_source">Source: api.myquran.com (Quran API ID v2, no API key).</string>
 
     <string name="area_title">Postal Code &amp; Area</string>
@@ -874,6 +876,7 @@
     <string name="area_search_cta">Search Area</string>
     <string name="area_loading">Searching Indonesian addresses &amp; postal codes…</string>
     <string name="area_results_count">%1$d matching area(s)</string>
+    <string name="area_results_for">%1$d matching area(s) for “%2$s”</string>
     <string name="area_empty_title">No matching area</string>
     <string name="area_empty_desc">No area matched that keyword. Try a village, district, city, or 5-digit postal code.</string>
     <string name="area_prompt_title">Search Indonesian addresses or postal codes</string>
@@ -901,6 +904,7 @@
     <string name="weather_filter_label">Filter regions at this level</string>
     <string name="weather_loading">Loading regions or BMKG weather forecast…</string>
     <string name="weather_humidity">Humidity %1$d%%</string>
+    <string name="weather_humidity_unknown">Humidity unavailable</string>
     <string name="weather_wind">Wind %1$s km/h</string>
     <string name="weather_slots_count">%1$d forecast slots</string>
     <string name="weather_empty_prompt_title">Select down to a village</string>

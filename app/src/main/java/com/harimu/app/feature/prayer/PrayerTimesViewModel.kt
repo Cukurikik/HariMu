@@ -26,6 +26,8 @@ data class PrayerTimesUiState(
     val isLoading: Boolean = false,
     val schedule: PrayerSchedule? = null,
     val error: String? = null,
+    /** True ketika jadwal yang tampil berasal dari pemuatan sebelumnya dan pembaruan gagal. */
+    val isStale: Boolean = false,
     val fetchedAtMillis: Long? = null
 )
 
@@ -67,6 +69,7 @@ class PrayerTimesViewModel(
                             isLoading = false,
                             schedule = it,
                             error = null,
+                            isStale = false,
                             fetchedAtMillis = System.currentTimeMillis()
                         )
                     },
@@ -74,7 +77,11 @@ class PrayerTimesViewModel(
                         val message = (failure as? PrayerTimesException)?.userMessage(isEnglish)
                             ?: failure.localizedMessage
                             ?: if (isEnglish) "Could not load the prayer schedule." else "Gagal memuat jadwal sholat."
-                        current.copy(isLoading = false, error = message)
+                        current.copy(
+                            isLoading = false,
+                            error = message,
+                            isStale = current.schedule != null
+                        )
                     }
                 )
             }

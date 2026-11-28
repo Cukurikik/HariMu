@@ -15,11 +15,14 @@ data class WeatherLocation(
     val village: String
 )
 
-/** Satu slot prakiraan 3 jam. */
+/**
+ * Satu slot prakiraan 3 jam. [temperatureC] dan [humidityPercent] bernilai null bila BMKG tidak
+ * mengirim angka untuk slot itu; UI menampilkan tanda kosong, bukan 0 °C/0 %.
+ */
 data class WeatherSlot(
     val localTime: String,
-    val temperatureC: Int,
-    val humidityPercent: Int,
+    val temperatureC: Int?,
+    val humidityPercent: Int?,
     val conditionId: String,
     val conditionEn: String,
     val windSpeed: String,
@@ -75,8 +78,8 @@ object BmkgCuacaJson {
             .map { slot ->
                 WeatherSlot(
                     localTime = slot.localDateTime.orEmpty().trim(),
-                    temperatureC = slot.temperature?.intOrNull ?: 0,
-                    humidityPercent = slot.humidity?.intOrNull ?: 0,
+                    temperatureC = slot.temperature?.intOrNull,
+                    humidityPercent = slot.humidity?.intOrNull,
                     conditionId = slot.conditionCode.text(),
                     conditionEn = slot.conditionEn.text(),
                     windSpeed = slot.windSpeed.text(),

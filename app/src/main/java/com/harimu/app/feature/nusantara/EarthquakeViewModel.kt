@@ -21,6 +21,8 @@ data class EarthquakeUiState(
     val isLoading: Boolean = false,
     val snapshot: EarthquakeSnapshot? = null,
     val error: String? = null,
+    /** True ketika snapshot yang tampil berasal dari pemuatan sebelumnya dan pembaruan gagal. */
+    val isStale: Boolean = false,
     val fetchedAtMillis: Long? = null
 )
 
@@ -49,7 +51,11 @@ class EarthquakeViewModel(
                         )
                     },
                     onFailure = { failure ->
-                        current.copy(isLoading = false, error = failure.toNusantaraMessage(isEnglish))
+                        current.copy(
+                            isLoading = false,
+                            error = failure.toNusantaraMessage(isEnglish),
+                            isStale = current.snapshot != null
+                        )
                     }
                 )
             }

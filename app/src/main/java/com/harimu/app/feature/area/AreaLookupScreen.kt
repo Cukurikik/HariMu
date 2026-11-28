@@ -29,7 +29,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.harimu.app.AppContainer
 import com.harimu.app.R
 import com.harimu.app.core.area.AreaEntry
+import com.harimu.app.core.design.HariMuStatusBanner
 import com.harimu.app.core.design.HariMuThemeTokens
+import com.harimu.app.core.design.StatusTone
 import com.harimu.app.core.design.accentColor
 import com.harimu.app.core.design.utilities.UtilityActionButton
 import com.harimu.app.core.design.utilities.UtilityAttributionFooter
@@ -132,6 +134,26 @@ fun AreaLookupScreen(
                 }
             }
 
+            if (state.isStale && state.keyword.trim() == state.resultKeyword) {
+                item(key = "stale") {
+                    HariMuStatusBanner(
+                        message = stringResource(R.string.utility_stale_data_notice),
+                        tone = StatusTone.WARNING
+                    )
+                }
+            }
+
+            if (state.entries.isNotEmpty() && state.keyword.trim() != state.resultKeyword) {
+                item(key = "query-changed") {
+                    HariMuStatusBanner(
+                        message = stringResource(R.string.utility_query_changed_notice, state.resultKeyword),
+                        tone = StatusTone.WARNING,
+                        actionLabel = stringResource(R.string.area_search_cta),
+                        onAction = { vm.search(isEnglish) }
+                    )
+                }
+            }
+
             if (!state.hasSearched && !state.isLoading && state.error == null) {
                 item(key = "prompt") {
                     UtilityEmptyState(
@@ -158,7 +180,11 @@ fun AreaLookupScreen(
             if (state.entries.isNotEmpty() && !state.isLoading) {
                 item(key = "result-count") {
                     UtilityResultHeader(
-                        countText = stringResource(R.string.area_results_count, state.entries.size)
+                        countText = if (state.resultKeyword.isBlank()) {
+                            stringResource(R.string.area_results_count, state.entries.size)
+                        } else {
+                            stringResource(R.string.area_results_for, state.entries.size, state.resultKeyword)
+                        }
                     )
                 }
                 items(state.entries, key = { entryKey(it) }) { entry ->

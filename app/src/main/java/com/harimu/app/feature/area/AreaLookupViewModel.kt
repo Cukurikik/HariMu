@@ -23,6 +23,10 @@ data class AreaLookupUiState(
     val entries: List<AreaEntry> = emptyList(),
     val hasSearched: Boolean = false,
     val error: String? = null,
+    /** Kata kunci yang benar-benar menghasilkan [entries] saat ini. */
+    val resultKeyword: String = "",
+    /** True ketika [entries] berasal dari pencarian sebelumnya dan pencarian ulang gagal. */
+    val isStale: Boolean = false,
     val fetchedAtMillis: Long? = null
 )
 
@@ -47,7 +51,15 @@ class AreaLookupViewModel(
     fun clearSearch() {
         searchJob?.cancel()
         _state.update {
-            it.copy(keyword = "", isLoading = false, entries = emptyList(), hasSearched = false, error = null)
+            it.copy(
+                keyword = "",
+                isLoading = false,
+                entries = emptyList(),
+                hasSearched = false,
+                error = null,
+                resultKeyword = "",
+                isStale = false
+            )
         }
     }
 
@@ -65,6 +77,8 @@ class AreaLookupViewModel(
                             entries = entries,
                             hasSearched = true,
                             error = null,
+                            resultKeyword = current.keyword.trim(),
+                            isStale = false,
                             fetchedAtMillis = System.currentTimeMillis()
                         )
                     },
@@ -74,9 +88,8 @@ class AreaLookupViewModel(
                             ?: if (isEnglish) "Could not search the area." else "Gagal mencari wilayah."
                         current.copy(
                             isLoading = false,
-                            entries = emptyList(),
-                            hasSearched = false,
-                            error = message
+                            error = message,
+                            isStale = current.entries.isNotEmpty()
                         )
                     }
                 )

@@ -22,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -53,6 +54,16 @@ class NusantaraTest {
          "kecamatan":"Gambir","desa":"Gambir"},
          "data":[{"cuaca":[[{"datetime":"2026-10-29T12:00:00Z","t":26,"hu":92,"weather":61,
            "weather_desc":"Hujan Ringan","weather_desc_en":"Light Rain","wd":"E","ws":1.7,
+           "local_datetime":"2026-10-29 19:00:00",
+           "image":"https://api-apps.bmkg.go.id/storage/icon/cuaca/hujan-ringan-pm.svg"}]]}]}
+    """.trimIndent()
+
+    // BMKG mengirim null untuk t/hu pada sebagian slot; UI tidak boleh mengubahnya menjadi 0.
+    private val forecastWithoutNumbersFixture = """
+        {"lokasi":{"adm4":"31.71.01.1001","provinsi":"DKI Jakarta","kotkab":"Kota Adm. Jakarta Pusat",
+         "kecamatan":"Gambir","desa":"Gambir"},
+         "data":[{"cuaca":[[{"t":null,"hu":null,"weather":61,
+           "weather_desc":"Hujan Ringan","weather_desc_en":"Light Rain","ws":null,
            "local_datetime":"2026-10-29 19:00:00",
            "image":"https://api-apps.bmkg.go.id/storage/icon/cuaca/hujan-ringan-pm.svg"}]]}]}
     """.trimIndent()
@@ -101,6 +112,15 @@ class NusantaraTest {
         assertEquals(92, slot.humidityPercent)
         assertEquals("Light Rain", slot.conditionEn)
         assertTrue(slot.iconUrl.endsWith("hujan-ringan-pm.svg"))
+    }
+
+    @Test
+    fun weatherSlotKeepsMissingNumbersAsNullInsteadOfZero() {
+        val forecast = BmkgCuacaJson.parse(forecastWithoutNumbersFixture)
+        val slot = forecast.slots.single()
+        assertNull(slot.temperatureC)
+        assertNull(slot.humidityPercent)
+        assertEquals("Hujan Ringan", slot.conditionDescId)
     }
 
     @Test
